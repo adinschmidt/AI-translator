@@ -31,7 +31,6 @@ body {
 
 #auto-translate:checked ~ .dot {
     transform: translateX(100%);
-    background-color: white;
 }
 
 .dot {
