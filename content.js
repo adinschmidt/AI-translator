@@ -1,3 +1,5 @@
+console.log("AI Translator Content Script Loaded - Top Level");
+
 // content.js - Handles displaying popups, extracting page text, replacing content, and auto-translate.
 
 let translationPopup = null; // For selected text popup
@@ -7,18 +9,18 @@ let isTranslated = false; // Track if the page is currently translated
 
 // --- Message Listener (Handles multiple actions) ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log("Content Script Received Action:", request.action);
+    console.log("Content Script Received Action:", request.action, request);
 
     switch (request.action) {
-        // --- Display Popup for Selected Text ---
+        // --- Display Popup for Selected Text (Handles Loading and Result) ---
         case "displayTranslation":
-            removeLoadingIndicator(); // Remove indicator if it was shown
-            if (request.isError) {
-                displayPopup(`Error: ${request.text}`); // Show error in popup
-            } else {
-                displayPopup(request.text);
+            // If it's the final result (not loading), remove any separate loading indicator
+            if (!request.isLoading) {
+                removeLoadingIndicator();
             }
-            sendResponse({ status: "Popup displayed" });
+            // Call displayPopup, passing the loading state and error status
+            displayPopup(request.text, request.isError, request.isLoading);
+            sendResponse({ status: "Popup displayed/updated" });
             break;
 
         // --- Request from Background to Get Page Text ---
@@ -47,13 +49,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             sendResponse({ status: "received" }); // Acknowledge receipt
             break;
 
-        // --- Show/Hide Loading Indicator ---
+        // --- Show/Hide Loading Indicator (Now primarily for Full Page) ---
         case "showLoadingIndicator":
+            // Display the loading indicator only for full page translations now
             if (request.isFullPage) {
                 displayLoadingIndicator("Translating page...");
             } else {
-                // Maybe show a smaller indicator near selection? For now, just log.
-                console.log("Loading translation for selection...");
+                // For selected text, the popup itself shows loading state
+                console.log("Loading indicator request ignored for selected text (popup handles it).");
             }
             sendResponse({ status: "received" });
             break;
@@ -214,40 +217,142 @@ function removeLoadingIndicator() {
 }
 
 // --- Popup Display Function (for selected text) ---
-function displayPopup(translationText, isError = false) {
-    removePopup(); // Remove existing popup
+function displayPopup(content, isError = false, isLoading = false) {
+    console.log("displayPopup called with:", { content, isError, isLoading }); // Log entry
+    const popupId = "translation-popup-extension";
+    let existingPopup = document.getElementById(popupId);
 
-    const selection = window.getSelection();
-    let rect = { top: 10, left: 10, bottom: 10, right: 10 };
-    if (selection && selection.rangeCount > 0) {
-        rect = selection.getRangeAt(0).getBoundingClientRect();
+    // If the popup already exists (from loading state) and this is the final result
+    if (existingPopup && !isLoading) {
+        console.log("Updating existing popup content.");
+        // ... (rest of update logic)
+        existingPopup.innerHTML = ""; // Clear previous content (like spinner)
+        existingPopup.textContent = content;
+        existingPopup.style.backgroundColor = isError ? "#fff0f0" : "white";
+        existingPopup.style.border = `1px solid ${isError ? "#f00" : "#ccc"}`;
+        existingPopup.style.color = isError ? "#a00" : "#333";
+
+        // Re-add close button
+        addCloseButton(existingPopup);
+        console.log("Existing popup updated:", existingPopup);
+        return; // Stop here, popup updated
     }
 
-    translationPopup = document.createElement("div");
-    translationPopup.id = "translation-popup-extension";
-    translationPopup.textContent = translationText;
-    translationPopup.classList.add("visible"); // Add class for potential CSS animation
+    // If popup exists and we get another loading message (shouldn't happen often, but handle)
+    if (existingPopup && isLoading) {
+        console.log("Popup already exists in loading state.");
+        return;
+    }
 
-    // Apply styles directly or use styles.css
-    translationPopup.style.position = "absolute";
-    translationPopup.style.top = `${window.scrollY + rect.bottom + 5}px`;
-    translationPopup.style.left = `${window.scrollX + rect.left}px`;
-    translationPopup.style.zIndex = "2147483646"; // Slightly lower than indicator maybe
-    translationPopup.style.backgroundColor = isError ? "#fff0f0" : "white"; // Reddish background for errors
-    translationPopup.style.border = `1px solid ${isError ? "#f00" : "#ccc"}`;
-    translationPopup.style.borderRadius = "5px";
-    translationPopup.style.padding = "10px 25px 10px 15px"; // Space for close button
-    translationPopup.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
-    translationPopup.style.maxWidth = "350px";
-    translationPopup.style.fontFamily = "Arial, sans-serif";
-    translationPopup.style.fontSize = "14px";
-    translationPopup.style.color = isError ? "#a00" : "#333";
-    translationPopup.style.lineHeight = "1.4";
-    translationPopup.style.pointerEvents = "auto"; // Ensure it's clickable
+    // If popup doesn't exist, create it (for initial loading or if initial message failed)
+    if (!existingPopup) {
+        console.log("Creating new popup.");
+        removePopup(); // Ensure any remnants are gone
 
-    // Close button
+        const selection = window.getSelection();
+        let rect = { top: 10, left: 10, bottom: 10, right: 10 }; // Default rect
+        if (selection && selection.rangeCount > 0) {
+            try {
+                rect = selection.getRangeAt(0).getBoundingClientRect();
+                console.log("Calculated selection rect:", rect);
+            } catch (e) {
+                console.error("Error getting selection bounding rect:", e);
+                // Use default rect if error occurs
+            }
+        } else {
+            console.log("No selection found, using default rect.");
+        }
+
+        translationPopup = document.createElement("div");
+        translationPopup.id = popupId;
+        existingPopup = translationPopup; // Use the new popup reference
+
+        // Apply styles directly or use styles.css
+        translationPopup.style.position = "absolute";
+        translationPopup.style.top = `${window.scrollY + rect.bottom + 5}px`;
+        translationPopup.style.left = `${window.scrollX + rect.left}px`;
+        translationPopup.style.zIndex = "2147483647"; // Use max possible z-index
+        translationPopup.style.borderRadius = "5px";
+        translationPopup.style.padding = "10px 25px 10px 15px"; // Space for close button
+        translationPopup.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
+        translationPopup.style.maxWidth = "350px";
+        translationPopup.style.fontFamily = "Arial, sans-serif";
+        translationPopup.style.fontSize = "14px";
+        translationPopup.style.lineHeight = "1.4";
+        translationPopup.style.pointerEvents = "auto"; // Ensure it's clickable
+
+        // --- Forceful Visibility Styles ---
+        translationPopup.style.display = "block"; // Ensure it's displayed
+        translationPopup.style.border = "3px solid red"; // Make border very obvious
+        translationPopup.style.backgroundColor = "yellow"; // Make background obvious
+        translationPopup.style.color = "black"; // Ensure text color contrasts
+        translationPopup.style.minWidth = "50px"; // Ensure minimum dimensions
+        translationPopup.style.minHeight = "20px";
+        translationPopup.style.visibility = "visible"; // Explicitly set visibility
+        translationPopup.style.opacity = "1"; // Ensure full opacity
+        // --- End Forceful Styles ---
+
+        console.log("Popup element created and styled (before content):", translationPopup);
+
+        // Append to body *before* setting content that might rely on styles
+        try {
+            document.body.appendChild(translationPopup);
+            console.log("Popup appended to document body.");
+        } catch (e) {
+            console.error("Error appending popup to body:", e);
+            return; // Stop if appending fails
+        }
+
+        // Close on click outside
+        setTimeout(() => {
+            document.addEventListener("click", handleClickOutside, true);
+        }, 0);
+    }
+
+    // Set content and style based on loading/error state for the newly created or existing popup
+    existingPopup.innerHTML = ""; // Clear previous content
+    if (isLoading) {
+        console.log("Setting loading content.");
+        // Keep forceful styles, maybe adjust background slightly
+        existingPopup.style.backgroundColor = "#f0f0f0"; // Loading background
+        existingPopup.style.border = "3px solid orange"; // Loading border
+        existingPopup.style.color = "#555";
+        // Add a simple spinner or text
+        existingPopup.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 30px;">
+            <div class="spinner" style="border: 3px solid #f3f3f3; border-top: 3px solid #555; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite;"></div>
+            <span style="margin-left: 8px;">Translating...</span>
+        </div>
+        <style>
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        </style>`;
+    } else {
+        console.log("Setting final content:", content);
+        existingPopup.textContent = content;
+        // Apply final forceful styles (adjusting for error state)
+        existingPopup.style.backgroundColor = isError ? "#ffdddd" : "yellow"; // Error/Success background
+        existingPopup.style.border = `3px solid ${isError ? "red" : "green"}`; // Error/Success border
+        existingPopup.style.color = isError ? "#a00" : "black"; // Error/Success text color
+    }
+
+    // Add close button (important to add after setting innerHTML)
+    addCloseButton(existingPopup);
+    console.log("Popup content set:", existingPopup);
+}
+
+// Helper function to add the close button
+function addCloseButton(popupElement) {
+    // Remove existing close button first if any
+    const existingButton = popupElement.querySelector(".translation-popup-close-button");
+    if (existingButton) {
+        existingButton.remove();
+    }
+
     const closeButton = document.createElement("button");
     closeButton.textContent = "×";
+    closeButton.className = "translation-popup-close-button"; // Add class for potential removal
     closeButton.style.position = "absolute";
     closeButton.style.top = "2px";
     closeButton.style.right = "5px";
@@ -257,21 +362,18 @@ function displayPopup(translationText, isError = false) {
     closeButton.style.cursor = "pointer";
     closeButton.style.color = "#888";
     closeButton.onclick = removePopup;
-
-    translationPopup.appendChild(closeButton);
-    document.body.appendChild(translationPopup);
-
-    // Close on click outside
-    setTimeout(() => {
-        document.addEventListener("click", handleClickOutside, true);
-    }, 0);
+    popupElement.appendChild(closeButton);
 }
 
 // --- Popup Removal Function ---
 function removePopup() {
-    if (translationPopup && translationPopup.parentNode) {
-        translationPopup.parentNode.removeChild(translationPopup);
-        translationPopup = null;
+    const popup = document.getElementById("translation-popup-extension");
+    if (popup && popup.parentNode) {
+        popup.parentNode.removeChild(popup);
+        // Keep the global variable null assignment if other parts rely on it
+        if (popup === translationPopup) {
+            translationPopup = null;
+        }
         document.removeEventListener("click", handleClickOutside, true);
     }
 }
