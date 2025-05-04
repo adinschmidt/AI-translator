@@ -3,29 +3,16 @@
     "name": "AI Translator",
     "version": "1.0",
     "description": "Translate text and pages using customizable AI models.",
-    "permissions": [
-        "contextMenus",
-        "scripting",
-        "storage"
-    ],
-    "host_permissions": [
-        "<all_urls>"
-        // Consider more restrictive permissions if possible
-    ],
+    "permissions": ["contextMenus", "scripting", "storage"],
+    "host_permissions": ["<all_urls>"],
     "background": {
         "service_worker": "background.js"
     },
     "content_scripts": [
         {
-            "matches": [
-                "<all_urls>"
-            ],
-            "js": [
-                "content.js"
-            ],
-            "css": [
-                "styles.css"
-            ] // Optional styles for the content script popup
+            "matches": ["<all_urls>"],
+            "js": ["content.js"],
+            "css": ["styles.css"]
         }
     ],
     "options_page": "options.html",

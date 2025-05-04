@@ -1,74 +1,147 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Translator Settings</title>
+// options.js - Logic for the settings page (with debugging)
 
-    <link href="tailwindcss.min.css" rel="stylesheet">
+// --- DOM Elements ---
+const form = document.getElementById("settings-form");
+const apiKeyInput = document.getElementById("api-key");
+const apiEndpointInput = document.getElementById("api-endpoint");
+const apiTypeSelect = document.getElementById("api-type");
+const autoTranslateToggle = document.getElementById("auto-translate");
+const statusMessage = document.getElementById("status-message");
 
-    <link href="options.css" rel="stylesheet">
+// --- Load saved settings ---
+function loadSettings() {
+    console.log("options.js: Attempting to load settings...");
+    // Use chrome.storage.sync to get settings synchronized across devices
+    chrome.storage.sync.get(
+        ["apiKey", "apiEndpoint", "apiType", "autoTranslateEnabled"],
+        (result) => {
+            // Check for errors during load
+            if (chrome.runtime.lastError) {
+                console.error(
+                    "options.js: Error loading settings:",
+                    chrome.runtime.lastError,
+                );
+                displayStatus(
+                    `Error loading settings: ${chrome.runtime.lastError.message}`,
+                    true,
+                );
+                return; // Stop execution if loading failed
+            }
 
-</head>
-<body class="bg-gray-100 p-8">
+            console.log("options.js: Settings loaded from storage:", result);
+            if (result.apiKey) {
+                apiKeyInput.value = result.apiKey;
+            }
+            if (result.apiEndpoint) {
+                apiEndpointInput.value = result.apiEndpoint;
+            }
+            if (result.apiType) {
+                apiTypeSelect.value = result.apiType;
+            } else {
+                apiTypeSelect.value = "openai"; // Default
+            }
+            // Set the toggle state based on the loaded value
+            const loadedToggleState = !!result.autoTranslateEnabled; // Use !! to ensure boolean
+            autoTranslateToggle.checked = loadedToggleState;
+            console.log(
+                `options.js: Set autoTranslateToggle.checked to: ${loadedToggleState}`,
+            );
 
-    <div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md">
-        <h1 class="text-2xl font-semibold mb-6 text-gray-800">AI Translator Settings</h1>
+            // CSS :checked pseudo-class handles the visual update
+        },
+    );
+}
 
-        <form id="settings-form">
-            <div class="mb-4">
-                <label for="api-endpoint" class="block text-sm font-medium text-gray-700 mb-1">API Endpoint URL:</label>
-                <input type="url" id="api-endpoint" name="api-endpoint" required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                       placeholder="e.g., https://api.openai.com/v1/chat/completions">
-            </div>
+// --- Save settings ---
+function saveSettings(event) {
+    event.preventDefault(); // Prevent default form submission
+    console.log("options.js: saveSettings function called.");
 
-            <div class="mb-4">
-                <label for="api-key" class="block text-sm font-medium text-gray-700 mb-1">API Key:</label>
-                <input type="password" id="api-key" name="api-key" required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                       placeholder="Enter your API key">
-                <p class="text-xs text-gray-500 mt-1">Your key is stored securely using chrome.storage.</p>
-            </div>
+    const apiKey = apiKeyInput.value.trim();
+    const apiEndpoint = apiEndpointInput.value.trim();
+    const apiType = apiTypeSelect.value;
+    const autoTranslateEnabled = autoTranslateToggle.checked; // Get the current toggle state
 
-            <div class="mb-4">
-                <label for="api-type" class="block text-sm font-medium text-gray-700 mb-1">API Type:</label>
-                <select id="api-type" name="api-type"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white">
-                    <option value="openai">OpenAI Compatible (Chat Completions)</option>
-                    <option value="anthropic">Anthropic Claude (Messages)</option>
-                    <option value="custom">Custom (Requires manual setup in background.js)</option>
-                </select>
-                 <p class="text-xs text-gray-500 mt-1">Select the format your endpoint expects.</p>
-            </div>
+    console.log(
+        `options.js: Values to save: apiKey=***, apiEndpoint=${apiEndpoint}, apiType=${apiType}, autoTranslateEnabled=${autoTranslateEnabled}`,
+    );
 
-            <div class="mb-6 border-t pt-4 mt-4">
-                 <label for="auto-translate" class="flex items-center cursor-pointer">
-                    <span class="text-sm font-medium text-gray-700 mr-3">Automatically translate pages on load:</span>
-                    <div class="relative">
-                        <input type="checkbox" id="auto-translate" class="sr-only">
-                        <div class="toggle-bg block w-10 h-6 bg-gray-200 rounded-full border-2 border-transparent"></div>
-                        <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full"></div>
-                    </div>
-                 </label>
-                 <p class="text-xs text-gray-500 mt-1">If enabled, attempts to translate pages automatically when they load.</p>
-            </div>
+    if (!apiKey || !apiEndpoint) {
+        console.warn("options.js: API Key or Endpoint missing.");
+        displayStatus("API Key and Endpoint URL are required.", true);
+        return;
+    }
+    try {
+        new URL(apiEndpoint);
+    } catch (_) {
+        console.warn("options.js: Invalid API Endpoint URL format.");
+        displayStatus("Invalid API Endpoint URL format.", true);
+        return;
+    }
 
+    console.log("options.js: Attempting to save settings to chrome.storage.sync...");
+    // Save using chrome.storage.sync
+    chrome.storage.sync.set(
+        {
+            apiKey: apiKey,
+            apiEndpoint: apiEndpoint,
+            apiType: apiType,
+            autoTranslateEnabled: autoTranslateEnabled, // Save the toggle state
+        },
+        () => {
+            // Check for errors during save
+            if (chrome.runtime.lastError) {
+                console.error(
+                    "options.js: Error saving settings:",
+                    chrome.runtime.lastError,
+                );
+                displayStatus(`Error saving: ${chrome.runtime.lastError.message}`, true);
+            } else {
+                console.log("options.js: Settings saved successfully.");
+                displayStatus("Settings Saved!", false);
+            }
+        },
+    );
+}
 
-            <div class="flex items-center justify-between border-t pt-4 mt-4">
-                <button type="submit"
-                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out">
-                    Save Settings
-                </button>
-                <span id="status-message" class="text-sm font-medium text-green-600 feedback opacity-0"></span>
-            </div>
-        </form>
-    </div>
+// --- Display status message ---
+let statusTimeout;
+function displayStatus(message, isError = false) {
+    statusMessage.textContent = message;
+    statusMessage.style.color = isError ? "#dc2626" : "#16a34a";
+    statusMessage.classList.remove("opacity-0");
 
-    <script src="options.js"></script>
+    clearTimeout(statusTimeout);
+    statusTimeout = setTimeout(() => {
+        statusMessage.classList.add("opacity-0");
+    }, 3000);
+}
 
-    <div class="fixed bottom-0 left-0 right-0 bg-gray-200 text-center text-xs p-2 border-t border-gray-300 z-50">
-        Icon made by Pixel perfect from <a href="https://www.flaticon.com/" class="text-blue-600 hover:underline" target="_blank" rel="noopener noreferrer">www.flaticon.com</a>
-    </div>
-</body>
-</html>
+// --- Event Listeners ---
+// Load settings when the DOM is fully loaded
+document.addEventListener("DOMContentLoaded", () => {
+    console.log("options.js: DOMContentLoaded event fired.");
+    loadSettings();
+
+    // Add listener to the form submission
+    if (form) {
+        form.addEventListener("submit", saveSettings);
+        console.log("options.js: Submit event listener added to form.");
+    } else {
+        console.error("options.js: Could not find settings form element!");
+    }
+
+    // Optional: Add listener specifically to the toggle to see if its state changes
+    if (autoTranslateToggle) {
+        autoTranslateToggle.addEventListener("change", (event) => {
+            console.log(
+                `options.js: autoTranslateToggle 'change' event fired. New checked state: ${event.target.checked}`,
+            );
+        });
+        console.log("options.js: Change event listener added to toggle.");
+    } else {
+        console.error("options.js: Could not find auto-translate toggle element!");
+    }
+});
+
+console.log("options.js: Script loaded."); // Log script load
