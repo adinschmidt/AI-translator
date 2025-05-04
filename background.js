@@ -291,3 +291,7 @@ async function translateTextApiCall(
         throw error;
     }
 }
+
+chrome.action.onClicked.addListener(() => {
+    chrome.runtime.openOptionsPage();
+});
