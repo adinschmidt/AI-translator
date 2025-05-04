@@ -246,7 +246,11 @@ async function translateTextApiCall(
             try {
                 const errorData = await response.json();
                 console.error("API Error Response:", errorData);
-                errorDetails += `: ${errorData?.error?.message || errorData?.detail || JSON.stringify(errorData)}`;
+                errorDetails += `: ${
+                    errorData?.error?.message ||
+                    errorData?.detail ||
+                    JSON.stringify(errorData)
+                }`;
             } catch (e) {
                 errorDetails += `: ${response.statusText}`;
             }

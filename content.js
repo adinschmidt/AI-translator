@@ -157,7 +157,9 @@ function replaceVisibleText(fullTranslation) {
             if (node.nodeValue.trim().length > 5) {
                 // Arbitrary length check
                 console.log(
-                    `Replacing node value: "${node.nodeValue.trim().substring(0, 50)}..." with segment ${segmentIndex}`,
+                    `Replacing node value: "${node.nodeValue
+                        .trim()
+                        .substring(0, 50)}..." with segment ${segmentIndex}`,
                 );
                 node.nodeValue = translatedSegments[segmentIndex];
                 segmentIndex++;
