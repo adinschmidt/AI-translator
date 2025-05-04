@@ -7,6 +7,14 @@ const apiEndpointInput = document.getElementById("api-endpoint");
 const apiTypeSelect = document.getElementById("api-type");
 const autoTranslateToggle = document.getElementById("auto-translate");
 const statusMessage = document.getElementById("status-message");
+const fillDefaultEndpointButton = document.getElementById("fill-default-endpoint");
+
+// Define default endpoints
+const DEFAULT_ENDPOINTS = {
+    openai: "https://api.openai.com/v1/chat/completions",
+    anthropic: "https://api.anthropic.com/v1/messages",
+    google: "https://generativelanguage.googleapis.com/v1beta", // Placeholder
+};
 
 // --- Load saved settings ---
 function loadSettings() {
@@ -129,6 +137,33 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("options.js: Submit event listener added to form.");
     } else {
         console.error("options.js: Could not find settings form element!");
+    }
+
+    // Add listener to the fill default endpoint button
+    if (fillDefaultEndpointButton) {
+        fillDefaultEndpointButton.addEventListener("click", () => {
+            console.log("options.js: Fill Default button clicked.");
+            const selectedApiType = apiTypeSelect.value;
+            const defaultEndpoint = DEFAULT_ENDPOINTS[selectedApiType];
+
+            if (defaultEndpoint) {
+                apiEndpointInput.value = defaultEndpoint;
+                console.log(
+                    `options.js: Filled endpoint with default for ${selectedApiType}: ${defaultEndpoint}`,
+                );
+            } else {
+                console.warn(
+                    `options.js: No default endpoint found for API type: ${selectedApiType}`,
+                );
+                displayStatus(
+                    `No default endpoint available for ${selectedApiType}.`,
+                    true,
+                );
+            }
+        });
+        console.log("options.js: Click event listener added to fill default button.");
+    } else {
+        console.error("options.js: Could not find fill default endpoint button element!");
     }
 
     // Optional: Add listener specifically to the toggle to see if its state changes
