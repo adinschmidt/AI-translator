@@ -8,6 +8,8 @@ const apiTypeSelect = document.getElementById("api-type");
 const autoTranslateToggle = document.getElementById("auto-translate");
 const statusMessage = document.getElementById("status-message");
 const fillDefaultEndpointButton = document.getElementById("fill-default-endpoint");
+const modelNameInput = document.getElementById("model-name"); // Add this line
+const fillDefaultModelButton = document.getElementById("fill-default-model"); // Add this line
 
 // Define default endpoints
 const DEFAULT_ENDPOINTS = {
@@ -16,12 +18,19 @@ const DEFAULT_ENDPOINTS = {
     google: "https://generativelanguage.googleapis.com/v1beta", // Placeholder
 };
 
+// Define default models (Add this block)
+const DEFAULT_MODELS = {
+    openai: "o3-mini",
+    anthropic: "claude-3-7-sonnet-latest",
+    google: "gemini-2.5-flash-preview-04-17",
+};
+
 // --- Load saved settings ---
 function loadSettings() {
     console.log("options.js: Attempting to load settings...");
     // Use chrome.storage.sync to get settings synchronized across devices
     chrome.storage.sync.get(
-        ["apiKey", "apiEndpoint", "apiType", "autoTranslateEnabled"],
+        ["apiKey", "apiEndpoint", "apiType", "autoTranslateEnabled", "modelName"], // Add "modelName"
         (result) => {
             // Check for errors during load
             if (chrome.runtime.lastError) {
@@ -55,6 +64,10 @@ function loadSettings() {
                 `options.js: Set autoTranslateToggle.checked to: ${loadedToggleState}`,
             );
 
+            if (result.modelName) { // Add this block
+                modelNameInput.value = result.modelName;
+            }
+
             // CSS :checked pseudo-class handles the visual update
         },
     );
@@ -69,10 +82,11 @@ function saveSettings(event) {
     const apiEndpoint = apiEndpointInput.value.trim();
     const apiType = apiTypeSelect.value;
     const autoTranslateEnabled = autoTranslateToggle.checked; // Get the current toggle state
+    const modelName = modelNameInput.value.trim(); // Add this line
 
     console.log(
-        `options.js: Values to save: apiKey=***, apiEndpoint=${apiEndpoint}, apiType=${apiType}, autoTranslateEnabled=${autoTranslateEnabled}`,
-    );
+        `options.js: Values to save: apiKey=***, apiEndpoint=${apiEndpoint}, apiType=${apiType}, autoTranslateEnabled=${autoTranslateEnabled}, modelName=${modelName}`,
+    ); // Update log
 
     if (!apiKey || !apiEndpoint) {
         console.warn("options.js: API Key or Endpoint missing.");
@@ -95,6 +109,7 @@ function saveSettings(event) {
             apiEndpoint: apiEndpoint,
             apiType: apiType,
             autoTranslateEnabled: autoTranslateEnabled, // Save the toggle state
+            modelName: modelName, // Add this line
         },
         () => {
             // Check for errors during save
@@ -164,6 +179,33 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("options.js: Click event listener added to fill default button.");
     } else {
         console.error("options.js: Could not find fill default endpoint button element!");
+    }
+
+    // Add listener to the fill default model button (Add this block)
+    if (fillDefaultModelButton) {
+        fillDefaultModelButton.addEventListener("click", () => {
+            console.log("options.js: Fill Default Model button clicked.");
+            const selectedApiType = apiTypeSelect.value;
+            const defaultModel = DEFAULT_MODELS[selectedApiType];
+
+            if (defaultModel) {
+                modelNameInput.value = defaultModel;
+                console.log(
+                    `options.js: Filled model name with default for ${selectedApiType}: ${defaultModel}`,
+                );
+            } else {
+                console.warn(
+                    `options.js: No default model found for API type: ${selectedApiType}`,
+                );
+                displayStatus(
+                    `No default model available for ${selectedApiType}.`,
+                    true,
+                );
+            }
+        });
+        console.log("options.js: Click event listener added to fill default model button.");
+    } else {
+        console.error("options.js: Could not find fill default model button element!");
     }
 
     // Optional: Add listener specifically to the toggle to see if its state changes
