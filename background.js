@@ -2,7 +2,7 @@ const DEFAULT_SETTINGS = {
     apiEndpoint: "",
     apiKey: "",
     apiType: "openai",
-    // autoTranslateEnabled: false // Not needed here, read directly when needed
+    modelName: ""
 };
 
 // --- Context Menu Setup ---
@@ -24,50 +24,40 @@ chrome.runtime.onInstalled.addListener(() => {
     console.log("AI Translator context menus created.");
 });
 
-// --- Message Listener (for Auto-Translate Trigger) ---
+// --- Message Listener (for Element Translation Only) ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "triggerAutoTranslate") {
-        console.log("Received triggerAutoTranslate request from tab:", sender.tab?.id);
+    // Handle individual element translation
+    if (request.action === "translateElement") {
+        console.log("Received translateElement request:", {
+            textLength: request.text?.length,
+            elementPath: request.elementPath
+        });
+
         if (sender.tab?.id) {
-            // 1. Ask content script to extract page text (same as manual trigger)
-            chrome.tabs.sendMessage(
-                sender.tab.id,
-                { action: "getPageText" },
-                (response) => {
-                    if (chrome.runtime.lastError) {
-                        console.error(
-                            "Error sending getPageText for auto-translate:",
-                            chrome.runtime.lastError.message,
-                        );
-                        return;
-                    }
-                    if (response && response.text) {
-                        console.log(
-                            "Received page text for auto-translate (length):",
-                            response.text.length,
-                        );
-                        // 2. Get settings and trigger translation
-                        getSettingsAndTranslate(response.text, sender.tab.id, true); // true = full page
-                    } else {
-                        console.error(
-                            "Did not receive text from content script for auto-translate.",
-                        );
-                    }
-                },
-            );
-            sendResponse({ status: "started" }); // Confirm start
+            translateElementText(request.text, request.elementPath, sender.tab.id)
+                .then((translation) => {
+                    console.log("Element translation completed for:", request.elementPath);
+                    sendResponse({ translatedText: translation });
+                })
+                .catch((error) => {
+                    console.error("Element translation error:", error);
+                    sendResponse({
+                        error: error.message,
+                        elementPath: request.elementPath
+                    });
+                });
         } else {
-            console.error("Could not get sender tab ID for auto-translate.");
-            sendResponse({ status: "error", message: "No sender tab ID" });
+            console.error("Could not get sender tab ID for element translation.");
+            sendResponse({ error: "No sender tab ID" });
         }
-        return true; // Indicate async response possible (though we send sync here)
+        return true; // Indicate async response
     }
     // Handle other messages if necessary in the future
 });
 
 // --- Context Menu Click Handler ---
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-    console.log("Context menu item clicked.", info, tab); // Added log
+    console.log("Context menu item clicked.", info, tab);
     if (!tab || !tab.id) {
         console.error("Cannot get tab ID.");
         return;
@@ -97,58 +87,68 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
             }
         });
     }
-    // Handle Full Page Translation (Manual Trigger)
+    // Handle Full Page Translation (Manual Trigger) - Now uses element-based approach
     else if (info.menuItemId === "translateFullPage") {
-        console.log("Action: Translate Full Page requested manually for tab:", tabId); // Added log
-        // Show indicator immediately for manual trigger (Full page still uses separate indicator)
+        console.log("Action: Translate Full Page requested manually for tab:", tabId);
+        // Use the new element-based translation approach
         chrome.tabs.sendMessage(tabId, {
-            action: "showLoadingIndicator",
-            isFullPage: true,
-        });
-        // 1. Ask content script to extract page text
-        chrome.tabs.sendMessage(tabId, { action: "getPageText" }, (response) => {
+            action: "startElementTranslation",
+        }, (response) => {
             if (chrome.runtime.lastError) {
                 console.error(
-                    "Error sending getPageText message:",
+                    "Error sending startElementTranslation message:",
                     chrome.runtime.lastError.message,
                 );
-                // Notify with error for full page
-                notifyContentScript(
-                    tabId,
-                    `Error: Could not communicate with page content. Try reloading. (${chrome.runtime.lastError.message})`,
-                    true, // isFullPage = true
-                    true, // isError = true
-                );
+                notifyContentScript(tabId, "Translation failed to start", true, true, false);
                 return;
             }
-            if (response && response.text) {
-                console.log("Received page text (length):", response.text.length); // Added log
-                // 2. Get settings and trigger translation
-                getSettingsAndTranslate(response.text, tabId, true); // true = full page
-            } else {
-                console.error("Did not receive text from content script.");
-                // Notify with error for full page
-                notifyContentScript(
-                    tabId,
-                    "Error: Could not extract text content from the page.",
-                    true, // isFullPage = true
-                    true, // isError = true
-                );
-            }
+            console.log("Element-based page translation started:", response);
         });
     }
 });
 
+// --- Helper Function to Translate Individual Element Text ---
+async function translateElementText(textToTranslate, elementPath, tabId) {
+    console.log(`Translating element text (length: ${textToTranslate.length}) for path: ${elementPath}`);
+
+    return new Promise((resolve, reject) => {
+        chrome.storage.sync.get(["apiKey", "apiEndpoint", "apiType", "modelName"], (settings) => {
+            const {
+                apiKey = DEFAULT_SETTINGS.apiKey,
+                apiEndpoint = DEFAULT_SETTINGS.apiEndpoint,
+                apiType = DEFAULT_SETTINGS.apiType,
+                modelName = DEFAULT_SETTINGS.modelName
+            } = settings;
+
+            if (!apiKey || !apiEndpoint) {
+                reject(new Error("API Key or Endpoint not set. Please configure in extension settings."));
+                return;
+            }
+
+            // Call the API for element translation
+            translateTextApiCall(textToTranslate, apiKey, apiEndpoint, apiType, false, modelName) // false = not full page
+                .then((translation) => {
+                    console.log("Element translation received:", translation);
+                    resolve(translation);
+                })
+                .catch((error) => {
+                    console.error("Element translation error:", error);
+                    reject(error);
+                });
+        });
+    });
+}
+
 // --- Helper Function to Get Settings and Call API ---
 function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
-    console.log("getSettingsAndTranslate called.", { textToTranslate, tabId, isFullPage }); // Added log
-    chrome.storage.sync.get(["apiKey", "apiEndpoint", "apiType", "modelName"], (settings) => { // Added modelName to retrieval
-        console.log("Settings retrieved from storage:", settings); // Added log
+    console.log("getSettingsAndTranslate called.", { textToTranslate, tabId, isFullPage });
+    chrome.storage.sync.get(["apiKey", "apiEndpoint", "apiType", "modelName"], (settings) => {
+        console.log("Settings retrieved from storage:", settings);
         const {
             apiKey = DEFAULT_SETTINGS.apiKey,
             apiEndpoint = DEFAULT_SETTINGS.apiEndpoint,
             apiType = DEFAULT_SETTINGS.apiType,
-            modelName = DEFAULT_SETTINGS.modelName // Retrieve modelName
+            modelName = DEFAULT_SETTINGS.modelName
         } = settings;
 
         if (!apiKey || !apiEndpoint) {
@@ -160,17 +160,17 @@ function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
             return;
         }
 
-        console.log("Attempting to call translateTextApiCall."); // Added log before API call
+        console.log("Attempting to call translateTextApiCall.");
 
         // Call the API - the promise resolution/rejection will handle sending the final result
-        translateTextApiCall(textToTranslate, apiKey, apiEndpoint, apiType, isFullPage)
+        translateTextApiCall(textToTranslate, apiKey, apiEndpoint, apiType, isFullPage, modelName)
             .then((translation) => {
-                console.log("Translation received (length):", translation.length); // Existing log
+                console.log("Translation received (length):", translation.length);
                 // Send final translation result
                 notifyContentScript(tabId, translation, isFullPage, false, false); // isError=false, isLoading=false
             })
             .catch((error) => {
-                console.error("Translation error:", error); // Existing log
+                console.error("Translation error:", error);
                 // Send final error result
                 notifyContentScript(
                     tabId,
@@ -192,18 +192,18 @@ function notifyContentScript(tabId, text, isFullPage, isError = false, isLoading
     };
 
     if (isFullPage) {
-        // Full page still uses replacePageContent or potentially a loading indicator
+        // Full page now uses startElementTranslation
         if (isLoading) {
-            message.action = "showLoadingIndicator"; // Or a specific full-page loading action if needed
+            message.action = "showLoadingIndicator";
         } else {
-            message.action = "replacePageContent";
+            message.action = "startElementTranslation"; // Changed from replacePageContent
         }
     } else {
         // Selected text uses displayTranslation for both loading and final result
         message.action = "displayTranslation";
     }
 
-    console.log(`Sending message to content script:`, message); // Log the message being sent
+    console.log(`Sending message to content script:`, message);
 
     chrome.tabs.sendMessage(tabId, message, (response) => {
         if (chrome.runtime.lastError) {
@@ -217,41 +217,40 @@ function notifyContentScript(tabId, text, isFullPage, isError = false, isLoading
             }
         } else if (response?.status === "received") {
             console.log(`Content script in tab ${tabId} acknowledged ${message.action}.`);
-        } else {
-            // This might happen if content script is busy or didn't send response back correctly
-            // console.log(`Content script in tab ${tabId} received ${message.action} but did not send expected response.`);
         }
     });
 }
 
-// --- API Call Function (Unchanged from previous version) ---
+// --- API Call Function (Updated to include modelName parameter) ---
 async function translateTextApiCall(
     textToTranslate,
     apiKey,
     apiEndpoint,
     apiType,
     isFullPage,
+    modelName,
 ) {
     console.log(
         `Sending text to API (${apiType}) at ${apiEndpoint}. FullPage: ${isFullPage}. Text length: ${textToTranslate.length}`,
     );
-    console.log("Text being sent for translation:", textToTranslate); // Added log for input text
+    console.log("Text being sent for translation:", textToTranslate);
 
     let requestBody;
     let headers = { "Content-Type": "application/json" };
-    const prompt = `Translate the following text to English. Keep the same meaning and tone as the original text. DO NOT add any additional text or explanations. DO NOT start your response with an acknowledgement. Only produce the translated text. CRITICAL: You MUST return HTML-formatted content. PRESERVE ALL HTML FORMATTING including tags, structure, styling, and hyperlinks. IMPORTANT: Maintain all href attributes exactly as they are in the original HTML. Return valid HTML that maintains the original formatting, structure, and clickable links. Use proper HTML tags like <a href="..."> for links, <b> for bold, <i> for italic, etc. Text to translate: ${textToTranslate}`;
+
+    // Simpler prompt for element-based translation, but still preserve HTML
+    const prompt = `Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations. If this contains HTML, preserve the HTML structure and formatting. Text to translate: ${textToTranslate}`;
     const systemPrompt =
         "You are a professional translator. Translate the provided text accurately to English.";
 
-    // Retrieve modelName from storage
-    const settings = await chrome.storage.sync.get(["modelName"]);
-    const modelName = settings.modelName || DEFAULT_SETTINGS.modelName; // Use default if not set
+    // Use modelName from parameter, fallback to default
+    const selectedModelName = modelName || DEFAULT_SETTINGS.modelName;
 
     switch (apiType) {
         case "openai":
             headers["Authorization"] = `Bearer ${apiKey}`;
             requestBody = {
-                model: modelName || "gpt-3.5-turbo", // Use modelName from settings, fallback to gpt-3.5-turbo
+                model: selectedModelName || "gpt-3.5-turbo",
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: prompt },
@@ -263,7 +262,7 @@ async function translateTextApiCall(
             headers["x-api-key"] = apiKey;
             headers["anthropic-version"] = "2023-06-01";
             requestBody = {
-                model: modelName || "claude-3-haiku-20240307", // Use modelName from settings, fallback to claude-3-haiku-20240307
+                model: selectedModelName || "claude-3-haiku-20240307",
                 max_tokens: isFullPage ? 3000 : 500,
                 system: systemPrompt,
                 messages: [{ role: "user", content: prompt }],
@@ -272,7 +271,7 @@ async function translateTextApiCall(
         case "google":
             headers["x-goog-api-key"] = apiKey;
             // Google API endpoint includes the version, the model name is part of the path
-            const googleApiUrl = `${apiEndpoint}/models/${modelName || "gemini-2.5-flash"}:generateContent`; // Use modelName from settings, fallback to gemini-2.5-flash-preview-04-17
+            const googleApiUrl = `${apiEndpoint}/models/${selectedModelName || "gemini-2.5-flash"}:generateContent`;
             requestBody = {
                 contents: [
                     {
@@ -283,10 +282,10 @@ async function translateTextApiCall(
                     }
                 ],
                 generationConfig: {
-                    maxOutputTokens: isFullPage ? 65536 : 8000, // Increased maxOutputTokens for selected text
+                    maxOutputTokens: isFullPage ? 65536 : 8000,
                 },
             };
-            console.log("Google API Request Body:", JSON.stringify(requestBody)); // Log request body for debugging
+            console.log("Google API Request Body:", JSON.stringify(requestBody));
             // Use the constructed googleApiUrl for the fetch call
             apiEndpoint = googleApiUrl;
             break;
@@ -294,7 +293,7 @@ async function translateTextApiCall(
             throw new Error(`Unsupported API type configured: ${apiType}`);
     }
 
-    console.log(`Sending request to ${apiEndpoint} with body:`, requestBody); // Log request being sent
+    console.log(`Sending request to ${apiEndpoint} with body:`, requestBody);
 
     try {
         const response = await fetch(apiEndpoint, {
@@ -303,13 +302,13 @@ async function translateTextApiCall(
             body: JSON.stringify(requestBody),
         });
 
-        console.log("Received API response:", response); // Log the raw response object
+        console.log("Received API response:", response);
 
         if (!response.ok) {
             let errorDetails = `API request failed with status ${response.status}`;
             try {
                 const errorData = await response.json();
-                console.error("API Error Response Body:", errorData); // Log API error response body
+                console.error("API Error Response Body:", errorData);
                 errorDetails += `: ${errorData?.error?.message ||
                     errorData?.detail ||
                     JSON.stringify(errorData)
@@ -317,11 +316,11 @@ async function translateTextApiCall(
             } catch (e) {
                 errorDetails += `: ${response.statusText}`;
             }
-            console.error("API request failed:", errorDetails); // Log the failure
+            console.error("API request failed:", errorDetails);
             throw new Error(errorDetails);
         }
         const data = await response.json();
-        console.log("API Response Data Received Successfully:", data); // Log successful response data
+        console.log("API Response Data Received Successfully:", data);
 
         let translation;
         switch (apiType) {
@@ -341,16 +340,13 @@ async function translateTextApiCall(
                 }
                 break;
             case "google":
-                console.log("Google API Candidates:", data.candidates); // Existing log for Google API candidates
-                // Log the parts array content
+                console.log("Google API Candidates:", data.candidates);
                 if (data.candidates?.[0]?.content?.parts) {
                     console.log("Google API Parts:", data.candidates[0].content.parts);
-                    // Log the first element of the parts array
                     if (data.candidates[0].content.parts.length > 0) {
                         console.log("Google API First Part:", data.candidates[0].content.parts[0]);
                     }
                 }
-                // Assuming the structure is data.candidates[0].content.parts[0].text
                 translation = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
                 break;
             default:
@@ -360,16 +356,16 @@ async function translateTextApiCall(
         }
 
         if (translation === undefined || translation === null || translation.trim() === "") {
-            console.error("Extracted translation is empty or null.", data); // Log failure to extract translation
-            throw new Error("API returned no translation text."); // More specific error message
+            console.error("Extracted translation is empty or null.", data);
+            throw new Error("API returned no translation text.");
         }
-        console.log("Successfully extracted translation:", translation); // Log the extracted translation
-        console.log("=== RAW TRANSLATION DEBUG START ==="); // Debug HTML formatting
-        console.log("Raw translation text:", translation); // Log the raw translation text for HTML verification
-        console.log("=== RAW TRANSLATION DEBUG END ==="); // Debug HTML formatting
+        console.log("Successfully extracted translation:", translation);
+        console.log("=== RAW TRANSLATION DEBUG START ===");
+        console.log("Raw translation text:", translation);
+        console.log("=== RAW TRANSLATION DEBUG END ===");
         return translation;
     } catch (error) {
-        console.error("Fetch API error:", error); // Log fetch errors
+        console.error("Fetch API error:", error);
         throw error;
     }
 }

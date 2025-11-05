@@ -1,6 +1,6 @@
 console.log("AI Translator Content Script Loaded - Top Level");
 
-// content.js - Handles displaying popups, extracting page text, replacing content, and auto-translate.
+// content.js - Handles displaying popups, extracting page text, replacing content, and manual translation.
 
 // Track mouse position
 window.lastMouseX = 0;
@@ -14,6 +14,7 @@ let translationPopup = null; // For selected text popup
 let loadingIndicator = null; // For visual feedback during API calls
 let originalBodyContent = null; // Store original content for potential revert (basic)
 let isTranslated = false; // Track if the page is currently translated
+let stopTranslationFlag = false; // Flag to stop translation process
 
 // --- Message Listener (Handles multiple actions) ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -45,23 +46,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             sendResponse({ html: selectedHtml });
             break;
 
-        // --- Request from Background to Replace Page Content ---
-        case "replacePageContent":
+        // --- Request from Background to Start Element Translation ---
+        case "startElementTranslation":
             removeLoadingIndicator();
             if (request.isError) {
-                // Display error prominently, maybe using the popup mechanism or a banner
-                displayPopup(`Full Page Translation Error: ${request.text}`, true); // Make error popup more prominent
-                console.error("Full page translation failed:", request.text);
+                displayPopup(`Translation Error: ${request.text}`, true);
+                console.error("Element translation failed:", request.text);
             } else if (!isTranslated) {
-                // Only translate if not already translated
-                console.log("Replacing page content with translation.");
-                replaceVisibleText(request.text);
+                console.log("Starting element-by-element page translation.");
+                translatePageElements();
                 isTranslated = true; // Mark page as translated
-                // Optional: Add a button/mechanism to revert? (More complex)
             } else {
-                console.log("Page already translated, skipping replacement.");
+                console.log("Page already translated, skipping translation.");
             }
-            sendResponse({ status: "received" }); // Acknowledge receipt
+            sendResponse({ status: "received" });
+            break;
+
+        // --- Handle Element Translation Result ---
+        case "elementTranslationResult":
+            handleElementTranslationResult(request);
+            sendResponse({ status: "received" });
             break;
 
         // --- Show/Hide Loading Indicator (Now primarily for Full Page) ---
@@ -122,31 +126,17 @@ function extractMainContentHTML() {
     return clonedBody.innerHTML;
 }
 
-// --- Function to Replace Visible Text on the Page ---
-// WARNING: This is a complex task and this implementation is BASIC.
-// It might be slow on large pages and can break website functionality or layout.
-// It doesn't handle text in input fields, buttons, placeholders, titles, etc.
-// It also doesn't perfectly handle splitting/joining text nodes which might affect spacing.
-function replaceVisibleText(fullTranslation) {
-    console.log("Attempting DOM text replacement...");
-    // Store original body for basic revert (very fragile)
-    // if (!originalBodyContent) {
-    //     originalBodyContent = document.body.innerHTML;
-    // }
+// --- New Element-Based Translation Functions ---
 
-    // Split translation into sentences or paragraphs for potentially better matching (simplistic)
-    // This is highly experimental and likely insufficient for accurate replacement.
-    // A better approach would involve mapping original text nodes to translated segments.
-    const translatedSegments = fullTranslation
-        .split("\n")
-        .filter((s) => s.trim().length > 0);
-    let segmentIndex = 0;
-
+/**
+ * Get all translatable elements from the page
+ */
+function getTranslatableElements() {
+    const elements = [];
     const walker = document.createTreeWalker(
         document.body,
-        NodeFilter.SHOW_TEXT, // Only consider text nodes
+        NodeFilter.SHOW_ELEMENT,
         {
-            // Filter function
             acceptNode: function (node) {
                 // Skip nodes inside <script>, <style>, <noscript> tags
                 if (
@@ -155,64 +145,297 @@ function replaceVisibleText(fullTranslation) {
                 ) {
                     return NodeFilter.FILTER_REJECT;
                 }
-                // Skip nodes that are just whitespace
-                if (node.nodeValue.trim() === "") {
-                    return NodeFilter.FILTER_REJECT;
-                }
-                // Skip nodes that are part of the extension's UI (popup, indicator)
+
+                // Skip nodes that are part of the extension's UI
                 if (
-                    node.parentElement &&
-                    (node.parentElement.closest("#translation-popup-extension") ||
-                        node.parentElement.closest("#translation-loading-indicator"))
+                    node.closest("#translation-popup-extension") ||
+                    node.closest("#translation-loading-indicator")
                 ) {
                     return NodeFilter.FILTER_REJECT;
                 }
 
-                return NodeFilter.FILTER_ACCEPT;
-            },
+                // Include elements that have text content
+                const textContent = node.textContent?.trim() || '';
+                if (textContent.length > 3) {
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+
+                return NodeFilter.FILTER_REJECT;
+            }
         },
-        false, // deprecated but required in older specs
+        false
     );
 
     let node;
-    const nodesToReplace = [];
     while ((node = walker.nextNode())) {
-        nodesToReplace.push(node); // Collect nodes first
+        elements.push({
+            element: node,
+            text: node.textContent.trim(),
+            path: getElementPath(node)
+        });
     }
 
-    console.log(`Found ${nodesToReplace.length} text nodes to potentially replace.`);
-    // Very basic replacement strategy: replace node value with next translation segment
-    // This WILL break context and meaning in most cases.
-    // A real solution needs complex text alignment algorithms.
-    nodesToReplace.forEach((node) => {
-        if (segmentIndex < translatedSegments.length) {
-            // Heuristic: Only replace if original text is somewhat substantial?
-            if (node.nodeValue.trim().length > 5) {
-                // Arbitrary length check
-                console.log(
-                    `Replacing node value: "${node.nodeValue
-                        .trim()
-                        .substring(0, 50)}..." with segment ${segmentIndex}`,
-                );
-                node.nodeValue = translatedSegments[segmentIndex];
-                segmentIndex++;
-            } else {
-                console.log(`Skipping short node: "${node.nodeValue.trim()}"`);
+    return elements;
+}
+
+/**
+ * Get a unique path for an element to help with identification
+ */
+function getElementPath(element) {
+    if (element === document.body) return 'body';
+
+    const parts = [];
+    while (element && element !== document.body) {
+        const part = element.tagName.toLowerCase();
+        const index = Array.from(element.parentNode.children).indexOf(element) + 1;
+        parts.unshift(`${part}:nth-child(${index})`);
+        element = element.parentElement;
+    }
+    return parts.join(' > ');
+}
+
+/**
+ * Find element by path (for translation result mapping)
+ */
+function findElementByPath(path) {
+    try {
+        // Simple selector-based approach for common elements
+        if (path.includes(' > ')) {
+            const parts = path.split(' > ');
+            let element = document.body;
+
+            for (const part of parts) {
+                const [tag, nthChild] = part.split(':nth-child(');
+                const index = parseInt(nthChild.replace(')', '')) - 1;
+                element = element.children[index];
+                if (!element || element.tagName.toLowerCase() !== tag) {
+                    return null;
+                }
             }
+            return element;
         }
-    });
 
-    if (segmentIndex < translatedSegments.length) {
-        console.warn(
-            `Not all translated segments were used (${segmentIndex}/${translatedSegments.length}). Page structure might not match.`,
-        );
+        // Handle body case
+        if (path === 'body') {
+            return document.body;
+        }
+
+        return null;
+    } catch (error) {
+        console.warn('Error finding element by path:', error);
+        return null;
+    }
+}
+
+/**
+ * Translate page elements asynchronously with batch processing
+ */
+async function translatePageElements() {
+    console.log("Starting element-by-element page translation...");
+
+    // Reset stop flag
+    stopTranslationFlag = false;
+
+    const elements = getTranslatableElements();
+    console.log(`Found ${elements.length} translatable elements`);
+
+    if (elements.length === 0) {
+        console.log("No translatable elements found");
+        return;
     }
 
-    // --- Alternative (Simpler, but breaks everything): ---
-    // document.body.innerHTML = `<div style="padding: 20px; font-family: sans-serif;"><h1>Translated Content</h1><pre style="white-space: pre-wrap;">${fullTranslation}</pre></div>`;
-    // ---
+    // Show progress indicator
+    displayLoadingIndicator(`Translating ${elements.length} elements...`);
 
-    console.log("DOM text replacement attempt finished.");
+    // Process elements in batches of 10
+    const batchSize = 10;
+    const batches = [];
+    for (let i = 0; i < elements.length; i += batchSize) {
+        batches.push(elements.slice(i, i + batchSize));
+    }
+
+    let completed = 0;
+    let errorCount = 0;
+
+    // Process batches concurrently
+    for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        // Check if translation was stopped
+        if (stopTranslationFlag) {
+            console.log("Translation stopped by user.");
+            removeLoadingIndicator();
+            displayPopup("Translation stopped by user.", true, false);
+            return;
+        }
+
+        const batch = batches[batchIndex];
+
+        try {
+            // Process current batch
+            await Promise.all(
+                batch.map(async (item) => {
+                    try {
+                        await translateElement(item);
+                        completed++;
+                    } catch (error) {
+                        console.error('Element translation error:', error);
+                        errorCount++;
+                    }
+
+                    // Update progress indicator
+                    updateLoadingProgress(completed, elements.length, errorCount);
+                })
+            );
+
+            console.log(`Completed batch ${batchIndex + 1}/${batches.length}`);
+        } catch (error) {
+            console.error('Batch processing error:', error);
+        }
+    }
+
+    console.log(`Translation complete. ${completed} elements translated, ${errorCount} errors.`);
+
+    // Remove loading indicator when done
+    setTimeout(() => removeLoadingIndicator(), 1000);
+}
+
+/**
+ * Stop translation process
+ */
+function stopTranslation() {
+    stopTranslationFlag = true;
+    removeLoadingIndicator();
+    console.log("Translation process stopped by user.");
+}
+
+/**
+ * Translate a single element
+ */
+async function translateElement(elementData) {
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+            action: "translateElement",
+            text: elementData.text,
+            elementPath: elementData.path
+        }, (response) => {
+            if (chrome.runtime.lastError) {
+                reject(new Error(chrome.runtime.lastError.message));
+                return;
+            }
+
+            if (response && response.translatedText) {
+                // Update the element with translated text
+                updateElementText(elementData.element, response.translatedText);
+                resolve();
+            } else {
+                reject(new Error("No translation received"));
+            }
+        });
+    });
+}
+
+/**
+ * Update element text content with translation while preserving HTML structure
+ */
+function updateElementText(element, translatedText) {
+    try {
+        console.log(`Updating element ${element.tagName} with translated text:`, translatedText.substring(0, 50) + "...");
+
+        // Store the current HTML structure before modification
+        const originalHTML = element.innerHTML;
+        const originalOuterHTML = element.outerHTML;
+
+        // Create a temporary div to work with the text
+        const tempDiv = document.createElement('div');
+        tempDiv.textContent = translatedText;
+
+        // Replace text nodes while preserving HTML structure
+        const walker = document.createTreeWalker(
+            element,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: function (node) {
+                    // Skip empty text nodes and whitespace-only nodes
+                    if (!node.nodeValue.trim()) {
+                        return NodeFilter.FILTER_REJECT;
+                    }
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            },
+            false
+        );
+
+        let textNode;
+        const textNodes = [];
+        while ((textNode = walker.nextNode())) {
+            textNodes.push(textNode);
+        }
+
+        // Replace the content of text nodes with translated text
+        // Split the translated text to distribute across text nodes
+        const textParts = translatedText.split(/(\s+)/); // Split on whitespace to preserve spacing
+        let partIndex = 0;
+
+        textNodes.forEach((node, index) => {
+            if (partIndex < textParts.length) {
+                // For the last node, use all remaining parts
+                if (index === textNodes.length - 1) {
+                    node.nodeValue = textParts.slice(partIndex).join('');
+                } else {
+                    // Use one part per node
+                    node.nodeValue = textParts[partIndex] || '';
+                    partIndex++;
+                }
+            }
+        });
+
+        console.log(`Successfully updated element: ${element.tagName}`);
+    } catch (error) {
+        console.warn('Error updating element text:', error);
+        // Fallback: try to set innerHTML if text node replacement fails
+        try {
+            element.innerHTML = translatedText;
+            console.log(`Used innerHTML fallback for element: ${element.tagName}`);
+        } catch (fallbackError) {
+            console.error('Fallback update also failed:', fallbackError);
+        }
+    }
+}
+
+/**
+ * Handle element translation results from background script
+ */
+function handleElementTranslationResult(request) {
+    if (request.error) {
+        console.error('Element translation error:', request.error);
+        return;
+    }
+
+    if (request.translatedText && request.elementPath) {
+        const element = findElementByPath(request.elementPath);
+        if (element) {
+            updateElementText(element, request.translatedText);
+            console.log(`Updated element at path ${request.elementPath}`);
+        } else {
+            console.warn(`Could not find element at path: ${request.elementPath}`);
+        }
+    }
+}
+
+/**
+ * Update loading indicator progress
+ */
+function updateLoadingProgress(completed, total, errors) {
+    if (loadingIndicator) {
+        const progress = Math.round((completed / total) * 100);
+        const errorText = errors > 0 ? ` (${errors} errors)` : '';
+        loadingIndicator.querySelector('.progress-text').textContent = `Translating elements... ${completed}/${total} (${progress}%)${errorText}`;
+    }
+}
+
+// --- Legacy function for backward compatibility ---
+function replaceVisibleText(fullTranslation) {
+    console.log("Legacy replaceVisibleText called - redirecting to element translation");
+    translatePageElements();
 }
 
 // --- Function to Display Loading Indicator ---
@@ -221,19 +444,43 @@ function displayLoadingIndicator(message = "Loading...") {
 
     loadingIndicator = document.createElement("div");
     loadingIndicator.id = "translation-loading-indicator";
-    loadingIndicator.textContent = message;
+    loadingIndicator.innerHTML = `
+        <span class="progress-text">${message}</span>
+        <button class="stop-button">Stop</button>
+    `;
 
     // Basic Styling
     loadingIndicator.style.position = "fixed";
     loadingIndicator.style.bottom = "20px";
     loadingIndicator.style.left = "20px";
-    loadingIndicator.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+    loadingIndicator.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
     loadingIndicator.style.color = "white";
     loadingIndicator.style.padding = "10px 15px";
     loadingIndicator.style.borderRadius = "5px";
     loadingIndicator.style.zIndex = "2147483647"; // Max z-index
     loadingIndicator.style.fontSize = "14px";
     loadingIndicator.style.fontFamily = "sans-serif";
+    loadingIndicator.style.display = "flex";
+    loadingIndicator.style.alignItems = "center";
+    loadingIndicator.style.gap = "10px";
+
+    // Style the stop button
+    const stopButton = loadingIndicator.querySelector('.stop-button');
+    stopButton.style.backgroundColor = "#ff4444";
+    stopButton.style.color = "white";
+    stopButton.style.border = "none";
+    stopButton.style.padding = "5px 10px";
+    stopButton.style.borderRadius = "3px";
+    stopButton.style.cursor = "pointer";
+    stopButton.style.fontSize = "12px";
+    stopButton.style.fontWeight = "bold";
+    stopButton.onmouseover = () => {
+        stopButton.style.backgroundColor = "#cc0000";
+    };
+    stopButton.onmouseout = () => {
+        stopButton.style.backgroundColor = "#ff4444";
+    };
+    stopButton.onclick = stopTranslation;
 
     document.body.appendChild(loadingIndicator);
 }
@@ -406,41 +653,3 @@ function handleClickOutside(event) {
         }
     }
 }
-
-// --- Automatic Translation Trigger ---
-function checkAndTriggerAutoTranslate() {
-    if (isTranslated) {
-        console.log("Auto-translate check: Page already translated.");
-        return;
-    }
-
-    chrome.storage.sync.get(["autoTranslateEnabled"], (result) => {
-        if (result.autoTranslateEnabled) {
-            console.log("Auto-translate enabled. Triggering full page translation.");
-            // Need API key/endpoint info to proceed, request from background
-            chrome.runtime.sendMessage({ action: "triggerAutoTranslate" }, (response) => {
-                if (chrome.runtime.lastError) {
-                    console.error(
-                        "Error sending triggerAutoTranslate:",
-                        chrome.runtime.lastError.message,
-                    );
-                } else if (response?.status === "started") {
-                    console.log("Background script acknowledged auto-translate trigger.");
-                    // Show indicator immediately
-                    displayLoadingIndicator("Auto-translating page...");
-                } else {
-                    console.warn(
-                        "Background script did not confirm auto-translate start. Is it configured?",
-                        response,
-                    );
-                }
-            });
-        } else {
-            console.log("Auto-translate is disabled.");
-        }
-    });
-}
-
-// Run auto-translate check when the content script loads (page load)
-// Use a small delay to allow the page to potentially finish rendering
-setTimeout(checkAndTriggerAutoTranslate, 500);

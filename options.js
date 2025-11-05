@@ -1,8 +1,6 @@
-const form = document.getElementById("settings-form");
 const apiKeyInput = document.getElementById("api-key");
 const apiEndpointInput = document.getElementById("api-endpoint");
 const apiTypeSelect = document.getElementById("api-type");
-const autoTranslateToggle = document.getElementById("auto-translate");
 const statusMessage = document.getElementById("status-message");
 const fillDefaultEndpointButton = document.getElementById("fill-default-endpoint");
 const modelNameInput = document.getElementById("model-name");
@@ -20,10 +18,12 @@ const DEFAULT_MODELS = {
     google: "gemini-flash-lite-latest",
 };
 
+let debounceTimer;
+
 function loadSettings() {
     console.log("options.js: Attempting to load settings...");
     chrome.storage.sync.get(
-        ["apiKey", "apiEndpoint", "apiType", "autoTranslateEnabled", "modelName"],
+        ["apiKey", "apiEndpoint", "apiType", "modelName"],
         (result) => {
             if (chrome.runtime.lastError) {
                 console.error(
@@ -49,11 +49,6 @@ function loadSettings() {
             } else {
                 apiTypeSelect.value = "openai";
             }
-            const loadedToggleState = !!result.autoTranslateEnabled;
-            autoTranslateToggle.checked = loadedToggleState;
-            console.log(
-                `options.js: Set autoTranslateToggle.checked to: ${loadedToggleState}`,
-            );
 
             if (result.modelName) {
                 modelNameInput.value = result.modelName;
@@ -62,31 +57,32 @@ function loadSettings() {
     );
 }
 
-function saveSettings(event) {
-    event.preventDefault();
-    console.log("options.js: saveSettings function called.");
+function autoSaveSetting() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(saveSetting, 500);
+}
+
+function saveSetting() {
+    console.log("options.js: autoSaveSetting function called.");
 
     const apiKey = apiKeyInput.value.trim();
     const apiEndpoint = apiEndpointInput.value.trim();
     const apiType = apiTypeSelect.value;
-    const autoTranslateEnabled = autoTranslateToggle.checked;
     const modelName = modelNameInput.value.trim();
 
     console.log(
-        `options.js: Values to save: apiKey=***, apiEndpoint=${apiEndpoint}, apiType=${apiType}, autoTranslateEnabled=${autoTranslateEnabled}, modelName=${modelName}`,
+        `options.js: Values to save: apiKey=***, apiEndpoint=${apiEndpoint}, apiType=${apiType}, modelName=${modelName}`,
     );
 
-    if (!apiKey || !apiEndpoint) {
-        console.warn("options.js: API Key or Endpoint missing.");
-        displayStatus("API Key and Endpoint URL are required.", true);
-        return;
-    }
-    try {
-        new URL(apiEndpoint);
-    } catch (_) {
-        console.warn("options.js: Invalid API Endpoint URL format.");
-        displayStatus("Invalid API Endpoint URL format.", true);
-        return;
+    // Validate API endpoint if provided
+    if (apiEndpoint && apiKey) {
+        try {
+            new URL(apiEndpoint);
+        } catch (_) {
+            console.warn("options.js: Invalid API Endpoint URL format.");
+            displayStatus("Invalid API Endpoint URL format.", true);
+            return;
+        }
     }
 
     console.log("options.js: Attempting to save settings to chrome.storage.sync...");
@@ -95,7 +91,6 @@ function saveSettings(event) {
             apiKey: apiKey,
             apiEndpoint: apiEndpoint,
             apiType: apiType,
-            autoTranslateEnabled: autoTranslateEnabled,
             modelName: modelName,
         },
         () => {
@@ -107,7 +102,7 @@ function saveSettings(event) {
                 displayStatus(`Error saving: ${chrome.runtime.lastError.message}`, true);
             } else {
                 console.log("options.js: Settings saved successfully.");
-                displayStatus("Settings Saved!", false);
+                displayStatus("Settings saved!", false);
             }
         },
     );
@@ -129,11 +124,35 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("options.js: DOMContentLoaded event fired.");
     loadSettings();
 
-    if (form) {
-        form.addEventListener("submit", saveSettings);
-        console.log("options.js: Submit event listener added to form.");
-    } else {
-        console.error("options.js: Could not find settings form element!");
+    // Add auto-save listeners to all form inputs
+    if (apiKeyInput) {
+        apiKeyInput.addEventListener("input", autoSaveSetting);
+        console.log("options.js: Auto-save listener added to api-key input.");
+    }
+
+    if (apiEndpointInput) {
+        apiEndpointInput.addEventListener("input", autoSaveSetting);
+        console.log("options.js: Auto-save listener added to api-endpoint input.");
+    }
+
+    if (apiTypeSelect) {
+        apiTypeSelect.addEventListener("change", (event) => {
+            autoSaveSetting(event);
+
+            // Update model suggestions based on API type
+            const selectedApiType = event.target.value;
+            const defaultModel = DEFAULT_MODELS[selectedApiType];
+            if (defaultModel && !modelNameInput.value) {
+                modelNameInput.value = defaultModel;
+                autoSaveSetting();
+            }
+        });
+        console.log("options.js: Change event listener added to api-type select.");
+    }
+
+    if (modelNameInput) {
+        modelNameInput.addEventListener("input", autoSaveSetting);
+        console.log("options.js: Auto-save listener added to model-name input.");
     }
 
     if (fillDefaultEndpointButton) {
@@ -147,6 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.log(
                     `options.js: Filled endpoint with default for ${selectedApiType}: ${defaultEndpoint}`,
                 );
+                autoSaveSetting();
             } else {
                 console.warn(
                     `options.js: No default endpoint found for API type: ${selectedApiType}`,
@@ -173,6 +193,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.log(
                     `options.js: Filled model name with default for ${selectedApiType}: ${defaultModel}`,
                 );
+                autoSaveSetting();
             } else {
                 console.warn(
                     `options.js: No default model found for API type: ${selectedApiType}`,
@@ -186,17 +207,6 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("options.js: Click event listener added to fill default model button.");
     } else {
         console.error("options.js: Could not find fill default model button element!");
-    }
-
-    if (autoTranslateToggle) {
-        autoTranslateToggle.addEventListener("change", (event) => {
-            console.log(
-                `options.js: autoTranslateToggle 'change' event fired. New checked state: ${event.target.checked}`,
-            );
-        });
-        console.log("options.js: Change event listener added to toggle.");
-    } else {
-        console.error("options.js: Could not find auto-translate toggle element!");
     }
 });
 
