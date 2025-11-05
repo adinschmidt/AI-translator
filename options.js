@@ -1,6 +1,3 @@
-// options.js - Logic for the settings page (with debugging)
-
-// --- DOM Elements ---
 const form = document.getElementById("settings-form");
 const apiKeyInput = document.getElementById("api-key");
 const apiEndpointInput = document.getElementById("api-endpoint");
@@ -8,31 +5,26 @@ const apiTypeSelect = document.getElementById("api-type");
 const autoTranslateToggle = document.getElementById("auto-translate");
 const statusMessage = document.getElementById("status-message");
 const fillDefaultEndpointButton = document.getElementById("fill-default-endpoint");
-const modelNameInput = document.getElementById("model-name"); // Add this line
-const fillDefaultModelButton = document.getElementById("fill-default-model"); // Add this line
+const modelNameInput = document.getElementById("model-name");
+const fillDefaultModelButton = document.getElementById("fill-default-model");
 
-// Define default endpoints
 const DEFAULT_ENDPOINTS = {
     openai: "https://api.openai.com/v1/chat/completions",
     anthropic: "https://api.anthropic.com/v1/messages",
-    google: "https://generativelanguage.googleapis.com/v1beta", // Placeholder
+    google: "https://generativelanguage.googleapis.com/v1beta",
 };
 
-// Define default models (Add this block)
 const DEFAULT_MODELS = {
-    openai: "o3-mini",
-    anthropic: "claude-3-7-sonnet-latest",
-    google: "gemini-2.5-flash-preview-04-17",
+    openai: "gpt-5-nano",
+    anthropic: "claude-haiku-4-5-20251001",
+    google: "gemini-flash-lite-latest",
 };
 
-// --- Load saved settings ---
 function loadSettings() {
     console.log("options.js: Attempting to load settings...");
-    // Use chrome.storage.sync to get settings synchronized across devices
     chrome.storage.sync.get(
-        ["apiKey", "apiEndpoint", "apiType", "autoTranslateEnabled", "modelName"], // Add "modelName"
+        ["apiKey", "apiEndpoint", "apiType", "autoTranslateEnabled", "modelName"],
         (result) => {
-            // Check for errors during load
             if (chrome.runtime.lastError) {
                 console.error(
                     "options.js: Error loading settings:",
@@ -42,7 +34,7 @@ function loadSettings() {
                     `Error loading settings: ${chrome.runtime.lastError.message}`,
                     true,
                 );
-                return; // Stop execution if loading failed
+                return;
             }
 
             console.log("options.js: Settings loaded from storage:", result);
@@ -55,38 +47,34 @@ function loadSettings() {
             if (result.apiType) {
                 apiTypeSelect.value = result.apiType;
             } else {
-                apiTypeSelect.value = "openai"; // Default
+                apiTypeSelect.value = "openai";
             }
-            // Set the toggle state based on the loaded value
-            const loadedToggleState = !!result.autoTranslateEnabled; // Use !! to ensure boolean
+            const loadedToggleState = !!result.autoTranslateEnabled;
             autoTranslateToggle.checked = loadedToggleState;
             console.log(
                 `options.js: Set autoTranslateToggle.checked to: ${loadedToggleState}`,
             );
 
-            if (result.modelName) { // Add this block
+            if (result.modelName) {
                 modelNameInput.value = result.modelName;
             }
-
-            // CSS :checked pseudo-class handles the visual update
         },
     );
 }
 
-// --- Save settings ---
 function saveSettings(event) {
-    event.preventDefault(); // Prevent default form submission
+    event.preventDefault();
     console.log("options.js: saveSettings function called.");
 
     const apiKey = apiKeyInput.value.trim();
     const apiEndpoint = apiEndpointInput.value.trim();
     const apiType = apiTypeSelect.value;
-    const autoTranslateEnabled = autoTranslateToggle.checked; // Get the current toggle state
-    const modelName = modelNameInput.value.trim(); // Add this line
+    const autoTranslateEnabled = autoTranslateToggle.checked;
+    const modelName = modelNameInput.value.trim();
 
     console.log(
         `options.js: Values to save: apiKey=***, apiEndpoint=${apiEndpoint}, apiType=${apiType}, autoTranslateEnabled=${autoTranslateEnabled}, modelName=${modelName}`,
-    ); // Update log
+    );
 
     if (!apiKey || !apiEndpoint) {
         console.warn("options.js: API Key or Endpoint missing.");
@@ -102,17 +90,15 @@ function saveSettings(event) {
     }
 
     console.log("options.js: Attempting to save settings to chrome.storage.sync...");
-    // Save using chrome.storage.sync
     chrome.storage.sync.set(
         {
             apiKey: apiKey,
             apiEndpoint: apiEndpoint,
             apiType: apiType,
-            autoTranslateEnabled: autoTranslateEnabled, // Save the toggle state
-            modelName: modelName, // Add this line
+            autoTranslateEnabled: autoTranslateEnabled,
+            modelName: modelName,
         },
         () => {
-            // Check for errors during save
             if (chrome.runtime.lastError) {
                 console.error(
                     "options.js: Error saving settings:",
@@ -127,7 +113,6 @@ function saveSettings(event) {
     );
 }
 
-// --- Display status message ---
 let statusTimeout;
 function displayStatus(message, isError = false) {
     statusMessage.textContent = message;
@@ -140,13 +125,10 @@ function displayStatus(message, isError = false) {
     }, 3000);
 }
 
-// --- Event Listeners ---
-// Load settings when the DOM is fully loaded
 document.addEventListener("DOMContentLoaded", () => {
     console.log("options.js: DOMContentLoaded event fired.");
     loadSettings();
 
-    // Add listener to the form submission
     if (form) {
         form.addEventListener("submit", saveSettings);
         console.log("options.js: Submit event listener added to form.");
@@ -154,7 +136,6 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("options.js: Could not find settings form element!");
     }
 
-    // Add listener to the fill default endpoint button
     if (fillDefaultEndpointButton) {
         fillDefaultEndpointButton.addEventListener("click", () => {
             console.log("options.js: Fill Default button clicked.");
@@ -181,7 +162,6 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("options.js: Could not find fill default endpoint button element!");
     }
 
-    // Add listener to the fill default model button (Add this block)
     if (fillDefaultModelButton) {
         fillDefaultModelButton.addEventListener("click", () => {
             console.log("options.js: Fill Default Model button clicked.");
@@ -208,7 +188,6 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("options.js: Could not find fill default model button element!");
     }
 
-    // Optional: Add listener specifically to the toggle to see if its state changes
     if (autoTranslateToggle) {
         autoTranslateToggle.addEventListener("change", (event) => {
             console.log(
@@ -221,4 +200,4 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 });
 
-console.log("options.js: Script loaded."); // Log script load
+console.log("options.js: Script loaded.");

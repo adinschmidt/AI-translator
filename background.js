@@ -1,6 +1,3 @@
-// background.js - Handles context menu, API calls, full page, and auto-translate trigger
-
-// Default settings
 const DEFAULT_SETTINGS = {
     apiEndpoint: "",
     apiKey: "",
@@ -13,7 +10,7 @@ chrome.runtime.onInstalled.addListener(() => {
     // Context menu for selected text
     chrome.contextMenus.create({
         id: "translateSelectedText",
-        title: "Translate '%s'",
+        title: "Translate to English",
         contexts: ["selection"],
     });
 
@@ -228,7 +225,7 @@ async function translateTextApiCall(
 
     let requestBody;
     let headers = { "Content-Type": "application/json" };
-    const prompt = `Translate the following text to English. Keep the same meaning and tone as the original text. DO NOT add any additional text or explanations. DO NOT start your response with an acknowledgement. Only produce the translated text. Text to translate: ${textToTranslate}`;
+    const prompt = `Translate the following text to English. Keep the same meaning and tone as the original text. DO NOT add any additional text or explanations. DO NOT start your response with an acknowledgement. Only produce the translated text. PRESERVE ALL HTML FORMATTING including tags, structure, and styling. Return valid HTML that maintains the original formatting and structure. Text to translate: ${textToTranslate}`;
     const systemPrompt =
         "You are a professional translator. Translate the provided text accurately to English.";
 
@@ -261,7 +258,7 @@ async function translateTextApiCall(
         case "google":
             headers["x-goog-api-key"] = apiKey;
             // Google API endpoint includes the version, the model name is part of the path
-            const googleApiUrl = `${apiEndpoint}/models/${modelName || "gemini-2.5-flash-preview-04-17"}:generateContent`; // Use modelName from settings, fallback to gemini-2.5-flash-preview-04-17
+            const googleApiUrl = `${apiEndpoint}/models/${modelName || "gemini-2.5-flash"}:generateContent`; // Use modelName from settings, fallback to gemini-2.5-flash-preview-04-17
             requestBody = {
                 contents: [
                     {
@@ -275,7 +272,7 @@ async function translateTextApiCall(
                     maxOutputTokens: isFullPage ? 65536 : 8000, // Increased maxOutputTokens for selected text
                 },
             };
-             console.log("Google API Request Body:", JSON.stringify(requestBody)); // Log request body for debugging
+            console.log("Google API Request Body:", JSON.stringify(requestBody)); // Log request body for debugging
             // Use the constructed googleApiUrl for the fetch call
             apiEndpoint = googleApiUrl;
             break;
@@ -299,11 +296,10 @@ async function translateTextApiCall(
             try {
                 const errorData = await response.json();
                 console.error("API Error Response Body:", errorData); // Log API error response body
-                errorDetails += `: ${
-                    errorData?.error?.message ||
+                errorDetails += `: ${errorData?.error?.message ||
                     errorData?.detail ||
                     JSON.stringify(errorData)
-                }`;
+                    }`;
             } catch (e) {
                 errorDetails += `: ${response.statusText}`;
             }
@@ -331,18 +327,18 @@ async function translateTextApiCall(
                 }
                 break;
             case "google":
-                 console.log("Google API Candidates:", data.candidates); // Existing log for Google API candidates
-                 // Log the parts array content
-                 if (data.candidates?.[0]?.content?.parts) {
-                     console.log("Google API Parts:", data.candidates[0].content.parts);
-                     // Log the first element of the parts array
-                     if (data.candidates[0].content.parts.length > 0) {
-                         console.log("Google API First Part:", data.candidates[0].content.parts[0]);
-                     }
-                 }
-                 // Assuming the structure is data.candidates[0].content.parts[0].text
-                 translation = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-                 break;
+                console.log("Google API Candidates:", data.candidates); // Existing log for Google API candidates
+                // Log the parts array content
+                if (data.candidates?.[0]?.content?.parts) {
+                    console.log("Google API Parts:", data.candidates[0].content.parts);
+                    // Log the first element of the parts array
+                    if (data.candidates[0].content.parts.length > 0) {
+                        console.log("Google API First Part:", data.candidates[0].content.parts[0]);
+                    }
+                }
+                // Assuming the structure is data.candidates[0].content.parts[0].text
+                translation = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                break;
             default:
                 throw new Error(
                     "Could not determine how to extract translation for this API type."

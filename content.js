@@ -2,6 +2,14 @@ console.log("AI Translator Content Script Loaded - Top Level");
 
 // content.js - Handles displaying popups, extracting page text, replacing content, and auto-translate.
 
+// Track mouse position
+window.lastMouseX = 0;
+window.lastMouseY = 0;
+document.addEventListener('mousemove', function (e) {
+    window.lastMouseX = e.clientX;
+    window.lastMouseY = e.clientY;
+});
+
 let translationPopup = null; // For selected text popup
 let loadingIndicator = null; // For visual feedback during API calls
 let originalBodyContent = null; // Store original content for potential revert (basic)
@@ -25,8 +33,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
         // --- Request from Background to Get Page Text ---
         case "getPageText":
-            const pageText = extractMainContentText();
-            console.log("Extracted page text length:", pageText.length);
+            const pageText = extractMainContentHTML();
+            console.log("Extracted page HTML length:", pageText.length);
             sendResponse({ text: pageText });
             break; // Important: response is sent asynchronously
 
@@ -72,24 +80,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return request.action === "getPageText";
 });
 
-// --- Function to Extract Main Text Content ---
-// This is a simplified approach. It might grab unwanted text (nav, footer)
-// or miss text in complex structures (iframes, shadow DOM).
-function extractMainContentText() {
+// --- Function to Extract Main Content HTML ---
+// This extracts HTML content to preserve formatting for translation
+function extractMainContentHTML() {
     // Try to target the main content area if possible, otherwise use body
     const mainElement = document.querySelector("main") || document.body;
-    // Exclude script, style, nav, header, footer content if possible
+    // Clone the element to avoid modifying the original
     const clonedBody = mainElement.cloneNode(true);
-    clonedBody
-        .querySelectorAll(
-            'script, style, nav, header, footer, aside, form, button, input, textarea, select, [aria-hidden="true"], noscript',
-        )
-        .forEach((el) => el.remove());
-    // Get innerText, which tries to respect visibility
-    let text = clonedBody.innerText || "";
-    // Basic cleanup
-    text = text.replace(/\s\s+/g, " ").trim(); // Replace multiple spaces/newlines with single space
-    return text;
+
+    // Remove unwanted elements but keep their structure
+    clonedBody.querySelectorAll(
+        'script, style, nav, header, footer, aside, form, button, input, textarea, select, [aria-hidden="true"], noscript'
+    ).forEach((el) => el.remove());
+
+    // Return the innerHTML with formatting preserved
+    return clonedBody.innerHTML;
 }
 
 // --- Function to Replace Visible Text on the Page ---
@@ -218,24 +223,23 @@ function removeLoadingIndicator() {
 
 // --- Popup Display Function (for selected text) ---
 function displayPopup(content, isError = false, isLoading = false) {
-    console.log("displayPopup called with:", { content, isError, isLoading }); // Log entry
+    console.log("displayPopup called with:", { content, isError, isLoading });
     const popupId = "translation-popup-extension";
     let existingPopup = document.getElementById(popupId);
 
     // If the popup already exists (from loading state) and this is the final result
     if (existingPopup && !isLoading) {
         console.log("Updating existing popup content.");
-        // ... (rest of update logic)
-        existingPopup.innerHTML = ""; // Clear previous content (like spinner)
-        existingPopup.textContent = content;
+        existingPopup.innerHTML = "";
+        // Use innerHTML instead of textContent to preserve formatting
+        existingPopup.innerHTML = content;
         existingPopup.style.backgroundColor = isError ? "#fff0f0" : "white";
         existingPopup.style.border = `1px solid ${isError ? "#f00" : "#ccc"}`;
         existingPopup.style.color = isError ? "#a00" : "#333";
 
-        // Re-add close button
         addCloseButton(existingPopup);
         console.log("Existing popup updated:", existingPopup);
-        return; // Stop here, popup updated
+        return;
     }
 
     // If popup exists and we get another loading message (shouldn't happen often, but handle)
@@ -244,53 +248,42 @@ function displayPopup(content, isError = false, isLoading = false) {
         return;
     }
 
-    // If popup doesn't exist, create it (for initial loading or if initial message failed)
+    // If popup doesn't exist, create it
     if (!existingPopup) {
         console.log("Creating new popup.");
-        removePopup(); // Ensure any remnants are gone
+        removePopup();
 
-        const selection = window.getSelection();
-        let rect = { top: 10, left: 10, bottom: 10, right: 10 }; // Default rect
-        if (selection && selection.rangeCount > 0) {
-            try {
-                rect = selection.getRangeAt(0).getBoundingClientRect();
-                console.log("Calculated selection rect:", rect);
-            } catch (e) {
-                console.error("Error getting selection bounding rect:", e);
-                // Use default rect if error occurs
-            }
-        } else {
-            console.log("No selection found, using default rect.");
-        }
+        // Store cursor position when creating the popup
+        const cursorX = window.lastMouseX || 0;
+        const cursorY = window.lastMouseY || 0;
 
         translationPopup = document.createElement("div");
         translationPopup.id = popupId;
-        existingPopup = translationPopup; // Use the new popup reference
+        existingPopup = translationPopup;
 
         // Apply styles directly or use styles.css
         translationPopup.style.position = "absolute";
-        translationPopup.style.top = `${window.scrollY + rect.bottom + 5}px`;
-        translationPopup.style.left = `${window.scrollX + rect.left}px`;
-        translationPopup.style.zIndex = "2147483647"; // Use max possible z-index
+        translationPopup.style.top = `${window.scrollY + cursorY + 20}px`; // 20px below cursor
+        translationPopup.style.left = `${window.scrollX + cursorX}px`;
+        translationPopup.style.zIndex = "2147483647";
         translationPopup.style.borderRadius = "5px";
-        translationPopup.style.padding = "10px 25px 10px 15px"; // Space for close button
+        translationPopup.style.padding = "10px 25px 10px 15px";
         translationPopup.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
         translationPopup.style.maxWidth = "350px";
         translationPopup.style.fontFamily = "Arial, sans-serif";
         translationPopup.style.fontSize = "14px";
         translationPopup.style.lineHeight = "1.4";
-        translationPopup.style.pointerEvents = "auto"; // Ensure it's clickable
+        translationPopup.style.pointerEvents = "auto";
 
-        // --- Forceful Visibility Styles ---
-        translationPopup.style.display = "block"; // Ensure it's displayed
-        translationPopup.style.border = "3px solid red"; // Make border very obvious
-        translationPopup.style.backgroundColor = "yellow"; // Make background obvious
-        translationPopup.style.color = "black"; // Ensure text color contrasts
-        translationPopup.style.minWidth = "50px"; // Ensure minimum dimensions
+        // Ensure it's displayed and visible
+        translationPopup.style.display = "block";
+        translationPopup.style.backgroundColor = isError ? "#fff0f0" : "white";
+        translationPopup.style.border = `1px solid ${isError ? "#f00" : "#ccc"}`;
+        translationPopup.style.color = isError ? "#a00" : "#333";
+        translationPopup.style.minWidth = "50px";
         translationPopup.style.minHeight = "20px";
-        translationPopup.style.visibility = "visible"; // Explicitly set visibility
-        translationPopup.style.opacity = "1"; // Ensure full opacity
-        // --- End Forceful Styles ---
+        translationPopup.style.visibility = "visible";
+        translationPopup.style.opacity = "1";
 
         console.log("Popup element created and styled (before content):", translationPopup);
 
@@ -300,7 +293,7 @@ function displayPopup(content, isError = false, isLoading = false) {
             console.log("Popup appended to document body.");
         } catch (e) {
             console.error("Error appending popup to body:", e);
-            return; // Stop if appending fails
+            return;
         }
 
         // Close on click outside
@@ -330,7 +323,8 @@ function displayPopup(content, isError = false, isLoading = false) {
         </style>`;
     } else {
         console.log("Setting final content:", content);
-        existingPopup.textContent = content;
+        // Use innerHTML to preserve formatting
+        existingPopup.innerHTML = content;
         // Apply final forceful styles (adjusting for error state)
         existingPopup.style.backgroundColor = isError ? "#ffdddd" : "yellow"; // Error/Success background
         existingPopup.style.border = `3px solid ${isError ? "red" : "green"}`; // Error/Success border
