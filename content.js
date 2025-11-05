@@ -38,6 +38,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             sendResponse({ text: pageText });
             break; // Important: response is sent asynchronously
 
+        // --- Extract Selected HTML (for hyperlink preservation) ---
+        case "extractSelectedHtml":
+            const selectedHtml = extractSelectedHtml();
+            console.log("Extracted selected HTML:", selectedHtml);
+            sendResponse({ html: selectedHtml });
+            break;
+
         // --- Request from Background to Replace Page Content ---
         case "replacePageContent":
             removeLoadingIndicator();
@@ -79,6 +86,24 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // For others, it's okay to return false or nothing.
     return request.action === "getPageText";
 });
+
+// --- Function to Extract Selected HTML Content ---
+// This extracts the HTML of the selected text range to preserve hyperlinks and formatting
+function extractSelectedHtml() {
+    const selection = window.getSelection();
+    if (selection.rangeCount === 0) return null;
+
+    const range = selection.getRangeAt(0);
+    if (range.collapsed) return null; // No content selected
+
+    // Clone the selected contents
+    const fragment = range.cloneContents();
+
+    // Serialize to HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.appendChild(fragment);
+    return tempDiv.innerHTML;
+}
 
 // --- Function to Extract Main Content HTML ---
 // This extracts HTML content to preserve formatting for translation

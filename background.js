@@ -76,12 +76,26 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
     // Handle Selected Text Translation
     if (info.menuItemId === "translateSelectedText" && info.selectionText) {
-        const selectedText = info.selectionText;
-        console.log("Action: Translate Selected Text - ", selectedText);
-        // Immediately tell content script to show the popup in loading state
-        notifyContentScript(tabId, "Translating...", false, false, true); // isFullPage=false, isError=false, isLoading=true
-        // Then, get settings and start the actual translation
-        getSettingsAndTranslate(selectedText, tabId, false); // false = not full page
+        console.log("Action: Translate Selected Text - Getting HTML content");
+        // First, get the HTML content from the selected text to preserve hyperlinks
+        chrome.tabs.sendMessage(tabId, { action: "extractSelectedHtml" }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.error("Error getting selected HTML:", chrome.runtime.lastError.message);
+                notifyContentScript(tabId, "Could not extract selected content", true, false, false);
+                return;
+            }
+
+            if (response && response.html) {
+                console.log("Received selected HTML:", response.html);
+                // Immediately tell content script to show the popup in loading state
+                notifyContentScript(tabId, "Translating...", false, false, true); // isFullPage=false, isError=false, isLoading=true
+                // Then, get settings and start the actual translation with HTML content
+                getSettingsAndTranslate(response.html, tabId, false); // false = not full page
+            } else {
+                console.error("No HTML content received from content script");
+                notifyContentScript(tabId, "Could not extract selected HTML", true, false, false);
+            }
+        });
     }
     // Handle Full Page Translation (Manual Trigger)
     else if (info.menuItemId === "translateFullPage") {
@@ -225,7 +239,7 @@ async function translateTextApiCall(
 
     let requestBody;
     let headers = { "Content-Type": "application/json" };
-    const prompt = `Translate the following text to English. Keep the same meaning and tone as the original text. DO NOT add any additional text or explanations. DO NOT start your response with an acknowledgement. Only produce the translated text. PRESERVE ALL HTML FORMATTING including tags, structure, and styling. Return valid HTML that maintains the original formatting and structure. Text to translate: ${textToTranslate}`;
+    const prompt = `Translate the following text to English. Keep the same meaning and tone as the original text. DO NOT add any additional text or explanations. DO NOT start your response with an acknowledgement. Only produce the translated text. CRITICAL: You MUST return HTML-formatted content. PRESERVE ALL HTML FORMATTING including tags, structure, styling, and hyperlinks. IMPORTANT: Maintain all href attributes exactly as they are in the original HTML. Return valid HTML that maintains the original formatting, structure, and clickable links. Use proper HTML tags like <a href="..."> for links, <b> for bold, <i> for italic, etc. Text to translate: ${textToTranslate}`;
     const systemPrompt =
         "You are a professional translator. Translate the provided text accurately to English.";
 
@@ -350,6 +364,9 @@ async function translateTextApiCall(
             throw new Error("API returned no translation text."); // More specific error message
         }
         console.log("Successfully extracted translation:", translation); // Log the extracted translation
+        console.log("=== RAW TRANSLATION DEBUG START ==="); // Debug HTML formatting
+        console.log("Raw translation text:", translation); // Log the raw translation text for HTML verification
+        console.log("=== RAW TRANSLATION DEBUG END ==="); // Debug HTML formatting
         return translation;
     } catch (error) {
         console.error("Fetch API error:", error); // Log fetch errors
