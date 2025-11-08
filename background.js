@@ -471,6 +471,9 @@ async function translateTextApiCall(
     console.log(
         `Sending text to API (${apiType}) at ${apiEndpoint}. FullPage: ${isFullPage}. Text length: ${textToTranslate.length}`,
     );
+
+    // When doing element-wise full page translation, we already split work in small batches (see content.js translatePageElements()).
+    // For OpenRouter (and other stricter providers), additionally clamp max_tokens to reduce chances of rate/size errors.
     console.log("Text being sent for translation:", textToTranslate);
 
     let requestBody;
@@ -499,7 +502,8 @@ async function translateTextApiCall(
                     { role: "system", content: systemPrompt },
                     { role: "user", content: prompt },
                 ],
-                max_tokens: isFullPage ? 3000 : 500,
+                // Allow larger responses, but keep reasonable bounds
+                max_tokens: isFullPage ? 4000 : 800,
             };
             break;
         case "anthropic":
@@ -507,7 +511,7 @@ async function translateTextApiCall(
             headers["anthropic-version"] = "2023-06-01";
             requestBody = {
                 model: selectedModelName || "claude-3-haiku-20240307",
-                max_tokens: isFullPage ? 3000 : 500,
+                max_tokens: isFullPage ? 4000 : 800,
                 system: systemPrompt,
                 messages: [{ role: "user", content: prompt }],
             };
@@ -542,7 +546,7 @@ async function translateTextApiCall(
                     { role: "system", content: systemPrompt },
                     { role: "user", content: prompt },
                 ],
-                max_tokens: isFullPage ? 3000 : 500,
+                max_tokens: isFullPage ? 4000 : 800,
             };
             break;
         }
@@ -550,13 +554,19 @@ async function translateTextApiCall(
             headers["Authorization"] = `Bearer ${apiKey}`;
             headers["HTTP-Referer"] = "https://github.com/"; // safe generic referer
             headers["X-Title"] = "AI Translator Extension";
+
+            // For OpenRouter, allow large outputs so we don't truncate:
+            // - Full page / large HTML: up to 8192 tokens
+            // - Selection / single element: up to 2048 tokens
+            const openRouterMaxTokens = isFullPage ? 8192 : 2048;
+
             requestBody = {
                 model: selectedModelName || PROVIDER_DEFAULTS.openrouter.modelName,
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: prompt },
                 ],
-                max_tokens: isFullPage ? 3000 : 500,
+                max_tokens: openRouterMaxTokens,
             };
             break;
         }
@@ -574,6 +584,11 @@ async function translateTextApiCall(
         });
 
         console.log("Received API response:", response);
+
+        // Explicit logging to help debug partial translations / silent failures
+        if (response.status === 429) {
+            console.error("Rate limited by provider (HTTP 429). Consider lowering concurrency or checking your OpenRouter plan/limits.");
+        }
 
         if (!response.ok) {
             let errorDetails = `API request failed with status ${response.status}`;

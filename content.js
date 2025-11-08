@@ -277,7 +277,9 @@ function findElementByPath(path) {
 }
 
 /**
- * Translate page elements asynchronously with batch processing
+ * Translate page elements asynchronously with batch processing.
+ * - Uses small concurrency for providers with stricter rate limits (like OpenRouter).
+ * - Shows per-element error markers when a translation fails.
  */
 async function translatePageElements() {
     console.log("Starting element-by-element page translation...");
@@ -296,8 +298,8 @@ async function translatePageElements() {
     // Show progress indicator
     displayLoadingIndicator(`Translating ${elements.length} elements...`);
 
-    // Process elements in batches of 10
-    const batchSize = 10;
+    // Use small concurrency to avoid provider rate limits (e.g., OpenRouter)
+    const batchSize = 3;
     const batches = [];
     for (let i = 0; i < elements.length; i += batchSize) {
         batches.push(elements.slice(i, i + batchSize));
@@ -306,7 +308,7 @@ async function translatePageElements() {
     let completed = 0;
     let errorCount = 0;
 
-    // Process batches concurrently
+    // Process batches sequentially; within each batch we use limited parallelism.
     for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
         // Check if translation was stopped
         if (stopTranslationFlag) {
@@ -319,15 +321,20 @@ async function translatePageElements() {
         const batch = batches[batchIndex];
 
         try {
-            // Process current batch
             await Promise.all(
                 batch.map(async (item) => {
+                    if (stopTranslationFlag) {
+                        return;
+                    }
+
                     try {
                         await translateElement(item);
                         completed++;
                     } catch (error) {
-                        console.error('Element translation error:', error);
+                        console.error("Element translation error:", error);
                         errorCount++;
+                        // Mark the individual element so failures are visible in-page
+                        markElementTranslationError(item.element, error);
                     }
 
                     // Update progress indicator
@@ -337,7 +344,7 @@ async function translatePageElements() {
 
             console.log(`Completed batch ${batchIndex + 1}/${batches.length}`);
         } catch (error) {
-            console.error('Batch processing error:', error);
+            console.error("Batch processing error:", error);
         }
     }
 
@@ -345,6 +352,26 @@ async function translatePageElements() {
 
     // Remove loading indicator when done
     setTimeout(() => removeLoadingIndicator(), 1000);
+}
+
+/**
+ * Attach a small inline error indicator near the element that failed to translate.
+ */
+function markElementTranslationError(element, error) {
+    try {
+        const marker = document.createElement("span");
+        marker.textContent = " [translation error]";
+        marker.title = (error && error.message) ? error.message : "Translation failed";
+        marker.style.color = "#ef4444";
+        marker.style.fontSize = "0.75em";
+        marker.style.marginLeft = "4px";
+        marker.style.fontStyle = "italic";
+        marker.style.opacity = "0.9";
+        marker.style.pointerEvents = "auto";
+        element.appendChild(marker);
+    } catch (e) {
+        console.error("Failed to mark element translation error:", e);
+    }
 }
 
 /**
