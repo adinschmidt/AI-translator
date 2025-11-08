@@ -1,9 +1,41 @@
-const DEFAULT_SETTINGS = {
-    apiEndpoint: "",
-    apiKey: "",
-    apiType: "openai",
-    modelName: ""
+const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter"];
+
+// Per-provider defaults (for when no stored settings exist)
+const PROVIDER_DEFAULTS = {
+    openai: {
+        apiEndpoint: "https://api.openai.com/v1/chat/completions",
+        modelName: "gpt-4o-mini",
+    },
+    anthropic: {
+        apiEndpoint: "https://api.anthropic.com/v1/messages",
+        modelName: "claude-3-haiku-20240307",
+    },
+    google: {
+        apiEndpoint: "https://generativelanguage.googleapis.com/v1beta",
+        modelName: "gemini-2.0-flash",
+    },
+    grok: {
+        apiEndpoint: "https://api.x.ai/v1/chat/completions",
+        modelName: "grok-2-mini",
+    },
+    openrouter: {
+        apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
+        modelName: "openrouter/auto",
+    },
 };
+
+function resolveProviderDefaults(provider) {
+    const defaults = PROVIDER_DEFAULTS[provider] || {};
+    return {
+        apiKey: "",
+        apiEndpoint: defaults.apiEndpoint || "",
+        modelName: defaults.modelName || "",
+        apiType: provider,
+    };
+}
+
+// DEFAULT_SETTINGS kept for internal fallback usage (e.g. non-migrated installs)
+const DEFAULT_SETTINGS = resolveProviderDefaults("openai");
 
 // --- Context Menu Setup ---
 chrome.runtime.onInstalled.addListener(() => {
@@ -147,16 +179,41 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
             // 3) Call API with isFullPage = true using the HTML snapshot
             chrome.storage.sync.get(
-                ["apiKey", "apiEndpoint", "apiType", "modelName"],
+                ["apiKey", "apiEndpoint", "apiType", "modelName", "providerSettings"],
                 (settings) => {
                     const {
-                        apiKey = DEFAULT_SETTINGS.apiKey,
-                        apiEndpoint = DEFAULT_SETTINGS.apiEndpoint,
-                        apiType = DEFAULT_SETTINGS.apiType,
-                        modelName = DEFAULT_SETTINGS.modelName
+                        apiKey,
+                        apiEndpoint,
+                        apiType,
+                        modelName,
+                        providerSettings = {},
                     } = settings;
 
-                    if (!apiKey || !apiEndpoint) {
+                    const activeProvider = (apiType && PROVIDERS.includes(apiType)) ? apiType : "openai";
+                    const perProvider = providerSettings[activeProvider];
+
+                    const effective = perProvider
+                        ? {
+                            apiKey: perProvider.apiKey || "",
+                            apiEndpoint: perProvider.apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
+                            modelName: perProvider.modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
+                            apiType: activeProvider,
+                        }
+                        : {
+                            apiKey: apiKey || "",
+                            apiEndpoint: apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
+                            modelName: modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
+                            apiType: activeProvider,
+                        };
+
+                    const {
+                        apiKey: finalKey,
+                        apiEndpoint: finalEndpoint,
+                        apiType: finalType,
+                        modelName: finalModel,
+                    } = effective;
+
+                    if (!finalKey || !finalEndpoint) {
                         const errorMsg =
                             "Translation Error: API Key or Endpoint not set. Please configure in extension settings.";
                         console.error(errorMsg);
@@ -184,11 +241,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
                     translateTextApiCall(
                         pageHtml,
-                        apiKey,
-                        apiEndpoint,
-                        apiType,
+                        finalKey,
+                        finalEndpoint,
+                        finalType,
                         true,       // isFullPage
-                        modelName
+                        finalModel
                     )
                         .then((translatedHtml) => {
                             console.log(
@@ -239,75 +296,129 @@ async function translateElementText(textToTranslate, elementPath, tabId) {
     console.log(`Translating element text (length: ${textToTranslate.length}) for path: ${elementPath}`);
 
     return new Promise((resolve, reject) => {
-        chrome.storage.sync.get(["apiKey", "apiEndpoint", "apiType", "modelName"], (settings) => {
-            const {
-                apiKey = DEFAULT_SETTINGS.apiKey,
-                apiEndpoint = DEFAULT_SETTINGS.apiEndpoint,
-                apiType = DEFAULT_SETTINGS.apiType,
-                modelName = DEFAULT_SETTINGS.modelName
-            } = settings;
+        chrome.storage.sync.get(
+            ["apiKey", "apiEndpoint", "apiType", "modelName", "providerSettings"],
+            (settings) => {
+                const {
+                    apiKey,
+                    apiEndpoint,
+                    apiType,
+                    modelName,
+                    providerSettings = {},
+                } = settings;
 
-            if (!apiKey || !apiEndpoint) {
-                reject(new Error("API Key or Endpoint not set. Please configure in extension settings."));
-                return;
-            }
+                const activeProvider = (apiType && PROVIDERS.includes(apiType)) ? apiType : "openai";
+                const perProvider = providerSettings[activeProvider];
 
-            // Call the API for element translation
-            translateTextApiCall(textToTranslate, apiKey, apiEndpoint, apiType, false, modelName) // false = not full page
-                .then((translation) => {
-                    console.log("Element translation received:", translation);
-                    resolve(translation);
-                })
-                .catch((error) => {
-                    console.error("Element translation error:", error);
-                    reject(error);
-                });
-        });
+                const effective = perProvider
+                    ? {
+                        apiKey: perProvider.apiKey || "",
+                        apiEndpoint: perProvider.apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
+                        modelName: perProvider.modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
+                        apiType: activeProvider,
+                    }
+                    : {
+                        apiKey: apiKey || "",
+                        apiEndpoint: apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
+                        modelName: modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
+                        apiType: activeProvider,
+                    };
+
+                const {
+                    apiKey: finalKey,
+                    apiEndpoint: finalEndpoint,
+                    apiType: finalType,
+                    modelName: finalModel,
+                } = effective;
+
+                if (!finalKey || !finalEndpoint) {
+                    reject(new Error("API Key or Endpoint not set. Please configure in extension settings."));
+                    return;
+                }
+
+                // Call the API for element translation
+                translateTextApiCall(textToTranslate, finalKey, finalEndpoint, finalType, false, finalModel) // false = not full page
+                    .then((translation) => {
+                        console.log("Element translation received:", translation);
+                        resolve(translation);
+                    })
+                    .catch((error) => {
+                        console.error("Element translation error:", error);
+                        reject(error);
+                    });
+            });
     });
 }
 
 // --- Helper Function to Get Settings and Call API ---
 function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
     console.log("getSettingsAndTranslate called.", { textToTranslate, tabId, isFullPage });
-    chrome.storage.sync.get(["apiKey", "apiEndpoint", "apiType", "modelName"], (settings) => {
-        console.log("Settings retrieved from storage:", settings);
-        const {
-            apiKey = DEFAULT_SETTINGS.apiKey,
-            apiEndpoint = DEFAULT_SETTINGS.apiEndpoint,
-            apiType = DEFAULT_SETTINGS.apiType,
-            modelName = DEFAULT_SETTINGS.modelName
-        } = settings;
+    chrome.storage.sync.get(
+        ["apiKey", "apiEndpoint", "apiType", "modelName", "providerSettings"],
+        (settings) => {
+            console.log("Settings retrieved from storage:", settings);
+            const {
+                apiKey,
+                apiEndpoint,
+                apiType,
+                modelName,
+                providerSettings = {},
+            } = settings;
 
-        if (!apiKey || !apiEndpoint) {
-            const errorMsg =
-                "Translation Error: API Key or Endpoint not set. Please configure in extension settings.";
-            console.error(errorMsg);
-            // Send error back to content script to update the popup/indicator
-            notifyContentScript(tabId, errorMsg, isFullPage, true, false); // isError=true, isLoading=false
-            return;
-        }
+            const activeProvider = (apiType && PROVIDERS.includes(apiType)) ? apiType : "openai";
+            const perProvider = providerSettings[activeProvider];
 
-        console.log("Attempting to call translateTextApiCall.");
+            const effective = perProvider
+                ? {
+                    apiKey: perProvider.apiKey || "",
+                    apiEndpoint: perProvider.apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
+                    modelName: perProvider.modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
+                    apiType: activeProvider,
+                }
+                : {
+                    apiKey: apiKey || "",
+                    apiEndpoint: apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
+                    modelName: modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
+                    apiType: activeProvider,
+                };
 
-        // Call the API - the promise resolution/rejection will handle sending the final result
-        translateTextApiCall(textToTranslate, apiKey, apiEndpoint, apiType, isFullPage, modelName)
-            .then((translation) => {
-                console.log("Translation received (length):", translation.length);
-                // Send final translation result
-                notifyContentScript(tabId, translation, isFullPage, false, false); // isError=false, isLoading=false
-            })
-            .catch((error) => {
-                console.error("Translation error:", error);
-                // Send final error result
-                notifyContentScript(
-                    tabId,
-                    `Translation Error: ${error.message}`,
-                    isFullPage,
-                    true, // isError=true
-                    false, // isLoading=false
-                );
-            });
-    });
+            const {
+                apiKey: finalKey,
+                apiEndpoint: finalEndpoint,
+                apiType: finalType,
+                modelName: finalModel,
+            } = effective;
+
+            if (!finalKey || !finalEndpoint) {
+                const errorMsg =
+                    "Translation Error: API Key or Endpoint not set. Please configure in extension settings.";
+                console.error(errorMsg);
+                // Send error back to content script to update the popup/indicator
+                notifyContentScript(tabId, errorMsg, isFullPage, true, false); // isError=true, isLoading=false
+                return;
+            }
+
+            console.log("Attempting to call translateTextApiCall with resolved provider settings.");
+
+            // Call the API - the promise resolution/rejection will handle sending the final result
+            translateTextApiCall(textToTranslate, finalKey, finalEndpoint, finalType, isFullPage, finalModel)
+                .then((translation) => {
+                    console.log("Translation received (length):", translation.length);
+                    // Send final translation result
+                    notifyContentScript(tabId, translation, isFullPage, false, false); // isError=false, isLoading=false
+                })
+                .catch((error) => {
+                    console.error("Translation error:", error);
+                    // Send final error result
+                    notifyContentScript(
+                        tabId,
+                        `Translation Error: ${error.message}`,
+                        isFullPage,
+                        true, // isError=true
+                        false, // isLoading=false
+                    );
+                });
+        });
 }
 
 // --- Notify Content Script ---
@@ -370,10 +481,16 @@ async function translateTextApiCall(
     const systemPrompt =
         "You are a professional translator. Translate the provided text accurately to English.";
 
-    // Use modelName from parameter, fallback to default
-    const selectedModelName = modelName || DEFAULT_SETTINGS.modelName;
+    // Normalize provider name
+    const provider = (apiType && PROVIDERS.includes(apiType)) ? apiType : "openai";
 
-    switch (apiType) {
+    // Use modelName from parameter, fallback to provider defaults
+    const selectedModelName =
+        modelName ||
+        PROVIDER_DEFAULTS[provider]?.modelName ||
+        DEFAULT_SETTINGS.modelName;
+
+    switch (provider) {
         case "openai":
             headers["Authorization"] = `Bearer ${apiKey}`;
             requestBody = {
@@ -395,29 +512,56 @@ async function translateTextApiCall(
                 messages: [{ role: "user", content: prompt }],
             };
             break;
-        case "google":
+        case "google": {
             headers["x-goog-api-key"] = apiKey;
-            // Google API endpoint includes the version, the model name is part of the path
-            const googleApiUrl = `${apiEndpoint}/models/${selectedModelName || "gemini-2.5-flash"}:generateContent`;
+            const base = apiEndpoint || PROVIDER_DEFAULTS.google.apiEndpoint;
+            const googleApiUrl = `${base.replace(/\/+$/, "")}/models/${selectedModelName || "gemini-2.0-flash"}:generateContent`;
             requestBody = {
                 contents: [
                     {
                         parts: [
                             { text: systemPrompt },
-                            { text: prompt }
-                        ]
-                    }
+                            { text: prompt },
+                        ],
+                    },
                 ],
                 generationConfig: {
                     maxOutputTokens: isFullPage ? 65536 : 8000,
                 },
             };
             console.log("Google API Request Body:", JSON.stringify(requestBody));
-            // Use the constructed googleApiUrl for the fetch call
             apiEndpoint = googleApiUrl;
             break;
+        }
+        case "grok": {
+            // Grok (xAI) - OpenAI-compatible style
+            headers["Authorization"] = `Bearer ${apiKey}`;
+            requestBody = {
+                model: selectedModelName || PROVIDER_DEFAULTS.grok.modelName,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: prompt },
+                ],
+                max_tokens: isFullPage ? 3000 : 500,
+            };
+            break;
+        }
+        case "openrouter": {
+            headers["Authorization"] = `Bearer ${apiKey}`;
+            headers["HTTP-Referer"] = "https://github.com/"; // safe generic referer
+            headers["X-Title"] = "AI Translator Extension";
+            requestBody = {
+                model: selectedModelName || PROVIDER_DEFAULTS.openrouter.modelName,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: prompt },
+                ],
+                max_tokens: isFullPage ? 3000 : 500,
+            };
+            break;
+        }
         default:
-            throw new Error(`Unsupported API type configured: ${apiType}`);
+            throw new Error(`Unsupported API type configured: ${provider}`);
     }
 
     console.log(`Sending request to ${apiEndpoint} with body:`, requestBody);
@@ -450,18 +594,16 @@ async function translateTextApiCall(
         console.log("API Response Data Received Successfully:", data);
 
         let translation;
-        switch (apiType) {
+        switch (provider) {
             case "openai":
+            case "grok":
+            case "openrouter":
                 translation = data.choices?.[0]?.message?.content?.trim();
                 break;
             case "anthropic":
-                if (
-                    data.content &&
-                    Array.isArray(data.content) &&
-                    data.content.length > 0
-                ) {
+                if (Array.isArray(data.content) && data.content.length > 0) {
                     translation = data.content
-                        .map((block) => block.text)
+                        .map((block) => block.text || "")
                         .join("\n")
                         .trim();
                 }
@@ -478,7 +620,7 @@ async function translateTextApiCall(
                 break;
             default:
                 throw new Error(
-                    "Could not determine how to extract translation for this API type."
+                    "Could not determine how to extract translation for this provider."
                 );
         }
 

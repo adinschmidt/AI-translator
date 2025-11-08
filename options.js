@@ -6,24 +6,65 @@ const fillDefaultEndpointButton = document.getElementById("fill-default-endpoint
 const modelNameInput = document.getElementById("model-name");
 const fillDefaultModelButton = document.getElementById("fill-default-model");
 
-const DEFAULT_ENDPOINTS = {
-    openai: "https://api.openai.com/v1/chat/completions",
-    anthropic: "https://api.anthropic.com/v1/messages",
-    google: "https://generativelanguage.googleapis.com/v1beta",
+const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter"];
+
+// Per-provider defaults (used as initial values when a provider has no saved settings)
+const PROVIDER_DEFAULTS = {
+    openai: {
+        apiEndpoint: "https://api.openai.com/v1/chat/completions",
+        modelName: "gpt-4o-mini",
+    },
+    anthropic: {
+        apiEndpoint: "https://api.anthropic.com/v1/messages",
+        modelName: "claude-3-haiku-20240307",
+    },
+    google: {
+        apiEndpoint: "https://generativelanguage.googleapis.com/v1beta",
+        modelName: "gemini-2.0-flash",
+    },
+    grok: {
+        apiEndpoint: "https://api.x.ai/v1/chat/completions",
+        modelName: "grok-2-mini",
+    },
+    openrouter: {
+        apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
+        modelName: "openrouter/auto",
+    },
 };
 
-const DEFAULT_MODELS = {
-    openai: "gpt-5-nano",
-    anthropic: "claude-haiku-4-5-20251001",
-    google: "gemini-flash-lite-latest",
-};
+// In-memory cache of per-provider settings for the current options session.
+// Shape:
+// {
+//   [provider]: { apiKey, apiEndpoint, modelName }
+// }
+let providerSettings = {};
 
 let debounceTimer;
 
+function resolveProviderDefaults(provider) {
+    const defaults = PROVIDER_DEFAULTS[provider] || {};
+    return {
+        apiKey: "",
+        apiEndpoint: defaults.apiEndpoint || "",
+        modelName: defaults.modelName || "",
+        apiType: provider,
+    };
+}
+
+/**
+ * Load all provider-specific settings from storage.
+ * Storage schema (backwards compatible):
+ * - Legacy:
+ *   apiKey, apiEndpoint, apiType, modelName
+ * - New:
+ *   providerSettings = {
+ *     [provider]: { apiKey, apiEndpoint, modelName }
+ *   }
+ */
 function loadSettings() {
     console.log("options.js: Attempting to load settings...");
     chrome.storage.sync.get(
-        ["apiKey", "apiEndpoint", "apiType", "modelName"],
+        ["apiKey", "apiEndpoint", "apiType", "modelName", "providerSettings"],
         (result) => {
             if (chrome.runtime.lastError) {
                 console.error(
@@ -37,45 +78,83 @@ function loadSettings() {
                 return;
             }
 
-            console.log("options.js: Settings loaded from storage:", result);
-            if (result.apiKey) {
-                apiKeyInput.value = result.apiKey;
-            }
-            if (result.apiEndpoint) {
-                apiEndpointInput.value = result.apiEndpoint;
-            }
-            if (result.apiType) {
-                apiTypeSelect.value = result.apiType;
-            } else {
-                apiTypeSelect.value = "openai";
+            console.log("options.js: Raw settings loaded from storage:", result);
+
+            // Initialize from stored providerSettings or empty object
+            providerSettings = result.providerSettings || {};
+
+            // Backwards compatibility: if legacy flat settings exist, fold them
+            // into the selected provider (or default openai) once.
+            if (!result.providerSettings && (result.apiKey || result.apiEndpoint || result.modelName)) {
+                const legacyProvider = result.apiType || "openai";
+                providerSettings[legacyProvider] = {
+                    apiKey: result.apiKey || "",
+                    apiEndpoint: result.apiEndpoint || (PROVIDER_DEFAULTS[legacyProvider]?.apiEndpoint || ""),
+                    modelName: result.modelName || (PROVIDER_DEFAULTS[legacyProvider]?.modelName || ""),
+                };
+                console.log("options.js: Migrated legacy settings into providerSettings:", providerSettings);
+                // Persist migration (fire and forget)
+                chrome.storage.sync.set({ providerSettings });
             }
 
-            if (result.modelName) {
-                modelNameInput.value = result.modelName;
+            // Ensure every provider has an entry (with defaults) so switching is seamless
+            for (const provider of PROVIDERS) {
+                if (!providerSettings[provider]) {
+                    providerSettings[provider] = resolveProviderDefaults(provider);
+                } else {
+                    // Fill any missing fields from defaults for robustness
+                    const base = resolveProviderDefaults(provider);
+                    providerSettings[provider] = {
+                        apiKey: providerSettings[provider].apiKey || "",
+                        apiEndpoint: providerSettings[provider].apiEndpoint || base.apiEndpoint,
+                        modelName: providerSettings[provider].modelName || base.modelName,
+                    };
+                }
             }
+
+            // Determine initially selected provider (default to legacy apiType or openai)
+            const initialProvider = result.apiType && PROVIDERS.includes(result.apiType)
+                ? result.apiType
+                : "openai";
+
+            apiTypeSelect.value = initialProvider;
+            applyProviderToForm(initialProvider);
         },
     );
 }
 
+/**
+ * Apply given provider's settings into the form inputs.
+ * Called on initial load and whenever dropdown changes.
+ */
+function applyProviderToForm(provider) {
+    const settings = providerSettings[provider] || resolveProviderDefaults(provider);
+    console.log(`options.js: Applying settings for provider ${provider}:`, settings);
+
+    apiKeyInput.value = settings.apiKey || "";
+    apiEndpointInput.value = settings.apiEndpoint || "";
+    modelNameInput.value = settings.modelName || "";
+}
+
 function autoSaveSetting() {
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(saveSetting, 500);
+    debounceTimer = setTimeout(saveSetting, 300);
 }
 
 function saveSetting() {
-    console.log("options.js: autoSaveSetting function called.");
+    console.log("options.js: saveSetting function called.");
 
+    const currentProvider = apiTypeSelect.value;
     const apiKey = apiKeyInput.value.trim();
     const apiEndpoint = apiEndpointInput.value.trim();
-    const apiType = apiTypeSelect.value;
     const modelName = modelNameInput.value.trim();
 
     console.log(
-        `options.js: Values to save: apiKey=***, apiEndpoint=${apiEndpoint}, apiType=${apiType}, modelName=${modelName}`,
+        `options.js: Saving for provider=${currentProvider}: apiKey=***, apiEndpoint=${apiEndpoint}, modelName=${modelName}`,
     );
 
-    // Validate API endpoint if provided
-    if (apiEndpoint && apiKey) {
+    // Validate API endpoint if provided (allow custom base URLs)
+    if (apiEndpoint) {
         try {
             new URL(apiEndpoint);
         } catch (_) {
@@ -85,13 +164,22 @@ function saveSetting() {
         }
     }
 
-    console.log("options.js: Attempting to save settings to chrome.storage.sync...");
+    // Update in-memory provider-specific settings
+    if (!providerSettings[currentProvider]) {
+        providerSettings[currentProvider] = resolveProviderDefaults(currentProvider);
+    }
+    providerSettings[currentProvider] = {
+        apiKey,
+        apiEndpoint,
+        modelName,
+    };
+
+    // Persist providerSettings and currently selected provider (apiType)
+    console.log("options.js: Attempting to save providerSettings to chrome.storage.sync...");
     chrome.storage.sync.set(
         {
-            apiKey: apiKey,
-            apiEndpoint: apiEndpoint,
-            apiType: apiType,
-            modelName: modelName,
+            providerSettings,
+            apiType: currentProvider,
         },
         () => {
             if (chrome.runtime.lastError) {
@@ -101,7 +189,7 @@ function saveSetting() {
                 );
                 displayStatus(`Error saving: ${chrome.runtime.lastError.message}`, true);
             } else {
-                console.log("options.js: Settings saved successfully.");
+                console.log("options.js: Provider settings saved successfully.");
                 displayStatus("Settings saved!", false);
             }
         },
@@ -137,15 +225,41 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (apiTypeSelect) {
         apiTypeSelect.addEventListener("change", (event) => {
-            autoSaveSetting(event);
-
-            // Update model suggestions based on API type
             const selectedApiType = event.target.value;
-            const defaultModel = DEFAULT_MODELS[selectedApiType];
-            if (defaultModel && !modelNameInput.value) {
-                modelNameInput.value = defaultModel;
-                autoSaveSetting();
+            console.log("options.js: Provider changed to:", selectedApiType);
+
+            // When switching provider:
+            // 1. Ensure settings object exists for this provider (with defaults)
+            if (!providerSettings[selectedApiType]) {
+                providerSettings[selectedApiType] = resolveProviderDefaults(selectedApiType);
             }
+
+            // 2. Apply that provider's settings to the form
+            applyProviderToForm(selectedApiType);
+
+            // 3. Persist updated apiType and current providerSettings
+            console.log("options.js: Saving selection change to storage.");
+            chrome.storage.sync.set(
+                {
+                    providerSettings,
+                    apiType: selectedApiType,
+                },
+                () => {
+                    if (chrome.runtime.lastError) {
+                        console.error(
+                            "options.js: Error saving apiType on change:",
+                            chrome.runtime.lastError,
+                        );
+                        displayStatus(
+                            `Error saving provider selection: ${chrome.runtime.lastError.message}`,
+                            true,
+                        );
+                    } else {
+                        console.log("options.js: Provider selection saved.");
+                        displayStatus("Provider switched.", false);
+                    }
+                },
+            );
         });
         console.log("options.js: Change event listener added to api-type select.");
     }
@@ -157,19 +271,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (fillDefaultEndpointButton) {
         fillDefaultEndpointButton.addEventListener("click", () => {
-            console.log("options.js: Fill Default button clicked.");
+            console.log("options.js: Fill Default Endpoint button clicked.");
             const selectedApiType = apiTypeSelect.value;
-            const defaultEndpoint = DEFAULT_ENDPOINTS[selectedApiType];
+            const defaults = resolveProviderDefaults(selectedApiType);
 
-            if (defaultEndpoint) {
-                apiEndpointInput.value = defaultEndpoint;
+            if (defaults.apiEndpoint) {
+                apiEndpointInput.value = defaults.apiEndpoint;
                 console.log(
-                    `options.js: Filled endpoint with default for ${selectedApiType}: ${defaultEndpoint}`,
+                    `options.js: Filled endpoint with default for ${selectedApiType}: ${defaults.apiEndpoint}`,
                 );
                 autoSaveSetting();
             } else {
                 console.warn(
-                    `options.js: No default endpoint found for API type: ${selectedApiType}`,
+                    `options.js: No default endpoint found for provider: ${selectedApiType}`,
                 );
                 displayStatus(
                     `No default endpoint available for ${selectedApiType}.`,
@@ -177,7 +291,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 );
             }
         });
-        console.log("options.js: Click event listener added to fill default button.");
+        console.log("options.js: Click event listener added to fill default endpoint button.");
     } else {
         console.error("options.js: Could not find fill default endpoint button element!");
     }
@@ -186,17 +300,17 @@ document.addEventListener("DOMContentLoaded", () => {
         fillDefaultModelButton.addEventListener("click", () => {
             console.log("options.js: Fill Default Model button clicked.");
             const selectedApiType = apiTypeSelect.value;
-            const defaultModel = DEFAULT_MODELS[selectedApiType];
+            const defaults = resolveProviderDefaults(selectedApiType);
 
-            if (defaultModel) {
-                modelNameInput.value = defaultModel;
+            if (defaults.modelName) {
+                modelNameInput.value = defaults.modelName;
                 console.log(
-                    `options.js: Filled model name with default for ${selectedApiType}: ${defaultModel}`,
+                    `options.js: Filled model name with default for ${selectedApiType}: ${defaults.modelName}`,
                 );
                 autoSaveSetting();
             } else {
                 console.warn(
-                    `options.js: No default model found for API type: ${selectedApiType}`,
+                    `options.js: No default model found for provider: ${selectedApiType}`,
                 );
                 displayStatus(
                     `No default model available for ${selectedApiType}.`,
