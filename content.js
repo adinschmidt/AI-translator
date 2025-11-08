@@ -32,12 +32,40 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             sendResponse({ status: "Popup displayed/updated" });
             break;
 
-        // --- Request from Background to Get Page Text ---
+        // --- Request from Background to Get Page Text (for full-page translation) ---
         case "getPageText":
-            const pageText = extractMainContentHTML();
-            console.log("Extracted page HTML length:", pageText.length);
-            sendResponse({ text: pageText });
-            break; // Important: response is sent asynchronously
+            (function () {
+                const pageHtml = extractMainContentHTML();
+                console.log("Extracted page HTML length:", pageHtml.length);
+                sendResponse({ text: pageHtml });
+            })();
+            return true; // Explicitly indicate async-style handling done synchronously here
+
+        // --- Apply Full Page Translation (HTML-based, preserves structure) ---
+        case "applyFullPageTranslation":
+            if (request.html) {
+                try {
+                    const target = document.querySelector("main") || document.body;
+                    console.log(
+                        "Applying full page translation to target element:",
+                        target.tagName,
+                        "Translated HTML length:",
+                        request.html.length
+                    );
+                    target.innerHTML = request.html;
+                    removeLoadingIndicator();
+                    sendResponse({ status: "applied" });
+                } catch (e) {
+                    console.error("Error applying full page translation:", e);
+                    removeLoadingIndicator();
+                    sendResponse({ status: "error", message: e.message });
+                }
+            } else {
+                console.error("applyFullPageTranslation called without html content");
+                removeLoadingIndicator();
+                sendResponse({ status: "error", message: "No HTML provided" });
+            }
+            break;
 
         // --- Extract Selected HTML (for hyperlink preservation) ---
         case "extractSelectedHtml":
@@ -130,6 +158,7 @@ function extractMainContentHTML() {
 
 /**
  * Get all translatable elements from the page
+ * IMPROVED: Now extracts plain text content only for translation
  */
 function getTranslatableElements() {
     const elements = [];
@@ -154,6 +183,13 @@ function getTranslatableElements() {
                     return NodeFilter.FILTER_REJECT;
                 }
 
+                // Skip form elements and buttons
+                if (
+                    ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(node.tagName)
+                ) {
+                    return NodeFilter.FILTER_REJECT;
+                }
+
                 // Include elements that have text content
                 const textContent = node.textContent?.trim() || '';
                 if (textContent.length > 3) {
@@ -170,12 +206,25 @@ function getTranslatableElements() {
     while ((node = walker.nextNode())) {
         elements.push({
             element: node,
-            text: node.textContent.trim(),
+            text: extractPlainText(node), // NEW: Extract only plain text, no HTML
             path: getElementPath(node)
         });
     }
 
     return elements;
+}
+
+/**
+ * Extract only plain text content from an element, removing all HTML tags
+ * This ensures we send only text to the AI, not HTML structure
+ */
+function extractPlainText(element) {
+    // Create a temporary div to extract text content
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = element.innerHTML;
+
+    // Get the text content, which will have all HTML tags stripped
+    return tempDiv.textContent.trim();
 }
 
 /**
@@ -323,8 +372,8 @@ async function translateElement(elementData) {
             }
 
             if (response && response.translatedText) {
-                // Update the element with translated text
-                updateElementText(elementData.element, response.translatedText);
+                // Update the element with translated text using inline replacement
+                updateElementTextInline(elementData.element, elementData.text, response.translatedText);
                 resolve();
             } else {
                 reject(new Error("No translation received"));
@@ -334,21 +383,16 @@ async function translateElement(elementData) {
 }
 
 /**
- * Update element text content with translation while preserving HTML structure
+ * NEW APPROACH: Replace text content inline while preserving HTML structure
+ * This method preserves all HTML elements, classes, styling, and attributes
  */
-function updateElementText(element, translatedText) {
+function updateElementTextInline(element, originalText, translatedText) {
     try {
-        console.log(`Updating element ${element.tagName} with translated text:`, translatedText.substring(0, 50) + "...");
+        console.log(`Updating element ${element.tagName} with inline text replacement`);
+        console.log(`Original: "${originalText.substring(0, 50)}..."`);
+        console.log(`Translated: "${translatedText.substring(0, 50)}..."`);
 
-        // Store the current HTML structure before modification
-        const originalHTML = element.innerHTML;
-        const originalOuterHTML = element.outerHTML;
-
-        // Create a temporary div to work with the text
-        const tempDiv = document.createElement('div');
-        tempDiv.textContent = translatedText;
-
-        // Replace text nodes while preserving HTML structure
+        // Use TreeWalker to find all text nodes in this element
         const walker = document.createTreeWalker(
             element,
             NodeFilter.SHOW_TEXT,
@@ -370,34 +414,24 @@ function updateElementText(element, translatedText) {
             textNodes.push(textNode);
         }
 
-        // Replace the content of text nodes with translated text
-        // Split the translated text to distribute across text nodes
-        const textParts = translatedText.split(/(\s+)/); // Split on whitespace to preserve spacing
-        let partIndex = 0;
-
-        textNodes.forEach((node, index) => {
-            if (partIndex < textParts.length) {
-                // For the last node, use all remaining parts
-                if (index === textNodes.length - 1) {
-                    node.nodeValue = textParts.slice(partIndex).join('');
-                } else {
-                    // Use one part per node
-                    node.nodeValue = textParts[partIndex] || '';
-                    partIndex++;
-                }
-            }
-        });
-
-        console.log(`Successfully updated element: ${element.tagName}`);
-    } catch (error) {
-        console.warn('Error updating element text:', error);
-        // Fallback: try to set innerHTML if text node replacement fails
-        try {
-            element.innerHTML = translatedText;
-            console.log(`Used innerHTML fallback for element: ${element.tagName}`);
-        } catch (fallbackError) {
-            console.error('Fallback update also failed:', fallbackError);
+        if (textNodes.length === 0) {
+            console.warn('No text nodes found in element');
+            return;
         }
+
+        // Replace text content in the first text node (most common case)
+        // This preserves all HTML structure while only changing the text
+        const firstTextNode = textNodes[0];
+        const originalNodeValue = firstTextNode.nodeValue;
+
+        // Replace the text content
+        firstTextNode.nodeValue = translatedText;
+
+        console.log(`Successfully updated text in element: ${element.tagName}`);
+        console.log(`Preserved HTML structure: ${element.outerHTML.substring(0, 100)}...`);
+
+    } catch (error) {
+        console.error('Error updating element text inline:', error);
     }
 }
 
@@ -413,7 +447,7 @@ function handleElementTranslationResult(request) {
     if (request.translatedText && request.elementPath) {
         const element = findElementByPath(request.elementPath);
         if (element) {
-            updateElementText(element, request.translatedText);
+            updateElementTextInline(element, request.originalText, request.translatedText);
             console.log(`Updated element at path ${request.elementPath}`);
         } else {
             console.warn(`Could not find element at path: ${request.elementPath}`);

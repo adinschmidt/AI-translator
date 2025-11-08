@@ -14,11 +14,11 @@ chrome.runtime.onInstalled.addListener(() => {
         contexts: ["selection"],
     });
 
-    // Context menu for the whole page
+    // Context menu for the whole page (always visible, even if text is selected)
     chrome.contextMenus.create({
         id: "translateFullPage",
         title: "Translate Entire Page",
-        contexts: ["page"],
+        contexts: ["page", "selection"],
     });
 
     console.log("AI Translator context menus created.");
@@ -71,7 +71,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
         chrome.tabs.sendMessage(tabId, { action: "extractSelectedHtml" }, (response) => {
             if (chrome.runtime.lastError) {
                 console.error("Error getting selected HTML:", chrome.runtime.lastError.message);
-                notifyContentScript(tabId, "Could not extract selected content", true, false, false);
+                // Selected text translation error -> not full page, show error popup
+                notifyContentScript(tabId, "Could not extract selected content", false, true, false);
                 return;
             }
 
@@ -83,26 +84,152 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
                 getSettingsAndTranslate(response.html, tabId, false); // false = not full page
             } else {
                 console.error("No HTML content received from content script");
-                notifyContentScript(tabId, "Could not extract selected HTML", true, false, false);
+                // Selected text translation error -> not full page, show error popup
+                notifyContentScript(tabId, "Could not extract selected HTML", false, true, false);
             }
         });
     }
-    // Handle Full Page Translation (Manual Trigger) - Now uses element-based approach
+    // Handle Full Page Translation (Manual Trigger) - New HTML-based approach
     else if (info.menuItemId === "translateFullPage") {
         console.log("Action: Translate Full Page requested manually for tab:", tabId);
-        // Use the new element-based translation approach
-        chrome.tabs.sendMessage(tabId, {
-            action: "startElementTranslation",
-        }, (response) => {
+
+        // 1) Ask content script for main content HTML snapshot
+        chrome.tabs.sendMessage(tabId, { action: "getPageText" }, (response) => {
             if (chrome.runtime.lastError) {
                 console.error(
-                    "Error sending startElementTranslation message:",
-                    chrome.runtime.lastError.message,
+                    "Error getting page HTML for full page translation:",
+                    chrome.runtime.lastError.message
                 );
-                notifyContentScript(tabId, "Translation failed to start", true, true, false);
+                notifyContentScript(
+                    tabId,
+                    "Translation failed to start: could not read page content.",
+                    true, // isFullPage
+                    true, // isError
+                    false // isLoading
+                );
                 return;
             }
-            console.log("Element-based page translation started:", response);
+
+            if (!response || !response.text) {
+                console.error("No page HTML received from content script for full page translation.");
+                notifyContentScript(
+                    tabId,
+                    "Translation failed to start: empty page content.",
+                    true, // isFullPage
+                    true, // isError
+                    false // isLoading
+                );
+                return;
+            }
+
+            const pageHtml = response.text;
+            console.log("Received page HTML for full page translation, length:", pageHtml.length);
+
+            // 2) Show loading indicator on page (with initial progress)
+            chrome.tabs.sendMessage(
+                tabId,
+                {
+                    action: "showLoadingIndicator",
+                    isFullPage: true,
+                    text: "Translating page... 0% (starting)"
+                },
+                (indicatorResponse) => {
+                    if (chrome.runtime.lastError) {
+                        console.warn(
+                            "Could not show loading indicator:",
+                            chrome.runtime.lastError.message
+                        );
+                    } else {
+                        console.log("Loading indicator shown:", indicatorResponse);
+                    }
+                }
+            );
+
+            // 3) Call API with isFullPage = true using the HTML snapshot
+            chrome.storage.sync.get(
+                ["apiKey", "apiEndpoint", "apiType", "modelName"],
+                (settings) => {
+                    const {
+                        apiKey = DEFAULT_SETTINGS.apiKey,
+                        apiEndpoint = DEFAULT_SETTINGS.apiEndpoint,
+                        apiType = DEFAULT_SETTINGS.apiType,
+                        modelName = DEFAULT_SETTINGS.modelName
+                    } = settings;
+
+                    if (!apiKey || !apiEndpoint) {
+                        const errorMsg =
+                            "Translation Error: API Key or Endpoint not set. Please configure in extension settings.";
+                        console.error(errorMsg);
+                        notifyContentScript(
+                            tabId,
+                            errorMsg,
+                            true,  // isFullPage
+                            true,  // isError
+                            false  // isLoading
+                        );
+                        return;
+                    }
+
+                    // Optional: send a mid-translation progress hint (best-effort UX)
+                    try {
+                        const approxTokens = Math.round(pageHtml.length / 4);
+                        chrome.tabs.sendMessage(tabId, {
+                            action: "showLoadingIndicator",
+                            isFullPage: true,
+                            text: `Translating page... input size ~${approxTokens} tokens`
+                        }, () => { /* ignore errors */ });
+                    } catch (e) {
+                        console.warn("Could not send progress hint:", e);
+                    }
+
+                    translateTextApiCall(
+                        pageHtml,
+                        apiKey,
+                        apiEndpoint,
+                        apiType,
+                        true,       // isFullPage
+                        modelName
+                    )
+                        .then((translatedHtml) => {
+                            console.log(
+                                "Full page translation received, length:",
+                                translatedHtml.length
+                            );
+
+                            // 4) Send translated HTML back for in-place replacement
+                            chrome.tabs.sendMessage(tabId, {
+                                action: "applyFullPageTranslation",
+                                html: translatedHtml
+                            }, (applyResponse) => {
+                                if (chrome.runtime.lastError) {
+                                    console.error(
+                                        "Error applying full page translation:",
+                                        chrome.runtime.lastError.message
+                                    );
+                                    notifyContentScript(
+                                        tabId,
+                                        "Failed to apply translated content.",
+                                        true,  // isFullPage
+                                        true,  // isError
+                                        false  // isLoading
+                                    );
+                                    return;
+                                }
+                                console.log("Full page translation applied:", applyResponse);
+                            });
+                        })
+                        .catch((error) => {
+                            console.error("Full page translation error:", error);
+                            notifyContentScript(
+                                tabId,
+                                `Translation Error: ${error.message}`,
+                                true,  // isFullPage
+                                true,  // isError
+                                false  // isLoading
+                            );
+                        });
+                }
+            );
         });
     }
 });
