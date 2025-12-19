@@ -4,19 +4,19 @@ const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter"];
 const PROVIDER_DEFAULTS = {
     openai: {
         apiEndpoint: "https://api.openai.com/v1/chat/completions",
-        modelName: "gpt-4o-mini",
+        modelName: "gpt-5-mini",
     },
     anthropic: {
         apiEndpoint: "https://api.anthropic.com/v1/messages",
-        modelName: "claude-3-haiku-20240307",
+        modelName: "claude-haiku-4-5",
     },
     google: {
         apiEndpoint: "https://generativelanguage.googleapis.com/v1beta",
-        modelName: "gemini-2.0-flash",
+        modelName: "gemini-3-flash-preview",
     },
     grok: {
         apiEndpoint: "https://api.x.ai/v1/chat/completions",
-        modelName: "grok-2-mini",
+        modelName: "grok-3-mini",
     },
     openrouter: {
         apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
@@ -497,7 +497,7 @@ async function translateTextApiCall(
         case "openai":
             headers["Authorization"] = `Bearer ${apiKey}`;
             requestBody = {
-                model: selectedModelName || "gpt-3.5-turbo",
+                model: selectedModelName || "gpt-5-mini",
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: prompt },
@@ -510,7 +510,7 @@ async function translateTextApiCall(
             headers["x-api-key"] = apiKey;
             headers["anthropic-version"] = "2023-06-01";
             requestBody = {
-                model: selectedModelName || "claude-3-haiku-20240307",
+                model: selectedModelName || "claude-haiku-4-5",
                 max_tokens: isFullPage ? 4000 : 800,
                 system: systemPrompt,
                 messages: [{ role: "user", content: prompt }],
@@ -519,7 +519,7 @@ async function translateTextApiCall(
         case "google": {
             headers["x-goog-api-key"] = apiKey;
             const base = apiEndpoint || PROVIDER_DEFAULTS.google.apiEndpoint;
-            const googleApiUrl = `${base.replace(/\/+$/, "")}/models/${selectedModelName || "gemini-2.0-flash"}:generateContent`;
+            const googleApiUrl = `${base.replace(/\/+$/, "")}/models/${selectedModelName || "gemini-3-flash-preview"}:generateContent`;
             requestBody = {
                 contents: [
                     {

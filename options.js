@@ -12,19 +12,19 @@ const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter"];
 const PROVIDER_DEFAULTS = {
     openai: {
         apiEndpoint: "https://api.openai.com/v1/chat/completions",
-        modelName: "gpt-4o-mini",
+        modelName: "gpt-5-mini",
     },
     anthropic: {
         apiEndpoint: "https://api.anthropic.com/v1/messages",
-        modelName: "claude-3-haiku-20240307",
+        modelName: "claude-haiku-4-5",
     },
     google: {
         apiEndpoint: "https://generativelanguage.googleapis.com/v1beta",
-        modelName: "gemini-2.0-flash",
+        modelName: "gemini-3-flash-preview",
     },
     grok: {
         apiEndpoint: "https://api.x.ai/v1/chat/completions",
-        modelName: "grok-2-mini",
+        modelName: "grok-3-mini",
     },
     openrouter: {
         apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
