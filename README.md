@@ -31,7 +31,7 @@ A Chrome extension that leverages customizable AI models for superior text and p
 ## Screenshots
 
 ### AI vs. Traditional Translation
-AI-powered translation provides significantly more natural and contextually accurate results compared to traditional services.
+AI-powered translation provides more natural and contextually accurate results compared to traditional services.
 
 | Traditional (DeepL) | AI Translator |
 | :--- | :--- |
