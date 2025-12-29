@@ -1,4 +1,4 @@
-const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter"];
+const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter", "ollama"];
 
 // Per-provider defaults (for when no stored settings exist)
 const PROVIDER_DEFAULTS = {
@@ -21,6 +21,10 @@ const PROVIDER_DEFAULTS = {
     openrouter: {
         apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
         modelName: "openrouter/auto",
+    },
+    ollama: {
+        apiEndpoint: "http://localhost:11434",
+        modelName: "llama3.2",
     },
 };
 
@@ -219,7 +223,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
                         translationInstructions: finalInstructions,
                     } = effective;
 
-                    if (!finalKey || !finalEndpoint) {
+                    if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
                         const errorMsg =
                             "Translation Error: API Key or Endpoint not set. Please configure in extension settings.";
                         console.error(errorMsg);
@@ -341,7 +345,7 @@ async function translateElementText(textToTranslate, elementPath, tabId) {
                     translationInstructions: finalInstructions,
                 } = effective;
 
-                if (!finalKey || !finalEndpoint) {
+                if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
                     reject(new Error("API Key or Endpoint not set. Please configure in extension settings."));
                     return;
                 }
@@ -402,7 +406,7 @@ function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
                 translationInstructions: finalInstructions,
             } = effective;
 
-            if (!finalKey || !finalEndpoint) {
+            if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
                 const errorMsg =
                     "Translation Error: API Key or Endpoint not set. Please configure in extension settings.";
                 console.error(errorMsg);
@@ -594,6 +598,19 @@ Text to translate: ${textToTranslate}`;
             };
             break;
         }
+        case "ollama": {
+            // Ollama uses /api/generate endpoint - no auth needed for local
+            const ollamaBase = apiEndpoint || PROVIDER_DEFAULTS.ollama.apiEndpoint;
+            apiEndpoint = `${ollamaBase.replace(/\/+$/, "")}/api/generate`;
+
+            requestBody = {
+                model: selectedModelName || PROVIDER_DEFAULTS.ollama.modelName,
+                system: systemPrompt,
+                prompt: prompt,
+                stream: false,  // Get complete response, not streaming
+            };
+            break;
+        }
         default:
             throw new Error(`Unsupported API type configured: ${provider}`);
     }
@@ -656,6 +673,10 @@ Text to translate: ${textToTranslate}`;
                     }
                 }
                 translation = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+                break;
+            case "ollama":
+                // Ollama /api/generate returns { response: "..." }
+                translation = data.response?.trim();
                 break;
             default:
                 throw new Error(

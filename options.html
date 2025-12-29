@@ -61,9 +61,33 @@
                     <option value="google">Google Gemini</option>
                     <option value="grok">Grok (xAI)</option>
                     <option value="openrouter">OpenRouter</option>
+                    <option value="ollama">Ollama (Local)</option>
                 </select>
                 <p class="text-xs text-gray-500 mt-1">
                     Select the format your endpoint expects.
+                </p>
+            </div>
+
+            <!-- Ollama-specific settings -->
+            <div id="ollama-settings" class="mb-4 hidden">
+                <label for="ollama-model-select" class="block text-sm font-medium text-gray-700 mb-1">Model:</label>
+                <div class="flex space-x-2">
+                    <select id="ollama-model-select" name="ollama-model-select"
+                        class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                        <option value="">-- Select a model --</option>
+                    </select>
+                    <button type="button" id="refresh-ollama-models"
+                        class="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Refresh
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">
+                    Click Refresh to fetch available models from your Ollama instance.
+                </p>
+                <p class="text-xs text-amber-600 mt-2">
+                    <strong>Note:</strong> Ollama may need to be started with
+                    <code class="bg-gray-100 px-1 rounded">OLLAMA_ORIGINS="*" ollama serve</code>
+                    to allow requests from Chrome extensions.
                 </p>
             </div>
 

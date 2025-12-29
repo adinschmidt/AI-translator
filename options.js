@@ -8,10 +8,17 @@ const fillDefaultModelButton = document.getElementById("fill-default-model");
 const translationInstructionsInput = document.getElementById("translation-instructions");
 const fillDefaultInstructionsButton = document.getElementById("fill-default-instructions");
 
+// Ollama-specific elements
+const ollamaSettingsDiv = document.getElementById("ollama-settings");
+const ollamaModelSelect = document.getElementById("ollama-model-select");
+const refreshOllamaModelsButton = document.getElementById("refresh-ollama-models");
+const apiKeyContainer = document.getElementById("api-key")?.closest(".mb-4");
+const modelNameContainer = document.getElementById("model-name")?.closest(".mb-4");
+
 // Default translation instructions
 const DEFAULT_TRANSLATION_INSTRUCTIONS = "Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations.";
 
-const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter"];
+const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter", "ollama"];
 
 // Per-provider defaults (used as initial values when a provider has no saved settings)
 const PROVIDER_DEFAULTS = {
@@ -35,6 +42,10 @@ const PROVIDER_DEFAULTS = {
         apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
         modelName: "openrouter/auto",
     },
+    ollama: {
+        apiEndpoint: "http://localhost:11434",
+        modelName: "llama3.2",
+    },
 };
 
 // In-memory cache of per-provider settings for the current options session.
@@ -45,6 +56,90 @@ const PROVIDER_DEFAULTS = {
 let providerSettings = {};
 
 let debounceTimer;
+
+/**
+ * Fetch available models from the Ollama API.
+ * @param {string} baseUrl - The Ollama server base URL (e.g., http://localhost:11434)
+ * @returns {Promise<string[]>} Array of model names
+ */
+async function fetchOllamaModels(baseUrl) {
+    const url = `${baseUrl.replace(/\/+$/, "")}/api/tags`;
+    console.log("options.js: Fetching Ollama models from:", url);
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        const models = (data.models || []).map(m => m.name);
+        console.log("options.js: Fetched Ollama models:", models);
+        return models;
+    } catch (error) {
+        console.error("options.js: Error fetching Ollama models:", error);
+        throw error;
+    }
+}
+
+/**
+ * Populate the Ollama model dropdown with available models.
+ * @param {string[]} models - Array of model names
+ * @param {string} [selectedModel] - Currently selected model to preserve selection
+ */
+function populateOllamaModelDropdown(models, selectedModel = "") {
+    if (!ollamaModelSelect) return;
+
+    // Clear existing options except the placeholder
+    ollamaModelSelect.innerHTML = '<option value="">-- Select a model --</option>';
+
+    models.forEach(model => {
+        const option = document.createElement("option");
+        option.value = model;
+        option.textContent = model;
+        if (model === selectedModel) {
+            option.selected = true;
+        }
+        ollamaModelSelect.appendChild(option);
+    });
+}
+
+/**
+ * Update UI visibility based on selected provider.
+ * Shows/hides Ollama-specific elements and API key field as appropriate.
+ * @param {string} provider - The currently selected provider
+ */
+function updateProviderUI(provider) {
+    const isOllama = provider === "ollama";
+
+    // Show/hide Ollama-specific settings
+    if (ollamaSettingsDiv) {
+        ollamaSettingsDiv.classList.toggle("hidden", !isOllama);
+    }
+
+    // Show/hide standard model name input (hide for Ollama since we use dropdown)
+    if (modelNameContainer) {
+        modelNameContainer.classList.toggle("hidden", isOllama);
+    }
+
+    // Show/hide API key field (Ollama doesn't require it)
+    if (apiKeyContainer) {
+        apiKeyContainer.classList.toggle("hidden", isOllama);
+    }
+
+    // If switching to Ollama, try to fetch models
+    if (isOllama) {
+        const settings = providerSettings["ollama"] || resolveProviderDefaults("ollama");
+        const baseUrl = settings.apiEndpoint || PROVIDER_DEFAULTS.ollama.apiEndpoint;
+
+        fetchOllamaModels(baseUrl)
+            .then(models => {
+                populateOllamaModelDropdown(models, settings.modelName);
+            })
+            .catch(error => {
+                displayStatus(`Could not fetch Ollama models: ${error.message}`, true);
+            });
+    }
+}
 
 function resolveProviderDefaults(provider) {
     const defaults = PROVIDER_DEFAULTS[provider] || {};
@@ -143,6 +238,9 @@ function applyProviderToForm(provider) {
     if (translationInstructionsInput) {
         translationInstructionsInput.value = settings.translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS;
     }
+
+    // Update UI visibility based on provider (show/hide Ollama-specific fields)
+    updateProviderUI(provider);
 }
 
 function autoSaveSetting() {
@@ -351,6 +449,42 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("options.js: Click event listener added to fill default instructions button.");
     } else {
         console.error("options.js: Could not find fill default instructions button element!");
+    }
+
+    // Ollama-specific event listeners
+    if (ollamaModelSelect) {
+        ollamaModelSelect.addEventListener("change", (event) => {
+            const selectedModel = event.target.value;
+            console.log("options.js: Ollama model selected:", selectedModel);
+
+            if (selectedModel && providerSettings["ollama"]) {
+                providerSettings["ollama"].modelName = selectedModel;
+                // Also update the hidden modelNameInput so saving works correctly
+                modelNameInput.value = selectedModel;
+                autoSaveSetting();
+            }
+        });
+        console.log("options.js: Change event listener added to Ollama model select.");
+    }
+
+    if (refreshOllamaModelsButton) {
+        refreshOllamaModelsButton.addEventListener("click", async () => {
+            console.log("options.js: Refresh Ollama models button clicked.");
+
+            const settings = providerSettings["ollama"] || resolveProviderDefaults("ollama");
+            const baseUrl = apiEndpointInput.value.trim() || settings.apiEndpoint || PROVIDER_DEFAULTS.ollama.apiEndpoint;
+
+            displayStatus("Fetching models...", false);
+
+            try {
+                const models = await fetchOllamaModels(baseUrl);
+                populateOllamaModelDropdown(models, settings.modelName);
+                displayStatus(`Found ${models.length} model(s)`, false);
+            } catch (error) {
+                displayStatus(`Error: ${error.message}`, true);
+            }
+        });
+        console.log("options.js: Click event listener added to refresh Ollama models button.");
     }
 });
 

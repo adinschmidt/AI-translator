@@ -48,7 +48,6 @@ AI-powered translation provides more natural and contextually accurate results c
 - **Full-Page Translation**: Functional but experimental. Complex layouts may come out broken after text replacement. Large pages can occasionally hang during the DOM traversal phase.
 
 ### Upcoming Features (Roadmap)
-- [ ] **Ollama Support**: Investigating local LLM integration via `localhost` API calls (requires handling CORS/Permissions in Manifest V3).
 - [ ] **Batch Processing**: Using batch APIs where avaiable (e.g. Google) to save money.
 
 ## Tech Stack
