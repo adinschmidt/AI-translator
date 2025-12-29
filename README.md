@@ -36,7 +36,7 @@ AI-powered translation provides significantly more natural and contextually accu
 | Traditional (DeepL) | AI Translator |
 | :--- | :--- |
 | ![DeepL Translation](images/screenshot_deepl.png) | ![AI Selection Translation](images/screenshot_selection.png) |
-| *Literal, sometimes fragmented translation.* | *Fluent, context-aware, and superior coherence.* |
+
 
 ### Additional Previews
 ![Full Page Translation](images/screenshot_fullpage.png)
