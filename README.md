@@ -17,7 +17,7 @@ A Chrome extension that leverages customizable AI models for superior text and p
 
 ## Usage
 
-1. **Text Translation**: Select text on any webpage, right-click → "Translate with AI".
+1. **Text Translation**: Select text on any webpage, right-click → "Translate Selected Text".
 2. **Page Translation**: Right-click anywhere on the page → "Translate Page".
 3. **Configure**: Click the extension icon → *Options* to set up API keys, models, languages, etc.
 
