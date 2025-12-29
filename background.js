@@ -37,12 +37,15 @@ function resolveProviderDefaults(provider) {
 // DEFAULT_SETTINGS kept for internal fallback usage (e.g. non-migrated installs)
 const DEFAULT_SETTINGS = resolveProviderDefaults("openai");
 
+// Default translation instructions (can be overridden by user in settings)
+const DEFAULT_TRANSLATION_INSTRUCTIONS = "Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations.";
+
 // --- Context Menu Setup ---
 chrome.runtime.onInstalled.addListener(() => {
     // Context menu for selected text
     chrome.contextMenus.create({
         id: "translateSelectedText",
-        title: "Translate to English",
+        title: "Translate Selected Text",
         contexts: ["selection"],
     });
 
@@ -197,12 +200,14 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
                             apiKey: perProvider.apiKey || "",
                             apiEndpoint: perProvider.apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
                             modelName: perProvider.modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
+                            translationInstructions: perProvider.translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS,
                             apiType: activeProvider,
                         }
                         : {
                             apiKey: apiKey || "",
                             apiEndpoint: apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
                             modelName: modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
+                            translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
                             apiType: activeProvider,
                         };
 
@@ -211,6 +216,7 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
                         apiEndpoint: finalEndpoint,
                         apiType: finalType,
                         modelName: finalModel,
+                        translationInstructions: finalInstructions,
                     } = effective;
 
                     if (!finalKey || !finalEndpoint) {
@@ -245,7 +251,8 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
                         finalEndpoint,
                         finalType,
                         true,       // isFullPage
-                        finalModel
+                        finalModel,
+                        finalInstructions
                     )
                         .then((translatedHtml) => {
                             console.log(
@@ -315,12 +322,14 @@ async function translateElementText(textToTranslate, elementPath, tabId) {
                         apiKey: perProvider.apiKey || "",
                         apiEndpoint: perProvider.apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
                         modelName: perProvider.modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
+                        translationInstructions: perProvider.translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS,
                         apiType: activeProvider,
                     }
                     : {
                         apiKey: apiKey || "",
                         apiEndpoint: apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
                         modelName: modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
+                        translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
                         apiType: activeProvider,
                     };
 
@@ -329,6 +338,7 @@ async function translateElementText(textToTranslate, elementPath, tabId) {
                     apiEndpoint: finalEndpoint,
                     apiType: finalType,
                     modelName: finalModel,
+                    translationInstructions: finalInstructions,
                 } = effective;
 
                 if (!finalKey || !finalEndpoint) {
@@ -337,7 +347,7 @@ async function translateElementText(textToTranslate, elementPath, tabId) {
                 }
 
                 // Call the API for element translation
-                translateTextApiCall(textToTranslate, finalKey, finalEndpoint, finalType, false, finalModel) // false = not full page
+                translateTextApiCall(textToTranslate, finalKey, finalEndpoint, finalType, false, finalModel, finalInstructions) // false = not full page
                     .then((translation) => {
                         console.log("Element translation received:", translation);
                         resolve(translation);
@@ -373,12 +383,14 @@ function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
                     apiKey: perProvider.apiKey || "",
                     apiEndpoint: perProvider.apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
                     modelName: perProvider.modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
+                    translationInstructions: perProvider.translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS,
                     apiType: activeProvider,
                 }
                 : {
                     apiKey: apiKey || "",
                     apiEndpoint: apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
                     modelName: modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
+                    translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
                     apiType: activeProvider,
                 };
 
@@ -387,6 +399,7 @@ function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
                 apiEndpoint: finalEndpoint,
                 apiType: finalType,
                 modelName: finalModel,
+                translationInstructions: finalInstructions,
             } = effective;
 
             if (!finalKey || !finalEndpoint) {
@@ -401,7 +414,7 @@ function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
             console.log("Attempting to call translateTextApiCall with resolved provider settings.");
 
             // Call the API - the promise resolution/rejection will handle sending the final result
-            translateTextApiCall(textToTranslate, finalKey, finalEndpoint, finalType, isFullPage, finalModel)
+            translateTextApiCall(textToTranslate, finalKey, finalEndpoint, finalType, isFullPage, finalModel, finalInstructions)
                 .then((translation) => {
                     console.log("Translation received (length):", translation.length);
                     // Send final translation result
@@ -467,6 +480,7 @@ async function translateTextApiCall(
     apiType,
     isFullPage,
     modelName,
+    translationInstructions,
 ) {
     console.log(
         `Sending text to API (${apiType}) at ${apiEndpoint}. FullPage: ${isFullPage}. Text length: ${textToTranslate.length}`,
@@ -479,10 +493,20 @@ async function translateTextApiCall(
     let requestBody;
     let headers = { "Content-Type": "application/json" };
 
-    // Simpler prompt for element-based translation, but still preserve HTML
-    const prompt = `Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations. If this contains HTML, preserve the HTML structure and formatting. Text to translate: ${textToTranslate}`;
+    // Use custom instructions if provided, otherwise fall back to default
+    const userInstructions = translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS;
+
+    // Construct the prompt: user instructions + text to translate
+    const prompt = `${userInstructions}
+
+If this contains HTML, preserve the HTML structure and formatting.
+If this is already in the target language, do not translate it, instead repeat it back verbatim.
+
+Text to translate: ${textToTranslate}`;
+
+    // System prompt focuses only on professional translation
     const systemPrompt =
-        "You are a professional translator. Translate the provided text accurately to English.";
+        "You are a professional translator. Translate the provided text accurately. Preserve any HTML structure and formatting in your translation.";
 
     // Normalize provider name
     const provider = (apiType && PROVIDERS.includes(apiType)) ? apiType : "openai";

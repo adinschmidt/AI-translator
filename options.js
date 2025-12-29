@@ -5,6 +5,11 @@ const statusMessage = document.getElementById("status-message");
 const fillDefaultEndpointButton = document.getElementById("fill-default-endpoint");
 const modelNameInput = document.getElementById("model-name");
 const fillDefaultModelButton = document.getElementById("fill-default-model");
+const translationInstructionsInput = document.getElementById("translation-instructions");
+const fillDefaultInstructionsButton = document.getElementById("fill-default-instructions");
+
+// Default translation instructions
+const DEFAULT_TRANSLATION_INSTRUCTIONS = "Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations.";
 
 const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter"];
 
@@ -64,7 +69,7 @@ function resolveProviderDefaults(provider) {
 function loadSettings() {
     console.log("options.js: Attempting to load settings...");
     chrome.storage.sync.get(
-        ["apiKey", "apiEndpoint", "apiType", "modelName", "providerSettings"],
+        ["apiKey", "apiEndpoint", "apiType", "modelName", "providerSettings", "translationInstructions"],
         (result) => {
             if (chrome.runtime.lastError) {
                 console.error(
@@ -72,7 +77,7 @@ function loadSettings() {
                     chrome.runtime.lastError,
                 );
                 displayStatus(
-                    `Error loading settings: ${chrome.runtime.lastError.message}`,
+                    `Error loading settings: ${chrome.runtime.lastError.message} `,
                     true,
                 );
                 return;
@@ -108,6 +113,7 @@ function loadSettings() {
                         apiKey: providerSettings[provider].apiKey || "",
                         apiEndpoint: providerSettings[provider].apiEndpoint || base.apiEndpoint,
                         modelName: providerSettings[provider].modelName || base.modelName,
+                        translationInstructions: providerSettings[provider].translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS,
                     };
                 }
             }
@@ -129,11 +135,14 @@ function loadSettings() {
  */
 function applyProviderToForm(provider) {
     const settings = providerSettings[provider] || resolveProviderDefaults(provider);
-    console.log(`options.js: Applying settings for provider ${provider}:`, settings);
+    console.log(`options.js: Applying settings for provider ${provider}: `, settings);
 
     apiKeyInput.value = settings.apiKey || "";
     apiEndpointInput.value = settings.apiEndpoint || "";
     modelNameInput.value = settings.modelName || "";
+    if (translationInstructionsInput) {
+        translationInstructionsInput.value = settings.translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS;
+    }
 }
 
 function autoSaveSetting() {
@@ -148,9 +157,10 @@ function saveSetting() {
     const apiKey = apiKeyInput.value.trim();
     const apiEndpoint = apiEndpointInput.value.trim();
     const modelName = modelNameInput.value.trim();
+    const translationInstructions = translationInstructionsInput ? translationInstructionsInput.value.trim() : DEFAULT_TRANSLATION_INSTRUCTIONS;
 
     console.log(
-        `options.js: Saving for provider=${currentProvider}: apiKey=***, apiEndpoint=${apiEndpoint}, modelName=${modelName}`,
+        `options.js: Saving for provider = ${currentProvider}: apiKey =***, apiEndpoint = ${apiEndpoint}, modelName = ${modelName} `,
     );
 
     // Validate API endpoint if provided (allow custom base URLs)
@@ -172,6 +182,7 @@ function saveSetting() {
         apiKey,
         apiEndpoint,
         modelName,
+        translationInstructions,
     };
 
     // Persist providerSettings and currently selected provider (apiType)
@@ -187,7 +198,7 @@ function saveSetting() {
                     "options.js: Error saving settings:",
                     chrome.runtime.lastError,
                 );
-                displayStatus(`Error saving: ${chrome.runtime.lastError.message}`, true);
+                displayStatus(`Error saving: ${chrome.runtime.lastError.message} `, true);
             } else {
                 console.log("options.js: Provider settings saved successfully.");
                 displayStatus("Settings saved!", false);
@@ -251,7 +262,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             chrome.runtime.lastError,
                         );
                         displayStatus(
-                            `Error saving provider selection: ${chrome.runtime.lastError.message}`,
+                            `Error saving provider selection: ${chrome.runtime.lastError.message} `,
                             true,
                         );
                     } else {
@@ -278,12 +289,12 @@ document.addEventListener("DOMContentLoaded", () => {
             if (defaults.apiEndpoint) {
                 apiEndpointInput.value = defaults.apiEndpoint;
                 console.log(
-                    `options.js: Filled endpoint with default for ${selectedApiType}: ${defaults.apiEndpoint}`,
+                    `options.js: Filled endpoint with default for ${selectedApiType}: ${defaults.apiEndpoint} `,
                 );
                 autoSaveSetting();
             } else {
                 console.warn(
-                    `options.js: No default endpoint found for provider: ${selectedApiType}`,
+                    `options.js: No default endpoint found for provider: ${selectedApiType} `,
                 );
                 displayStatus(
                     `No default endpoint available for ${selectedApiType}.`,
@@ -305,12 +316,12 @@ document.addEventListener("DOMContentLoaded", () => {
             if (defaults.modelName) {
                 modelNameInput.value = defaults.modelName;
                 console.log(
-                    `options.js: Filled model name with default for ${selectedApiType}: ${defaults.modelName}`,
+                    `options.js: Filled model name with default for ${selectedApiType}: ${defaults.modelName} `,
                 );
                 autoSaveSetting();
             } else {
                 console.warn(
-                    `options.js: No default model found for provider: ${selectedApiType}`,
+                    `options.js: No default model found for provider: ${selectedApiType} `,
                 );
                 displayStatus(
                     `No default model available for ${selectedApiType}.`,
@@ -321,6 +332,25 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("options.js: Click event listener added to fill default model button.");
     } else {
         console.error("options.js: Could not find fill default model button element!");
+    }
+
+    if (translationInstructionsInput) {
+        translationInstructionsInput.addEventListener("input", autoSaveSetting);
+        console.log("options.js: Auto-save listener added to translation-instructions input.");
+    }
+
+    if (fillDefaultInstructionsButton) {
+        fillDefaultInstructionsButton.addEventListener("click", () => {
+            console.log("options.js: Fill Default Instructions button clicked.");
+            if (translationInstructionsInput) {
+                translationInstructionsInput.value = DEFAULT_TRANSLATION_INSTRUCTIONS;
+                console.log(`options.js: Filled translation instructions with default.`);
+                autoSaveSetting();
+            }
+        });
+        console.log("options.js: Click event listener added to fill default instructions button.");
+    } else {
+        console.error("options.js: Could not find fill default instructions button element!");
     }
 });
 
