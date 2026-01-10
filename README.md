@@ -8,6 +8,20 @@ A Chrome extension that leverages customizable AI models for superior text and p
 - Right-click to translate selected text or entire pages.
 - Fully customizable AI models and settings.
 
+## Screenshots
+
+### AI vs. Traditional Translation
+AI-powered translation provides more natural and contextually accurate results compared to traditional services.
+
+| Traditional (DeepL) | AI Translator |
+| :--- | :--- |
+| ![DeepL Translation](images/screenshot_deepl.png) | ![AI Selection Translation](images/screenshot_selection.png) |
+
+
+### Additional Previews
+![Full Page Translation](images/screenshot_fullpage.png)
+![Settings Page](images/screenshot_settings.png)
+
 ## Installation
 
 1. Download or clone this repository.
@@ -27,20 +41,6 @@ A Chrome extension that leverages customizable AI models for superior text and p
 - Set source and target languages.
 - Manage API keys securely.
 - Customize translation behavior.
-
-## Screenshots
-
-### AI vs. Traditional Translation
-AI-powered translation provides more natural and contextually accurate results compared to traditional services.
-
-| Traditional (DeepL) | AI Translator |
-| :--- | :--- |
-| ![DeepL Translation](images/screenshot_deepl.png) | ![AI Selection Translation](images/screenshot_selection.png) |
-
-
-### Additional Previews
-![Full Page Translation](images/screenshot_fullpage.png)
-![Settings Page](images/screenshot_settings.png)
 
 ## Roadmap & Current State
 
