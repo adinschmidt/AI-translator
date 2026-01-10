@@ -53,3 +53,7 @@ AI-powered translation provides more natural and contextually accurate results c
 - Content scripts for page interaction
 - Service worker for background API calls
 - Tailwind CSS for styling
+
+## Privacy
+
+We value your privacy. This extension operates client-side and does not collect your data. See our [Privacy Policy](PRIVACY.md) for full details.
