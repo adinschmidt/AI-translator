@@ -1,0 +1,102 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [master]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Extension
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create extension zip
+        run: |
+          mkdir -p dist
+          zip -r dist/translator-${{ steps.version.outputs.VERSION }}.zip \
+            manifest.json \
+            background.js \
+            content.js \
+            styles.css \
+            options.html \
+            options.js \
+            options.css \
+            tailwindcss.min.js \
+            images/icon16.png \
+            images/icon48.png \
+            images/icon128.png
+
+      - name: Build CRX
+        env:
+          CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+        run: |
+          if [ -z "$CRX_PRIVATE_KEY" ]; then
+            echo "No CRX_PRIVATE_KEY secret set, skipping CRX build"
+            exit 0
+          fi
+
+          # Install crx3 tool
+          npm install -g crx3
+
+          # Create extension directory
+          mkdir -p extension
+          cp manifest.json background.js content.js styles.css extension/
+          cp options.html options.js options.css tailwindcss.min.js extension/
+          mkdir -p extension/images
+          cp images/icon16.png images/icon48.png images/icon128.png extension/images/
+
+          # Write private key
+          echo "$CRX_PRIVATE_KEY" > key.pem
+
+          # Build crx
+          crx3 pack extension -o dist/translator-${{ steps.version.outputs.VERSION }}.crx -p key.pem
+
+          # Clean up key
+          rm key.pem
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-build
+          path: dist/
+          if-no-files-found: error
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: extension-build
+          path: dist
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
