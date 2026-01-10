@@ -47,9 +47,6 @@ AI-powered translation provides more natural and contextually accurate results c
 ### Current Caveats
 - **Full-Page Translation**: Functional but experimental. Complex layouts may come out broken after text replacement. Large pages can occasionally hang during the DOM traversal phase.
 
-### Upcoming Features (Roadmap)
-- [ ] **Batch Processing**: Using batch APIs where avaiable (e.g. Google) to save money.
-
 ## Tech Stack
 
 - Manifest V3
