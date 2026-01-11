@@ -56,4 +56,11 @@ AI-powered translation provides more natural and contextually accurate results c
 
 ## Privacy
 
-We value your privacy. This extension operates client-side and does not collect your data. See our [Privacy Policy](PRIVACY.md) for full details.
+We value your privacy. This extension operates client-side and does not collect your data.
+
+**Permissions:**
+- `activeTab`: Used to access the content of the current tab only when you explicitly interact with the extension (e.g., clicking a context menu item). This replaces the broad `<all_urls>` permission, ensuring the extension only runs when you want it to.
+- `storage`: Used to save your settings locally.
+- `scripting`: Used to inject translation scripts into the page when requested.
+
+See our [Privacy Policy](PRIVACY.md) for full details.

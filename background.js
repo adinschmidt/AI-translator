@@ -94,14 +94,40 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Handle other messages if necessary in the future
 });
 
+// --- Helper Function to Ensure Content Script is Injected ---
+async function ensureContentScriptInjected(tabId) {
+    try {
+        await chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            files: ["content.js"]
+        });
+        await chrome.scripting.insertCSS({
+            target: { tabId: tabId },
+            files: ["styles.css"]
+        });
+        console.log(`Content script and CSS injected into tab ${tabId}`);
+    } catch (error) {
+        console.error(`Failed to inject content script into tab ${tabId}:`, error);
+        throw error;
+    }
+}
+
 // --- Context Menu Click Handler ---
-chrome.contextMenus.onClicked.addListener((info, tab) => {
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     console.log("Context menu item clicked.", info, tab);
     if (!tab || !tab.id) {
         console.error("Cannot get tab ID.");
         return;
     }
     const tabId = tab.id;
+
+    // Ensure content script is injected before sending messages
+    try {
+        await ensureContentScriptInjected(tabId);
+    } catch (error) {
+        console.error("Could not inject content script. Aborting operation.", error);
+        return;
+    }
 
     // Handle Selected Text Translation
     if (info.menuItemId === "translateSelectedText" && info.selectionText) {
