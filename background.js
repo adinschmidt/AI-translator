@@ -1,4 +1,4 @@
-const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter", "ollama"];
+const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter", "deepseek", "mistral", "qwen", "ollama"];
 
 // Per-provider defaults (for when no stored settings exist)
 const PROVIDER_DEFAULTS = {
@@ -21,6 +21,18 @@ const PROVIDER_DEFAULTS = {
     openrouter: {
         apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
         modelName: "openrouter/auto",
+    },
+    deepseek: {
+        apiEndpoint: "https://api.deepseek.com/v1/chat/completions",
+        modelName: "deepseek-chat",
+    },
+    mistral: {
+        apiEndpoint: "https://api.mistral.ai/v1/chat/completions",
+        modelName: "mistral-small-latest",
+    },
+    qwen: {
+        apiEndpoint: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+        modelName: "qwen-turbo",
     },
     ollama: {
         apiEndpoint: "http://localhost:11434",
@@ -624,6 +636,45 @@ Text to translate: ${textToTranslate}`;
             };
             break;
         }
+        case "deepseek": {
+            // DeepSeek - OpenAI-compatible
+            headers["Authorization"] = `Bearer ${apiKey}`;
+            requestBody = {
+                model: selectedModelName || PROVIDER_DEFAULTS.deepseek.modelName,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: prompt },
+                ],
+                max_tokens: isFullPage ? 4000 : 800,
+            };
+            break;
+        }
+        case "mistral": {
+            // Mistral AI - OpenAI-compatible
+            headers["Authorization"] = `Bearer ${apiKey}`;
+            requestBody = {
+                model: selectedModelName || PROVIDER_DEFAULTS.mistral.modelName,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: prompt },
+                ],
+                max_tokens: isFullPage ? 4000 : 800,
+            };
+            break;
+        }
+        case "qwen": {
+            // Qwen (Alibaba DashScope) - OpenAI-compatible via compatible-mode endpoint
+            headers["Authorization"] = `Bearer ${apiKey}`;
+            requestBody = {
+                model: selectedModelName || PROVIDER_DEFAULTS.qwen.modelName,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: prompt },
+                ],
+                max_tokens: isFullPage ? 4000 : 800,
+            };
+            break;
+        }
         case "ollama": {
             // Ollama uses /api/generate endpoint - no auth needed for local
             const ollamaBase = apiEndpoint || PROVIDER_DEFAULTS.ollama.apiEndpoint;
@@ -680,6 +731,9 @@ Text to translate: ${textToTranslate}`;
             case "openai":
             case "grok":
             case "openrouter":
+            case "deepseek":
+            case "mistral":
+            case "qwen":
                 translation = data.choices?.[0]?.message?.content?.trim();
                 break;
             case "anthropic":

@@ -18,7 +18,7 @@ const modelNameContainer = document.getElementById("model-name")?.closest(".mb-4
 // Default translation instructions
 const DEFAULT_TRANSLATION_INSTRUCTIONS = "Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations.";
 
-const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter", "ollama"];
+const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter", "deepseek", "mistral", "qwen", "ollama"];
 
 // Per-provider defaults (used as initial values when a provider has no saved settings)
 const PROVIDER_DEFAULTS = {
@@ -41,6 +41,18 @@ const PROVIDER_DEFAULTS = {
     openrouter: {
         apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
         modelName: "openrouter/auto",
+    },
+    deepseek: {
+        apiEndpoint: "https://api.deepseek.com/v1/chat/completions",
+        modelName: "deepseek-chat",
+    },
+    mistral: {
+        apiEndpoint: "https://api.mistral.ai/v1/chat/completions",
+        modelName: "mistral-small-latest",
+    },
+    qwen: {
+        apiEndpoint: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+        modelName: "qwen-turbo",
     },
     ollama: {
         apiEndpoint: "http://localhost:11434",
