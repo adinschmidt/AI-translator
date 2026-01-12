@@ -27,10 +27,10 @@ jobs:
             echo "VERSION=dev" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create extension zip
+      - name: Create Chrome extension zip
         run: |
           mkdir -p dist
-          zip -r dist/translator-${{ steps.version.outputs.VERSION }}.zip \
+          zip -r dist/translator-${{ steps.version.outputs.VERSION }}-chrome.zip \
             manifest.json \
             background.js \
             content.js \
@@ -42,6 +42,18 @@ jobs:
             images/icon16.png \
             images/icon48.png \
             images/icon128.png
+
+      - name: Create Firefox extension zip
+        run: |
+          mkdir -p firefox-build
+          cp manifest.firefox.json firefox-build/manifest.json
+          cp background.js content.js styles.css firefox-build/
+          cp options.html options.js options.css tailwindcss.min.js firefox-build/
+          mkdir -p firefox-build/images
+          cp images/icon16.png images/icon48.png images/icon128.png firefox-build/images/
+          cd firefox-build
+          zip -r ../dist/translator-${{ steps.version.outputs.VERSION }}-firefox.zip .
+          cd ..
 
       - name: Build CRX
         env:
@@ -66,7 +78,7 @@ jobs:
           echo "$CRX_PRIVATE_KEY" > key.pem
 
           # Build crx
-          crx3 pack extension -o dist/translator-${{ steps.version.outputs.VERSION }}.crx -p key.pem
+          crx3 pack extension -o dist/translator-${{ steps.version.outputs.VERSION }}-chrome.crx -p key.pem
 
           # Clean up key
           rm key.pem
