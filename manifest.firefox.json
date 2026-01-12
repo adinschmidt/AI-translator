@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "AI Translator",
-    "version": "v0.2.0",
+    "version": "0.2.0",
     "description": "Translate text and pages using customizable AI models.",
     "permissions": ["contextMenus", "scripting", "storage", "activeTab"],
     "host_permissions": [],
@@ -28,7 +28,10 @@
     "browser_specific_settings": {
         "gecko": {
             "id": "ai-translator@adin.dev",
-            "strict_min_version": "109.0"
+            "strict_min_version": "109.0",
+            "data_collection_permissions": {
+                "required": false
+            }
         }
     }
 }
