@@ -6,7 +6,7 @@
     "permissions": ["contextMenus", "scripting", "storage", "activeTab"],
     "host_permissions": [],
     "background": {
-        "service_worker": "background.js"
+        "scripts": ["background.js"]
     },
     "options_page": "options.html",
     "action": {
@@ -23,7 +23,12 @@
         "128": "images/icon128.png"
     },
     "content_security_policy": {
-        "extension_pages": "script-src 'self'; object-src 'self';",
-        "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals; script-src 'self' 'unsafe-inline' 'unsafe-eval'; child-src 'self';"
+        "extension_pages": "script-src 'self'; object-src 'self';"
+    },
+    "browser_specific_settings": {
+        "gecko": {
+            "id": "ai-translator@adin.dev",
+            "strict_min_version": "109.0"
+        }
     }
 }
