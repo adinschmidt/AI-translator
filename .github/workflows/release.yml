@@ -18,43 +18,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get version from tag
-        id: version
-        run: |
-          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          else
-            echo "VERSION=dev" >> $GITHUB_OUTPUT
-          fi
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
-      - name: Create Chrome extension zip
-        run: |
-          mkdir -p dist
-          zip -r dist/translator-${{ steps.version.outputs.VERSION }}-chrome.zip \
-            manifest.json \
-            background.js \
-            content.js \
-            purify.min.js \
-            styles.css \
-            options.html \
-            options.js \
-            options.css \
-            tailwindcss.min.js \
-            images/icon16.png \
-            images/icon48.png \
-            images/icon128.png
-
-      - name: Create Firefox extension zip
-        run: |
-          mkdir -p firefox-build
-          cp manifest.firefox.json firefox-build/manifest.json
-          cp background.js content.js purify.min.js styles.css firefox-build/
-          cp options.html options.js options.css tailwindcss.min.js firefox-build/
-          mkdir -p firefox-build/images
-          cp images/icon16.png images/icon48.png images/icon128.png firefox-build/images/
-          cd firefox-build
-          zip -r ../dist/translator-${{ steps.version.outputs.VERSION }}-firefox.zip .
-          cd ..
+      - name: Build extensions
+        run: bun run build.ts --zip
 
       - name: Build CRX
         env:
@@ -68,18 +36,14 @@ jobs:
           # Install crx3 tool
           npm install -g crx3
 
-          # Create extension directory
-          mkdir -p extension
-          cp manifest.json background.js content.js purify.min.js styles.css extension/
-          cp options.html options.js options.css tailwindcss.min.js extension/
-          mkdir -p extension/images
-          cp images/icon16.png images/icon48.png images/icon128.png extension/images/
+          # Get version from manifest
+          VERSION=$(jq -r .version manifest.json)
 
           # Write private key
           echo "$CRX_PRIVATE_KEY" > key.pem
 
-          # Build crx
-          crx3 pack extension -o dist/translator-${{ steps.version.outputs.VERSION }}-chrome.crx -p key.pem
+          # Build crx from the already-built Chrome extension
+          crx3 pack dist/chrome -o dist/translator-${VERSION}-chrome.crx -p key.pem
 
           # Clean up key
           rm key.pem
