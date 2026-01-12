@@ -34,6 +34,7 @@ jobs:
             manifest.json \
             background.js \
             content.js \
+            purify.min.js \
             styles.css \
             options.html \
             options.js \
@@ -47,7 +48,7 @@ jobs:
         run: |
           mkdir -p firefox-build
           cp manifest.firefox.json firefox-build/manifest.json
-          cp background.js content.js styles.css firefox-build/
+          cp background.js content.js purify.min.js styles.css firefox-build/
           cp options.html options.js options.css tailwindcss.min.js firefox-build/
           mkdir -p firefox-build/images
           cp images/icon16.png images/icon48.png images/icon128.png firefox-build/images/
@@ -69,7 +70,7 @@ jobs:
 
           # Create extension directory
           mkdir -p extension
-          cp manifest.json background.js content.js styles.css extension/
+          cp manifest.json background.js content.js purify.min.js styles.css extension/
           cp options.html options.js options.css tailwindcss.min.js extension/
           mkdir -p extension/images
           cp images/icon16.png images/icon48.png images/icon128.png extension/images/

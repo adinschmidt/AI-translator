@@ -58,7 +58,7 @@ if (window.hasRun) {
                             "Translated HTML length:",
                             request.html.length
                         );
-                        target.innerHTML = request.html;
+                        target.innerHTML = DOMPurify.sanitize(request.html);
                         removeLoadingIndicator();
                         sendResponse({ status: "applied" });
                     } catch (e) {
@@ -225,12 +225,8 @@ if (window.hasRun) {
      * This ensures we send only text to the AI, not HTML structure
      */
     function extractPlainText(element) {
-        // Create a temporary div to extract text content
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = element.innerHTML;
-
-        // Get the text content, which will have all HTML tags stripped
-        return tempDiv.textContent.trim();
+        // Get the text content directly - this strips all HTML tags
+        return element.textContent.trim();
     }
 
     /**
@@ -511,10 +507,18 @@ if (window.hasRun) {
 
         loadingIndicator = document.createElement("div");
         loadingIndicator.id = "translation-loading-indicator";
-        loadingIndicator.innerHTML = `
-            <span class="progress-text">${message}</span>
-            <button class="stop-button">Stop</button>
-        `;
+
+        // Build UI with DOM methods to avoid innerHTML security warnings
+        const progressText = document.createElement("span");
+        progressText.className = "progress-text";
+        progressText.textContent = message;
+
+        const stopButton = document.createElement("button");
+        stopButton.className = "stop-button";
+        stopButton.textContent = "Stop";
+
+        loadingIndicator.appendChild(progressText);
+        loadingIndicator.appendChild(stopButton);
 
         // Basic Styling
         loadingIndicator.style.position = "fixed";
@@ -570,8 +574,8 @@ if (window.hasRun) {
         if (existingPopup && !isLoading) {
             console.log("Updating existing popup content.");
             existingPopup.innerHTML = "";
-            // Use innerHTML instead of textContent to preserve formatting
-            existingPopup.innerHTML = content;
+            // Use DOMPurify to sanitize HTML content while preserving formatting
+            existingPopup.innerHTML = DOMPurify.sanitize(content);
             existingPopup.style.backgroundColor = isError ? "#fff0f0" : "white";
             existingPopup.style.border = `1px solid ${isError ? "#f00" : "#ccc"}`;
             existingPopup.style.color = isError ? "#a00" : "#333";
@@ -666,21 +670,33 @@ if (window.hasRun) {
             existingPopup.style.backgroundColor = "#f0f0f0"; // Loading background
             existingPopup.style.border = "3px solid orange"; // Loading border
             existingPopup.style.color = "#555";
-            // Add a simple spinner or text
-            existingPopup.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 30px;">
-                <div class="spinner" style="border: 3px solid #f3f3f3; border-top: 3px solid #555; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite;"></div>
-                <span style="margin-left: 8px;">Translating...</span>
-            </div>
-            <style>
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            </style>`;
+            // Build spinner with DOM methods to avoid innerHTML security warnings
+            const spinnerContainer = document.createElement("div");
+            spinnerContainer.style.cssText = "display: flex; align-items: center; justify-content: center; height: 30px;";
+
+            const spinner = document.createElement("div");
+            spinner.className = "spinner";
+            spinner.style.cssText = "border: 3px solid #f3f3f3; border-top: 3px solid #555; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite;";
+
+            const spinnerText = document.createElement("span");
+            spinnerText.style.marginLeft = "8px";
+            spinnerText.textContent = "Translating...";
+
+            spinnerContainer.appendChild(spinner);
+            spinnerContainer.appendChild(spinnerText);
+            existingPopup.appendChild(spinnerContainer);
+
+            // Add keyframes style if not already present
+            if (!document.getElementById("translation-spinner-style")) {
+                const style = document.createElement("style");
+                style.id = "translation-spinner-style";
+                style.textContent = "@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
+                document.head.appendChild(style);
+            }
         } else {
             console.log("Setting final content:", content);
-            // Use innerHTML to preserve formatting
-            existingPopup.innerHTML = content;
+            // Use DOMPurify to sanitize HTML content while preserving formatting
+            existingPopup.innerHTML = DOMPurify.sanitize(content);
             // Apply final forceful styles (adjusting for error state)
             existingPopup.style.backgroundColor = isError ? "#ffdddd" : "yellow"; // Error/Success background
             existingPopup.style.border = `3px solid ${isError ? "red" : "green"}`; // Error/Success border
