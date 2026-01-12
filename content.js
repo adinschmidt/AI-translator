@@ -536,7 +536,6 @@ if (window.hasRun) {
         loadingIndicator.style.gap = "10px";
 
         // Style the stop button
-        const stopButton = loadingIndicator.querySelector('.stop-button');
         stopButton.style.backgroundColor = "#ff4444";
         stopButton.style.color = "white";
         stopButton.style.border = "none";

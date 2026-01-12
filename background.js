@@ -109,19 +109,17 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // --- Helper Function to Ensure Content Script is Injected ---
 async function ensureContentScriptInjected(tabId) {
     try {
-        // Inject DOMPurify first for HTML sanitization
+        // Inject DOMPurify and content script together
         await chrome.scripting.executeScript({
             target: { tabId: tabId },
-            files: ["purify.min.js"]
-        });
-        await chrome.scripting.executeScript({
-            target: { tabId: tabId },
-            files: ["content.js"]
+            files: ["purify.min.js", "content.js"]
         });
         await chrome.scripting.insertCSS({
             target: { tabId: tabId },
             files: ["styles.css"]
         });
+        // Small delay to ensure message listener is ready
+        await new Promise(resolve => setTimeout(resolve, 100));
         console.log(`DOMPurify, content script, and CSS injected into tab ${tabId}`);
     } catch (error) {
         console.error(`Failed to inject content script into tab ${tabId}:`, error);
