@@ -2,6 +2,10 @@
 
 A browser extension that leverages customizable AI models for superior text and page translations.
 
+<a href="https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba">
+  <img src="https://img.shields.io/badge/Chrome_Web_Store-Available-4285F4?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Available in the Chrome Web Store">
+</a>
+
 ## Why AI Translator?
 
 - **More Coherent Output**: AI translation delivers natural, context-aware results that surpass traditional Machine Translation (MTL) in coherence and fluency.
