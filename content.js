@@ -11,7 +11,7 @@ if (window.hasRun) {
     // Track mouse position
     window.lastMouseX = 0;
     window.lastMouseY = 0;
-    document.addEventListener('mousemove', function (e) {
+    document.addEventListener("mousemove", function (e) {
         window.lastMouseX = e.clientX;
         window.lastMouseY = e.clientY;
     });
@@ -21,6 +21,12 @@ if (window.hasRun) {
     let originalBodyContent = null; // Store original content for potential revert (basic)
     let isTranslated = false; // Track if the page is currently translated
     let stopTranslationFlag = false; // Flag to stop translation process
+
+    const SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY = "showTranslateButtonOnSelection";
+    let showTranslateButtonOnSelectionEnabled = true;
+    let selectionTranslateButton = null;
+    let selectionTranslateInProgress = false;
+    let selectionListenerCleanup = null;
 
     // --- Message Listener (Handles multiple actions) ---
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -32,6 +38,8 @@ if (window.hasRun) {
                 // If it's the final result (not loading), remove any separate loading indicator
                 if (!request.isLoading) {
                     removeLoadingIndicator();
+                    selectionTranslateInProgress = false;
+                    hideSelectionTranslateButton();
                 }
                 // Call displayPopup, passing the loading state and error status
                 displayPopup(request.text, request.isError, request.isLoading);
@@ -56,7 +64,7 @@ if (window.hasRun) {
                             "Applying full page translation to target element:",
                             target.tagName,
                             "Translated HTML length:",
-                            request.html.length
+                            request.html.length,
                         );
                         setSanitizedContent(target, request.html);
                         removeLoadingIndicator();
@@ -109,7 +117,9 @@ if (window.hasRun) {
                     displayLoadingIndicator("Translating page...");
                 } else {
                     // For selected text, the popup itself shows loading state
-                    console.log("Loading indicator request ignored for selected text (popup handles it).");
+                    console.log(
+                        "Loading indicator request ignored for selected text (popup handles it).",
+                    );
                 }
                 sendResponse({ status: "received" });
                 break;
@@ -125,6 +135,263 @@ if (window.hasRun) {
         return request.action === "getPageText";
     });
 
+    chrome.storage.sync.get([SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY], (result) => {
+        if (chrome.runtime.lastError) {
+            console.warn(
+                "Error reading selection button setting:",
+                chrome.runtime.lastError.message,
+            );
+            showTranslateButtonOnSelectionEnabled = true;
+        } else {
+            const stored = result?.[SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY];
+            showTranslateButtonOnSelectionEnabled =
+                typeof stored === "boolean" ? stored : true;
+        }
+
+        updateSelectionTranslateButtonState();
+    });
+
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName !== "sync") {
+            return;
+        }
+        if (!changes[SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY]) {
+            return;
+        }
+        const nextValue = changes[SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY].newValue;
+        showTranslateButtonOnSelectionEnabled =
+            typeof nextValue === "boolean" ? nextValue : true;
+        updateSelectionTranslateButtonState();
+    });
+
+    function updateSelectionTranslateButtonState() {
+        if (showTranslateButtonOnSelectionEnabled) {
+            ensureSelectionTranslateButton();
+            attachSelectionTranslateListeners();
+        } else {
+            detachSelectionTranslateListeners();
+            hideSelectionTranslateButton();
+        }
+    }
+
+    function ensureSelectionTranslateButton() {
+        if (selectionTranslateButton) {
+            return;
+        }
+
+        selectionTranslateButton = document.createElement("button");
+        selectionTranslateButton.id = "ai-translator-selection-translate-button";
+        selectionTranslateButton.type = "button";
+        selectionTranslateButton.setAttribute("aria-label", "Translate selection");
+
+        const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        icon.setAttribute("viewBox", "0 0 24 24");
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute(
+            "d",
+            "M12.87 15.07l-2.54-2.51.03-.03a17.52 17.52 0 003.5-6.53H17V4h-7V2H8v2H1v2h11.17A15.65 15.65 0 019 11.35 15.65 15.65 0 017.33 8H5.26A17.52 17.52 0 008.1 12.5L3 17.57 4.42 19 9.5 13.92l3.11 3.1 0.26-1.95zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z",
+        );
+
+        icon.appendChild(path);
+
+        const label = document.createElement("span");
+        label.textContent = "Translate";
+
+        selectionTranslateButton.appendChild(icon);
+        selectionTranslateButton.appendChild(label);
+
+        selectionTranslateButton.addEventListener("mousedown", (event) => {
+            event.preventDefault();
+        });
+
+        selectionTranslateButton.addEventListener("click", async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const html = extractSelectedHtml();
+            if (!html) {
+                hideSelectionTranslateButton();
+                return;
+            }
+
+            selectionTranslateInProgress = true;
+            hideSelectionTranslateButton();
+            displayPopup("Translating...", false, true);
+
+            chrome.runtime.sendMessage(
+                { action: "translateSelectedHtml", html },
+                (response) => {
+                    if (chrome.runtime.lastError) {
+                        selectionTranslateInProgress = false;
+                        displayPopup(
+                            `Translation Error: ${chrome.runtime.lastError.message}`,
+                            true,
+                            false,
+                        );
+                        return;
+                    }
+
+                    if (response?.status && response.status !== "ok") {
+                        selectionTranslateInProgress = false;
+                        displayPopup(
+                            `Translation Error: ${response.message || "Unknown error"}`,
+                            true,
+                            false,
+                        );
+                    }
+                },
+            );
+        });
+
+        document.body.appendChild(selectionTranslateButton);
+    }
+
+    function attachSelectionTranslateListeners() {
+        if (selectionListenerCleanup) {
+            return;
+        }
+
+        let debounceTimer = null;
+
+        const onSelectionMaybeChanged = () => {
+            if (!showTranslateButtonOnSelectionEnabled) {
+                return;
+            }
+
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
+            }
+
+            debounceTimer = setTimeout(() => {
+                updateSelectionTranslateButtonPosition();
+            }, 120);
+        };
+
+        const onScrollOrResize = () => {
+            hideSelectionTranslateButton();
+        };
+
+        const onKeyDown = (event) => {
+            if (event.key === "Escape") {
+                hideSelectionTranslateButton();
+            }
+        };
+
+        const onDocumentMouseDown = (event) => {
+            if (
+                selectionTranslateButton &&
+                selectionTranslateButton.contains(event.target)
+            ) {
+                return;
+            }
+
+            if (translationPopup && translationPopup.contains(event.target)) {
+                return;
+            }
+
+            hideSelectionTranslateButton();
+        };
+
+        document.addEventListener("selectionchange", onSelectionMaybeChanged, true);
+        document.addEventListener("mouseup", onSelectionMaybeChanged, true);
+        window.addEventListener("scroll", onScrollOrResize, true);
+        window.addEventListener("resize", onScrollOrResize, true);
+        document.addEventListener("keydown", onKeyDown, true);
+        document.addEventListener("mousedown", onDocumentMouseDown, true);
+
+        selectionListenerCleanup = () => {
+            if (debounceTimer) {
+                clearTimeout(debounceTimer);
+                debounceTimer = null;
+            }
+            document.removeEventListener(
+                "selectionchange",
+                onSelectionMaybeChanged,
+                true,
+            );
+            document.removeEventListener("mouseup", onSelectionMaybeChanged, true);
+            window.removeEventListener("scroll", onScrollOrResize, true);
+            window.removeEventListener("resize", onScrollOrResize, true);
+            document.removeEventListener("keydown", onKeyDown, true);
+            document.removeEventListener("mousedown", onDocumentMouseDown, true);
+        };
+    }
+
+    function detachSelectionTranslateListeners() {
+        if (!selectionListenerCleanup) {
+            return;
+        }
+        selectionListenerCleanup();
+        selectionListenerCleanup = null;
+    }
+
+    function hideSelectionTranslateButton() {
+        if (!selectionTranslateButton) {
+            return;
+        }
+        selectionTranslateButton.style.display = "none";
+    }
+
+    function updateSelectionTranslateButtonPosition() {
+        if (!selectionTranslateButton) {
+            return;
+        }
+
+        if (selectionTranslateInProgress) {
+            return;
+        }
+
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+            hideSelectionTranslateButton();
+            return;
+        }
+
+        if ((selection.toString() || "").trim().length === 0) {
+            hideSelectionTranslateButton();
+            return;
+        }
+
+        const selectionContainerEl = selection.anchorNode
+            ? selection.anchorNode.nodeType === Node.ELEMENT_NODE
+                ? selection.anchorNode
+                : selection.anchorNode.parentElement
+            : null;
+
+        if (
+            selectionContainerEl &&
+            (selectionContainerEl.closest("#translation-popup-extension") ||
+                selectionContainerEl.closest("#translation-loading-indicator") ||
+                selectionContainerEl.closest("#ai-translator-selection-translate-button"))
+        ) {
+            hideSelectionTranslateButton();
+            return;
+        }
+
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        if (!rect || (rect.width === 0 && rect.height === 0)) {
+            hideSelectionTranslateButton();
+            return;
+        }
+
+        const margin = 8;
+        // First show the button so offsetWidth/Height are measurable.
+        selectionTranslateButton.style.display = "inline-flex";
+
+        const top = window.scrollY + rect.bottom + margin;
+
+        let left = window.scrollX + rect.left;
+        const buttonWidth = selectionTranslateButton.offsetWidth || 100;
+        const maxLeft = window.scrollX + window.innerWidth - buttonWidth - margin;
+        left = Math.min(Math.max(left, window.scrollX + margin), maxLeft);
+
+        selectionTranslateButton.style.top = `${top}px`;
+        selectionTranslateButton.style.left = `${left}px`;
+        selectionTranslateButton.style.display = "inline-flex";
+    }
+
     // --- Function to Extract Selected HTML Content ---
     // This extracts the HTML of the selected text range to preserve hyperlinks and formatting
     function extractSelectedHtml() {
@@ -138,7 +405,7 @@ if (window.hasRun) {
         const fragment = range.cloneContents();
 
         // Serialize to HTML
-        const tempDiv = document.createElement('div');
+        const tempDiv = document.createElement("div");
         tempDiv.appendChild(fragment);
         return tempDiv.innerHTML;
     }
@@ -152,9 +419,11 @@ if (window.hasRun) {
         const clonedBody = mainElement.cloneNode(true);
 
         // Remove unwanted elements but keep their structure
-        clonedBody.querySelectorAll(
-            'script, style, nav, header, footer, aside, form, button, input, textarea, select, [aria-hidden="true"], noscript'
-        ).forEach((el) => el.remove());
+        clonedBody
+            .querySelectorAll(
+                'script, style, nav, header, footer, aside, form, button, input, textarea, select, [aria-hidden="true"], noscript',
+            )
+            .forEach((el) => el.remove());
 
         // Return the innerHTML with formatting preserved
         return clonedBody.innerHTML;
@@ -176,7 +445,9 @@ if (window.hasRun) {
                     // Skip nodes inside <script>, <style>, <noscript> tags
                     if (
                         node.parentElement &&
-                        ["SCRIPT", "STYLE", "NOSCRIPT"].includes(node.parentElement.tagName)
+                        ["SCRIPT", "STYLE", "NOSCRIPT"].includes(
+                            node.parentElement.tagName,
+                        )
                     ) {
                         return NodeFilter.FILTER_REJECT;
                     }
@@ -197,15 +468,15 @@ if (window.hasRun) {
                     }
 
                     // Include elements that have text content
-                    const textContent = node.textContent?.trim() || '';
+                    const textContent = node.textContent?.trim() || "";
                     if (textContent.length > 3) {
                         return NodeFilter.FILTER_ACCEPT;
                     }
 
                     return NodeFilter.FILTER_REJECT;
-                }
+                },
             },
-            false
+            false,
         );
 
         let node;
@@ -213,7 +484,7 @@ if (window.hasRun) {
             elements.push({
                 element: node,
                 text: extractPlainText(node), // NEW: Extract only plain text, no HTML
-                path: getElementPath(node)
+                path: getElementPath(node),
             });
         }
 
@@ -233,7 +504,7 @@ if (window.hasRun) {
      * Get a unique path for an element to help with identification
      */
     function getElementPath(element) {
-        if (element === document.body) return 'body';
+        if (element === document.body) return "body";
 
         const parts = [];
         while (element && element !== document.body) {
@@ -242,7 +513,7 @@ if (window.hasRun) {
             parts.unshift(`${part}:nth-child(${index})`);
             element = element.parentElement;
         }
-        return parts.join(' > ');
+        return parts.join(" > ");
     }
 
     /**
@@ -251,13 +522,13 @@ if (window.hasRun) {
     function findElementByPath(path) {
         try {
             // Simple selector-based approach for common elements
-            if (path.includes(' > ')) {
-                const parts = path.split(' > ');
+            if (path.includes(" > ")) {
+                const parts = path.split(" > ");
                 let element = document.body;
 
                 for (const part of parts) {
-                    const [tag, nthChild] = part.split(':nth-child(');
-                    const index = parseInt(nthChild.replace(')', '')) - 1;
+                    const [tag, nthChild] = part.split(":nth-child(");
+                    const index = parseInt(nthChild.replace(")", "")) - 1;
                     element = element.children[index];
                     if (!element || element.tagName.toLowerCase() !== tag) {
                         return null;
@@ -267,13 +538,13 @@ if (window.hasRun) {
             }
 
             // Handle body case
-            if (path === 'body') {
+            if (path === "body") {
                 return document.body;
             }
 
             return null;
         } catch (error) {
-            console.warn('Error finding element by path:', error);
+            console.warn("Error finding element by path:", error);
             return null;
         }
     }
@@ -341,7 +612,7 @@ if (window.hasRun) {
 
                         // Update progress indicator
                         updateLoadingProgress(completed, elements.length, errorCount);
-                    })
+                    }),
                 );
 
                 console.log(`Completed batch ${batchIndex + 1}/${batches.length}`);
@@ -350,7 +621,9 @@ if (window.hasRun) {
             }
         }
 
-        console.log(`Translation complete. ${completed} elements translated, ${errorCount} errors.`);
+        console.log(
+            `Translation complete. ${completed} elements translated, ${errorCount} errors.`,
+        );
 
         // Remove loading indicator when done
         setTimeout(() => removeLoadingIndicator(), 1000);
@@ -363,7 +636,7 @@ if (window.hasRun) {
         try {
             const marker = document.createElement("span");
             marker.textContent = " [translation error]";
-            marker.title = (error && error.message) ? error.message : "Translation failed";
+            marker.title = error && error.message ? error.message : "Translation failed";
             marker.style.color = "#ef4444";
             marker.style.fontSize = "0.75em";
             marker.style.marginLeft = "4px";
@@ -390,24 +663,31 @@ if (window.hasRun) {
      */
     async function translateElement(elementData) {
         return new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage({
-                action: "translateElement",
-                text: elementData.text,
-                elementPath: elementData.path
-            }, (response) => {
-                if (chrome.runtime.lastError) {
-                    reject(new Error(chrome.runtime.lastError.message));
-                    return;
-                }
+            chrome.runtime.sendMessage(
+                {
+                    action: "translateElement",
+                    text: elementData.text,
+                    elementPath: elementData.path,
+                },
+                (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                        return;
+                    }
 
-                if (response && response.translatedText) {
-                    // Update the element with translated text using inline replacement
-                    updateElementTextInline(elementData.element, elementData.text, response.translatedText);
-                    resolve();
-                } else {
-                    reject(new Error("No translation received"));
-                }
-            });
+                    if (response && response.translatedText) {
+                        // Update the element with translated text using inline replacement
+                        updateElementTextInline(
+                            elementData.element,
+                            elementData.text,
+                            response.translatedText,
+                        );
+                        resolve();
+                    } else {
+                        reject(new Error("No translation received"));
+                    }
+                },
+            );
         });
     }
 
@@ -417,7 +697,9 @@ if (window.hasRun) {
      */
     function updateElementTextInline(element, originalText, translatedText) {
         try {
-            console.log(`Updating element ${element.tagName} with inline text replacement`);
+            console.log(
+                `Updating element ${element.tagName} with inline text replacement`,
+            );
             console.log(`Original: "${originalText.substring(0, 50)}..."`);
             console.log(`Translated: "${translatedText.substring(0, 50)}..."`);
 
@@ -432,9 +714,9 @@ if (window.hasRun) {
                             return NodeFilter.FILTER_REJECT;
                         }
                         return NodeFilter.FILTER_ACCEPT;
-                    }
+                    },
                 },
-                false
+                false,
             );
 
             let textNode;
@@ -444,7 +726,7 @@ if (window.hasRun) {
             }
 
             if (textNodes.length === 0) {
-                console.warn('No text nodes found in element');
+                console.warn("No text nodes found in element");
                 return;
             }
 
@@ -457,10 +739,11 @@ if (window.hasRun) {
             firstTextNode.nodeValue = translatedText;
 
             console.log(`Successfully updated text in element: ${element.tagName}`);
-            console.log(`Preserved HTML structure: ${element.outerHTML.substring(0, 100)}...`);
-
+            console.log(
+                `Preserved HTML structure: ${element.outerHTML.substring(0, 100)}...`,
+            );
         } catch (error) {
-            console.error('Error updating element text inline:', error);
+            console.error("Error updating element text inline:", error);
         }
     }
 
@@ -469,14 +752,18 @@ if (window.hasRun) {
      */
     function handleElementTranslationResult(request) {
         if (request.error) {
-            console.error('Element translation error:', request.error);
+            console.error("Element translation error:", request.error);
             return;
         }
 
         if (request.translatedText && request.elementPath) {
             const element = findElementByPath(request.elementPath);
             if (element) {
-                updateElementTextInline(element, request.originalText, request.translatedText);
+                updateElementTextInline(
+                    element,
+                    request.originalText,
+                    request.translatedText,
+                );
                 console.log(`Updated element at path ${request.elementPath}`);
             } else {
                 console.warn(`Could not find element at path: ${request.elementPath}`);
@@ -490,14 +777,17 @@ if (window.hasRun) {
     function updateLoadingProgress(completed, total, errors) {
         if (loadingIndicator) {
             const progress = Math.round((completed / total) * 100);
-            const errorText = errors > 0 ? ` (${errors} errors)` : '';
-            loadingIndicator.querySelector('.progress-text').textContent = `Translating elements... ${completed}/${total} (${progress}%)${errorText}`;
+            const errorText = errors > 0 ? ` (${errors} errors)` : "";
+            loadingIndicator.querySelector(".progress-text").textContent =
+                `Translating elements... ${completed}/${total} (${progress}%)${errorText}`;
         }
     }
 
     // --- Legacy function for backward compatibility ---
     function replaceVisibleText(fullTranslation) {
-        console.log("Legacy replaceVisibleText called - redirecting to element translation");
+        console.log(
+            "Legacy replaceVisibleText called - redirecting to element translation",
+        );
         translatePageElements();
     }
 
@@ -635,7 +925,8 @@ if (window.hasRun) {
                 left = window.scrollX + rect.left;
 
                 // Keep it within viewport width
-                if (left + 350 > window.innerWidth) { // 350 is approx max width
+                if (left + 350 > window.innerWidth) {
+                    // 350 is approx max width
                     left = window.innerWidth - 370;
                 }
             } else {
@@ -673,7 +964,10 @@ if (window.hasRun) {
             translationPopup.style.visibility = "visible";
             translationPopup.style.opacity = "1";
 
-            console.log("Popup element created and styled (before content):", translationPopup);
+            console.log(
+                "Popup element created and styled (before content):",
+                translationPopup,
+            );
 
             // Append to body *before* setting content that might rely on styles
             try {
@@ -700,11 +994,13 @@ if (window.hasRun) {
             existingPopup.style.color = "#555";
             // Build spinner with DOM methods to avoid innerHTML security warnings
             const spinnerContainer = document.createElement("div");
-            spinnerContainer.style.cssText = "display: flex; align-items: center; justify-content: center; height: 30px;";
+            spinnerContainer.style.cssText =
+                "display: flex; align-items: center; justify-content: center; height: 30px;";
 
             const spinner = document.createElement("div");
             spinner.className = "spinner";
-            spinner.style.cssText = "border: 3px solid #f3f3f3; border-top: 3px solid #555; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite;";
+            spinner.style.cssText =
+                "border: 3px solid #f3f3f3; border-top: 3px solid #555; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite;";
 
             const spinnerText = document.createElement("span");
             spinnerText.style.marginLeft = "8px";
@@ -718,7 +1014,8 @@ if (window.hasRun) {
             if (!document.getElementById("translation-spinner-style")) {
                 const style = document.createElement("style");
                 style.id = "translation-spinner-style";
-                style.textContent = "@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
+                style.textContent =
+                    "@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
                 document.head.appendChild(style);
             }
         } else {
@@ -739,7 +1036,9 @@ if (window.hasRun) {
     // Helper function to add the close button
     function addCloseButton(popupElement) {
         // Remove existing close button first if any
-        const existingButton = popupElement.querySelector(".translation-popup-close-button");
+        const existingButton = popupElement.querySelector(
+            ".translation-popup-close-button",
+        );
         if (existingButton) {
             existingButton.remove();
         }

@@ -18,6 +18,11 @@ const basicProviderSelect = document.getElementById("basic-provider");
 const basicApiKeyInput = document.getElementById("basic-api-key");
 const basicTargetLanguageSelect = document.getElementById("basic-target-language");
 
+// UI toggle: auto-translate button on selection
+const showTranslateButtonOnSelectionInput = document.getElementById(
+    "show-translate-button-on-selection",
+);
+
 // Ollama-specific elements
 const ollamaSettingsDiv = document.getElementById("ollama-settings");
 const ollamaModelSelect = document.getElementById("ollama-model-select");
@@ -28,6 +33,7 @@ const modelNameContainer = document.getElementById("model-name")?.closest(".mb-4
 // Settings mode keys
 const SETTINGS_MODE_KEY = "settingsMode";
 const BASIC_TARGET_LANGUAGE_KEY = "basicTargetLanguage";
+const SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY = "showTranslateButtonOnSelection";
 
 const SETTINGS_MODE_BASIC = "basic";
 const SETTINGS_MODE_ADVANCED = "advanced";
@@ -284,6 +290,7 @@ function loadSettings() {
             "translationInstructions",
             SETTINGS_MODE_KEY,
             BASIC_TARGET_LANGUAGE_KEY,
+            SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY,
         ],
         (result) => {
             if (chrome.runtime.lastError) {
@@ -305,10 +312,22 @@ function loadSettings() {
             basicTargetLanguage =
                 result[BASIC_TARGET_LANGUAGE_KEY] || BASIC_TARGET_LANGUAGE_DEFAULT;
 
-            if (!result[SETTINGS_MODE_KEY] || !result[BASIC_TARGET_LANGUAGE_KEY]) {
+            const shouldPersistModeMigration =
+                !result[SETTINGS_MODE_KEY] || !result[BASIC_TARGET_LANGUAGE_KEY];
+
+            const needsPersistShowButtonSetting =
+                typeof result[SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY] !== "boolean";
+
+            const showButtonSetting =
+                typeof result[SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY] === "boolean"
+                    ? result[SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY]
+                    : true;
+
+            if (shouldPersistModeMigration || needsPersistShowButtonSetting) {
                 chrome.storage.sync.set({
                     [SETTINGS_MODE_KEY]: settingsMode,
                     [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
+                    [SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY]: showButtonSetting,
                 });
             }
 
@@ -322,6 +341,12 @@ function loadSettings() {
             }
 
             updateSettingsModeUI();
+
+            if (showTranslateButtonOnSelectionInput) {
+                const current = result[SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY];
+                showTranslateButtonOnSelectionInput.checked =
+                    typeof current === "boolean" ? current : true;
+            }
 
             // Initialize from stored providerSettings or empty object
             providerSettings = result.providerSettings || {};
@@ -606,6 +631,8 @@ document.addEventListener("DOMContentLoaded", () => {
             chrome.storage.sync.set({
                 [SETTINGS_MODE_KEY]: settingsMode,
                 [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
+                [SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY]:
+                    showTranslateButtonOnSelectionInput?.checked ?? true,
             });
 
             autoSaveSetting();
@@ -632,6 +659,16 @@ document.addEventListener("DOMContentLoaded", () => {
         basicTargetLanguageSelect.addEventListener("change", (event) => {
             basicTargetLanguage = event.target.value || BASIC_TARGET_LANGUAGE_DEFAULT;
             autoSaveSetting();
+        });
+    }
+
+    if (showTranslateButtonOnSelectionInput) {
+        showTranslateButtonOnSelectionInput.addEventListener("change", () => {
+            chrome.storage.sync.set({
+                [SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY]:
+                    showTranslateButtonOnSelectionInput.checked,
+            });
+            displayStatus("Settings saved!", false);
         });
     }
 

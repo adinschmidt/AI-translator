@@ -103,8 +103,25 @@ const DEFAULT_SETTINGS = resolveProviderDefaults("openai");
 const DEFAULT_TRANSLATION_INSTRUCTIONS =
     "Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations.";
 
+const SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY = "showTranslateButtonOnSelection";
+
 // --- Context Menu Setup ---
 chrome.runtime.onInstalled.addListener(() => {
+    chrome.storage.sync.get([SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY], (result) => {
+        if (chrome.runtime.lastError) {
+            console.warn(
+                "Could not read selection button setting:",
+                chrome.runtime.lastError.message,
+            );
+            return;
+        }
+
+        if (typeof result[SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY] !== "boolean") {
+            chrome.storage.sync.set({
+                [SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY]: true,
+            });
+        }
+    });
     // Context menu for selected text
     chrome.contextMenus.create({
         id: "translateSelectedText",
@@ -124,6 +141,22 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // --- Message Listener (for Element Translation Only) ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "translateSelectedHtml") {
+        if (!sender.tab?.id) {
+            sendResponse({ status: "error", message: "No sender tab ID" });
+            return;
+        }
+
+        if (!request.html) {
+            sendResponse({ status: "error", message: "No HTML provided" });
+            return;
+        }
+
+        getSettingsAndTranslate(request.html, sender.tab.id, false);
+        sendResponse({ status: "ok" });
+        return;
+    }
+
     // Handle individual element translation
     if (request.action === "translateElement") {
         console.log("Received translateElement request:", {
