@@ -5,6 +5,9 @@ A browser extension that leverages customizable AI models for superior text and 
 <a href="https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba">
   <img src="https://img.shields.io/badge/Chrome_Web_Store-Available-4285F4?style=for-the-badge&logo=google-chrome&logoColor=white" alt="Available in the Chrome Web Store">
 </a>
+<a href="https://addons.mozilla.org/en-US/firefox/addon/ai-translator/">
+  <img src="https://img.shields.io/badge/Firefox_Add--ons-Available-FF7139?style=for-the-badge&logo=firefox&logoColor=white" alt="Available on Firefox Add-ons">
+</a>
 
 ## Why AI Translator?
 
