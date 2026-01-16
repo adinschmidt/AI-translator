@@ -58,7 +58,7 @@ if (window.hasRun) {
                             "Translated HTML length:",
                             request.html.length
                         );
-                        target.innerHTML = DOMPurify.sanitize(request.html);
+                        setSanitizedContent(target, request.html);
                         removeLoadingIndicator();
                         sendResponse({ status: "applied" });
                     } catch (e) {
@@ -563,6 +563,36 @@ if (window.hasRun) {
         }
     }
 
+    // --- Sanitized HTML helpers (avoid innerHTML assignments) ---
+    function clearElement(element) {
+        if (!element) {
+            return;
+        }
+        while (element.firstChild) {
+            element.removeChild(element.firstChild);
+        }
+    }
+
+    function htmlToFragment(html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+        const fragment = document.createDocumentFragment();
+        while (doc.body.firstChild) {
+            fragment.appendChild(doc.body.firstChild);
+        }
+        return fragment;
+    }
+
+    function setSanitizedContent(element, html) {
+        if (!element) {
+            return;
+        }
+        const sanitized = DOMPurify.sanitize(html ?? "");
+        const fragment = htmlToFragment(sanitized);
+        clearElement(element);
+        element.appendChild(fragment);
+    }
+
     // --- Popup Display Function (for selected text) ---
     function displayPopup(content, isError = false, isLoading = false) {
         console.log("displayPopup called with:", { content, isError, isLoading });
@@ -572,9 +602,8 @@ if (window.hasRun) {
         // If the popup already exists (from loading state) and this is the final result
         if (existingPopup && !isLoading) {
             console.log("Updating existing popup content.");
-            existingPopup.innerHTML = "";
             // Use DOMPurify to sanitize HTML content while preserving formatting
-            existingPopup.innerHTML = DOMPurify.sanitize(content);
+            setSanitizedContent(existingPopup, content);
             existingPopup.style.backgroundColor = isError ? "#fff0f0" : "white";
             existingPopup.style.border = `1px solid ${isError ? "#f00" : "#ccc"}`;
             existingPopup.style.color = isError ? "#a00" : "#333";
@@ -662,8 +691,8 @@ if (window.hasRun) {
         }
 
         // Set content and style based on loading/error state for the newly created or existing popup
-        existingPopup.innerHTML = ""; // Clear previous content
         if (isLoading) {
+            clearElement(existingPopup);
             console.log("Setting loading content.");
             // Keep forceful styles, maybe adjust background slightly
             existingPopup.style.backgroundColor = "#f0f0f0"; // Loading background
@@ -695,7 +724,7 @@ if (window.hasRun) {
         } else {
             console.log("Setting final content:", content);
             // Use DOMPurify to sanitize HTML content while preserving formatting
-            existingPopup.innerHTML = DOMPurify.sanitize(content);
+            setSanitizedContent(existingPopup, content);
             // Apply final forceful styles (adjusting for error state)
             existingPopup.style.backgroundColor = isError ? "#ffdddd" : "yellow"; // Error/Success background
             existingPopup.style.border = `3px solid ${isError ? "red" : "green"}`; // Error/Success border

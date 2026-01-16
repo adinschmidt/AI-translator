@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "AI Translator",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "description": "Translate text and pages using customizable AI models.",
     "permissions": [
         "contextMenus",

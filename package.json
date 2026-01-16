@@ -1,6 +1,6 @@
 {
   "name": "ai-translator",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Translate text and pages using customizable AI models.",
   "scripts": {
     "build": "bun run build.ts",

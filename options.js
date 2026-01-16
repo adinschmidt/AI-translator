@@ -102,7 +102,14 @@ function populateOllamaModelDropdown(models, selectedModel = "") {
     if (!ollamaModelSelect) return;
 
     // Clear existing options except the placeholder
-    ollamaModelSelect.innerHTML = '<option value="">-- Select a model --</option>';
+    while (ollamaModelSelect.firstChild) {
+        ollamaModelSelect.removeChild(ollamaModelSelect.firstChild);
+    }
+
+    const placeholderOption = document.createElement("option");
+    placeholderOption.value = "";
+    placeholderOption.textContent = "-- Select a model --";
+    ollamaModelSelect.appendChild(placeholderOption);
 
     models.forEach(model => {
         const option = document.createElement("option");
