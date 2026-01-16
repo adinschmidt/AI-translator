@@ -513,12 +513,12 @@ if (window.hasRun) {
         progressText.className = "progress-text";
         progressText.textContent = message;
 
-        const stopButton = document.createElement("button");
-        stopButton.className = "stop-button";
-        stopButton.textContent = "Stop";
+        const stopButtonEl = document.createElement("button");
+        stopButtonEl.className = "stop-button";
+        stopButtonEl.textContent = "Stop";
 
         loadingIndicator.appendChild(progressText);
-        loadingIndicator.appendChild(stopButton);
+        loadingIndicator.appendChild(stopButtonEl);
 
         // Basic Styling
         loadingIndicator.style.position = "fixed";
@@ -536,21 +536,21 @@ if (window.hasRun) {
         loadingIndicator.style.gap = "10px";
 
         // Style the stop button
-        stopButton.style.backgroundColor = "#ff4444";
-        stopButton.style.color = "white";
-        stopButton.style.border = "none";
-        stopButton.style.padding = "5px 10px";
-        stopButton.style.borderRadius = "3px";
-        stopButton.style.cursor = "pointer";
-        stopButton.style.fontSize = "12px";
-        stopButton.style.fontWeight = "bold";
-        stopButton.onmouseover = () => {
-            stopButton.style.backgroundColor = "#cc0000";
+        stopButtonEl.style.backgroundColor = "#ff4444";
+        stopButtonEl.style.color = "white";
+        stopButtonEl.style.border = "none";
+        stopButtonEl.style.padding = "5px 10px";
+        stopButtonEl.style.borderRadius = "3px";
+        stopButtonEl.style.cursor = "pointer";
+        stopButtonEl.style.fontSize = "12px";
+        stopButtonEl.style.fontWeight = "bold";
+        stopButtonEl.onmouseover = () => {
+            stopButtonEl.style.backgroundColor = "#cc0000";
         };
-        stopButton.onmouseout = () => {
-            stopButton.style.backgroundColor = "#ff4444";
+        stopButtonEl.onmouseout = () => {
+            stopButtonEl.style.backgroundColor = "#ff4444";
         };
-        stopButton.onclick = stopTranslation;
+        stopButtonEl.onclick = stopTranslation;
 
         document.body.appendChild(loadingIndicator);
     }
