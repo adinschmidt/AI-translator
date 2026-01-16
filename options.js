@@ -43,6 +43,7 @@ const PROVIDERS = [
     "openai",
     "anthropic",
     "google",
+    "groq",
     "grok",
     "openrouter",
     "deepseek",
@@ -64,6 +65,10 @@ const PROVIDER_DEFAULTS = {
     google: {
         apiEndpoint: "https://generativelanguage.googleapis.com/v1beta",
         modelName: "gemini-3-flash-preview",
+    },
+    groq: {
+        apiEndpoint: "https://api.groq.com/openai/v1/chat/completions",
+        modelName: "qwen/qwen3-32b",
     },
     grok: {
         apiEndpoint: "https://api.x.ai/v1/chat/completions",

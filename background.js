@@ -37,6 +37,7 @@ const PROVIDERS = [
     "openai",
     "anthropic",
     "google",
+    "groq",
     "grok",
     "openrouter",
     "deepseek",
@@ -58,6 +59,10 @@ const PROVIDER_DEFAULTS = {
     google: {
         apiEndpoint: "https://generativelanguage.googleapis.com/v1beta",
         modelName: "gemini-3-flash-preview",
+    },
+    groq: {
+        apiEndpoint: "https://api.groq.com/openai/v1/chat/completions",
+        modelName: "qwen/qwen3-32b",
     },
     grok: {
         apiEndpoint: "https://api.x.ai/v1/chat/completions",
@@ -864,6 +869,19 @@ Text to translate: ${textToTranslate}`;
             apiEndpoint = googleApiUrl;
             break;
         }
+        case "groq": {
+            // Groq - OpenAI-compatible style
+            // No max_completion_tokens - use model's maximum
+            headers["Authorization"] = `Bearer ${apiKey}`;
+            requestBody = {
+                model: selectedModelName || PROVIDER_DEFAULTS.groq.modelName,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: prompt },
+                ],
+            };
+            break;
+        }
         case "grok": {
             // Grok (xAI) - OpenAI-compatible style
             headers["Authorization"] = `Bearer ${apiKey}`;
@@ -992,6 +1010,12 @@ Text to translate: ${textToTranslate}`;
 
         let translation;
         switch (provider) {
+            case "groq": {
+                // Filter out <think>...</think> blocks from reasoning models
+                let content = data.choices?.[0]?.message?.content || "";
+                translation = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+                break;
+            }
             case "openai":
             case "grok":
             case "openrouter":
