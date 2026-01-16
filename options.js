@@ -6,7 +6,17 @@ const fillDefaultEndpointButton = document.getElementById("fill-default-endpoint
 const modelNameInput = document.getElementById("model-name");
 const fillDefaultModelButton = document.getElementById("fill-default-model");
 const translationInstructionsInput = document.getElementById("translation-instructions");
-const fillDefaultInstructionsButton = document.getElementById("fill-default-instructions");
+const fillDefaultInstructionsButton = document.getElementById(
+    "fill-default-instructions",
+);
+
+// Basic mode elements
+const settingsModeSelect = document.getElementById("settings-mode");
+const basicSettingsDiv = document.getElementById("basic-settings");
+const advancedSettingsDiv = document.getElementById("advanced-settings");
+const basicProviderSelect = document.getElementById("basic-provider");
+const basicApiKeyInput = document.getElementById("basic-api-key");
+const basicTargetLanguageSelect = document.getElementById("basic-target-language");
 
 // Ollama-specific elements
 const ollamaSettingsDiv = document.getElementById("ollama-settings");
@@ -15,10 +25,31 @@ const refreshOllamaModelsButton = document.getElementById("refresh-ollama-models
 const apiKeyContainer = document.getElementById("api-key")?.closest(".mb-4");
 const modelNameContainer = document.getElementById("model-name")?.closest(".mb-4");
 
-// Default translation instructions
-const DEFAULT_TRANSLATION_INSTRUCTIONS = "Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations.";
+// Settings mode keys
+const SETTINGS_MODE_KEY = "settingsMode";
+const BASIC_TARGET_LANGUAGE_KEY = "basicTargetLanguage";
 
-const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter", "deepseek", "mistral", "qwen", "ollama"];
+const SETTINGS_MODE_BASIC = "basic";
+const SETTINGS_MODE_ADVANCED = "advanced";
+
+// Default translation instructions
+const DEFAULT_TRANSLATION_INSTRUCTIONS =
+    "Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations.";
+
+const BASIC_TARGET_LANGUAGE_DEFAULT = "en";
+
+const BASIC_PROVIDERS = ["openai", "anthropic", "google"];
+const PROVIDERS = [
+    "openai",
+    "anthropic",
+    "google",
+    "grok",
+    "openrouter",
+    "deepseek",
+    "mistral",
+    "qwen",
+    "ollama",
+];
 
 // Per-provider defaults (used as initial values when a provider has no saved settings)
 const PROVIDER_DEFAULTS = {
@@ -51,7 +82,8 @@ const PROVIDER_DEFAULTS = {
         modelName: "mistral-small-latest",
     },
     qwen: {
-        apiEndpoint: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+        apiEndpoint:
+            "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
         modelName: "qwen-turbo",
     },
     ollama: {
@@ -66,6 +98,8 @@ const PROVIDER_DEFAULTS = {
 //   [provider]: { apiKey, apiEndpoint, modelName }
 // }
 let providerSettings = {};
+let settingsMode = SETTINGS_MODE_BASIC;
+let basicTargetLanguage = BASIC_TARGET_LANGUAGE_DEFAULT;
 
 let debounceTimer;
 
@@ -84,7 +118,7 @@ async function fetchOllamaModels(baseUrl) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         const data = await response.json();
-        const models = (data.models || []).map(m => m.name);
+        const models = (data.models || []).map((m) => m.name);
         console.log("options.js: Fetched Ollama models:", models);
         return models;
     } catch (error) {
@@ -111,7 +145,7 @@ function populateOllamaModelDropdown(models, selectedModel = "") {
     placeholderOption.textContent = "-- Select a model --";
     ollamaModelSelect.appendChild(placeholderOption);
 
-    models.forEach(model => {
+    models.forEach((model) => {
         const option = document.createElement("option");
         option.value = model;
         option.textContent = model;
@@ -136,13 +170,21 @@ function updateProviderUI(provider) {
     }
 
     // Show/hide standard model name input (hide for Ollama since we use dropdown)
+    // Also hide in Basic mode, since model is fixed.
     if (modelNameContainer) {
-        modelNameContainer.classList.toggle("hidden", isOllama);
+        modelNameContainer.classList.toggle(
+            "hidden",
+            isOllama || settingsMode === SETTINGS_MODE_BASIC,
+        );
     }
 
     // Show/hide API key field (Ollama doesn't require it)
+    // Also hide in Basic mode, since it uses its own API key field.
     if (apiKeyContainer) {
-        apiKeyContainer.classList.toggle("hidden", isOllama);
+        apiKeyContainer.classList.toggle(
+            "hidden",
+            isOllama || settingsMode === SETTINGS_MODE_BASIC,
+        );
     }
 
     // If switching to Ollama, try to fetch models
@@ -151,10 +193,10 @@ function updateProviderUI(provider) {
         const baseUrl = settings.apiEndpoint || PROVIDER_DEFAULTS.ollama.apiEndpoint;
 
         fetchOllamaModels(baseUrl)
-            .then(models => {
+            .then((models) => {
                 populateOllamaModelDropdown(models, settings.modelName);
             })
-            .catch(error => {
+            .catch((error) => {
                 displayStatus(`Could not fetch Ollama models: ${error.message}`, true);
             });
     }
@@ -170,6 +212,56 @@ function resolveProviderDefaults(provider) {
     };
 }
 
+function buildBasicTranslationInstructions(targetLanguageLabel) {
+    return `Translate the following text to ${targetLanguageLabel}. Keep the same meaning and tone. DO NOT add any additional text or explanations.`;
+}
+
+const BASIC_TARGET_LANGUAGES = [
+    { value: "en", label: "English" },
+    { value: "es", label: "Español" },
+    { value: "fr", label: "Français" },
+    { value: "de", label: "Deutsch" },
+    { value: "it", label: "Italiano" },
+    { value: "pt", label: "Português" },
+    { value: "ru", label: "Русский" },
+    { value: "ja", label: "日本語" },
+    { value: "ko", label: "한국어" },
+    { value: "zh", label: "中文" },
+    { value: "ar", label: "العربية" },
+    { value: "hi", label: "हिन्दी" },
+];
+
+function getBasicTargetLanguageLabel(value) {
+    return (
+        BASIC_TARGET_LANGUAGES.find((lang) => lang.value === value)?.label || "English"
+    );
+}
+
+function populateBasicLanguageDropdown() {
+    if (!basicTargetLanguageSelect) return;
+
+    basicTargetLanguageSelect.textContent = "";
+
+    for (const lang of BASIC_TARGET_LANGUAGES) {
+        const option = document.createElement("option");
+        option.value = lang.value;
+        option.textContent = lang.label;
+        basicTargetLanguageSelect.appendChild(option);
+    }
+}
+
+function updateSettingsModeUI() {
+    const isBasic = settingsMode === SETTINGS_MODE_BASIC;
+
+    if (basicSettingsDiv) {
+        basicSettingsDiv.classList.toggle("hidden", !isBasic);
+    }
+
+    if (advancedSettingsDiv) {
+        advancedSettingsDiv.classList.toggle("hidden", isBasic);
+    }
+}
+
 /**
  * Load all provider-specific settings from storage.
  * Storage schema (backwards compatible):
@@ -183,7 +275,16 @@ function resolveProviderDefaults(provider) {
 function loadSettings() {
     console.log("options.js: Attempting to load settings...");
     chrome.storage.sync.get(
-        ["apiKey", "apiEndpoint", "apiType", "modelName", "providerSettings", "translationInstructions"],
+        [
+            "apiKey",
+            "apiEndpoint",
+            "apiType",
+            "modelName",
+            "providerSettings",
+            "translationInstructions",
+            SETTINGS_MODE_KEY,
+            BASIC_TARGET_LANGUAGE_KEY,
+        ],
         (result) => {
             if (chrome.runtime.lastError) {
                 console.error(
@@ -199,19 +300,54 @@ function loadSettings() {
 
             console.log("options.js: Raw settings loaded from storage:", result);
 
+            // Migration/initialization for mode + basic target language
+            settingsMode = result[SETTINGS_MODE_KEY] || SETTINGS_MODE_BASIC;
+            basicTargetLanguage =
+                result[BASIC_TARGET_LANGUAGE_KEY] || BASIC_TARGET_LANGUAGE_DEFAULT;
+
+            if (!result[SETTINGS_MODE_KEY] || !result[BASIC_TARGET_LANGUAGE_KEY]) {
+                chrome.storage.sync.set({
+                    [SETTINGS_MODE_KEY]: settingsMode,
+                    [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
+                });
+            }
+
+            if (settingsModeSelect) {
+                settingsModeSelect.value = settingsMode;
+            }
+
+            populateBasicLanguageDropdown();
+            if (basicTargetLanguageSelect) {
+                basicTargetLanguageSelect.value = basicTargetLanguage;
+            }
+
+            updateSettingsModeUI();
+
             // Initialize from stored providerSettings or empty object
             providerSettings = result.providerSettings || {};
 
             // Backwards compatibility: if legacy flat settings exist, fold them
             // into the selected provider (or default openai) once.
-            if (!result.providerSettings && (result.apiKey || result.apiEndpoint || result.modelName)) {
+            if (
+                !result.providerSettings &&
+                (result.apiKey || result.apiEndpoint || result.modelName)
+            ) {
                 const legacyProvider = result.apiType || "openai";
                 providerSettings[legacyProvider] = {
                     apiKey: result.apiKey || "",
-                    apiEndpoint: result.apiEndpoint || (PROVIDER_DEFAULTS[legacyProvider]?.apiEndpoint || ""),
-                    modelName: result.modelName || (PROVIDER_DEFAULTS[legacyProvider]?.modelName || ""),
+                    apiEndpoint:
+                        result.apiEndpoint ||
+                        PROVIDER_DEFAULTS[legacyProvider]?.apiEndpoint ||
+                        "",
+                    modelName:
+                        result.modelName ||
+                        PROVIDER_DEFAULTS[legacyProvider]?.modelName ||
+                        "",
                 };
-                console.log("options.js: Migrated legacy settings into providerSettings:", providerSettings);
+                console.log(
+                    "options.js: Migrated legacy settings into providerSettings:",
+                    providerSettings,
+                );
                 // Persist migration (fire and forget)
                 chrome.storage.sync.set({ providerSettings });
             }
@@ -225,20 +361,43 @@ function loadSettings() {
                     const base = resolveProviderDefaults(provider);
                     providerSettings[provider] = {
                         apiKey: providerSettings[provider].apiKey || "",
-                        apiEndpoint: providerSettings[provider].apiEndpoint || base.apiEndpoint,
+                        apiEndpoint:
+                            providerSettings[provider].apiEndpoint || base.apiEndpoint,
                         modelName: providerSettings[provider].modelName || base.modelName,
-                        translationInstructions: providerSettings[provider].translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS,
+                        translationInstructions:
+                            providerSettings[provider].translationInstructions ||
+                            DEFAULT_TRANSLATION_INSTRUCTIONS,
                     };
                 }
             }
 
             // Determine initially selected provider (default to legacy apiType or openai)
-            const initialProvider = result.apiType && PROVIDERS.includes(result.apiType)
-                ? result.apiType
-                : "openai";
+            let initialProvider =
+                result.apiType && PROVIDERS.includes(result.apiType)
+                    ? result.apiType
+                    : "openai";
+
+            // In basic mode, clamp to basic providers
+            if (
+                settingsMode === SETTINGS_MODE_BASIC &&
+                !BASIC_PROVIDERS.includes(initialProvider)
+            ) {
+                initialProvider = "openai";
+            }
 
             apiTypeSelect.value = initialProvider;
+
+            if (basicProviderSelect) {
+                basicProviderSelect.value = BASIC_PROVIDERS.includes(initialProvider)
+                    ? initialProvider
+                    : "openai";
+            }
+
             applyProviderToForm(initialProvider);
+
+            if (settingsMode === SETTINGS_MODE_BASIC) {
+                applyBasicSettingsToUI(initialProvider);
+            }
         },
     );
 }
@@ -255,11 +414,30 @@ function applyProviderToForm(provider) {
     apiEndpointInput.value = settings.apiEndpoint || "";
     modelNameInput.value = settings.modelName || "";
     if (translationInstructionsInput) {
-        translationInstructionsInput.value = settings.translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS;
+        translationInstructionsInput.value =
+            settings.translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS;
     }
 
     // Update UI visibility based on provider (show/hide Ollama-specific fields)
     updateProviderUI(provider);
+}
+
+function applyBasicSettingsToUI(provider) {
+    const settings = providerSettings[provider] || resolveProviderDefaults(provider);
+
+    if (basicProviderSelect) {
+        basicProviderSelect.value = BASIC_PROVIDERS.includes(provider)
+            ? provider
+            : "openai";
+    }
+
+    if (basicApiKeyInput) {
+        basicApiKeyInput.value = settings.apiKey || "";
+    }
+
+    if (basicTargetLanguageSelect) {
+        basicTargetLanguageSelect.value = basicTargetLanguage;
+    }
 }
 
 function autoSaveSetting() {
@@ -270,11 +448,64 @@ function autoSaveSetting() {
 function saveSetting() {
     console.log("options.js: saveSetting function called.");
 
+    const isBasic = settingsMode === SETTINGS_MODE_BASIC;
+
+    if (isBasic) {
+        const selectedProvider = basicProviderSelect?.value || "openai";
+        const provider = BASIC_PROVIDERS.includes(selectedProvider)
+            ? selectedProvider
+            : "openai";
+
+        const apiKey = basicApiKeyInput?.value.trim() || "";
+        const defaults = resolveProviderDefaults(provider);
+        const targetLanguageValue =
+            basicTargetLanguageSelect?.value || BASIC_TARGET_LANGUAGE_DEFAULT;
+        const targetLanguageLabel = getBasicTargetLanguageLabel(targetLanguageValue);
+        const translationInstructions =
+            buildBasicTranslationInstructions(targetLanguageLabel);
+
+        providerSettings[provider] = {
+            apiKey,
+            apiEndpoint: defaults.apiEndpoint,
+            modelName: defaults.modelName,
+            translationInstructions,
+        };
+
+        basicTargetLanguage = targetLanguageValue;
+
+        chrome.storage.sync.set(
+            {
+                providerSettings,
+                apiType: provider,
+                [SETTINGS_MODE_KEY]: settingsMode,
+                [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
+            },
+            () => {
+                if (chrome.runtime.lastError) {
+                    console.error(
+                        "options.js: Error saving basic settings:",
+                        chrome.runtime.lastError,
+                    );
+                    displayStatus(
+                        `Error saving: ${chrome.runtime.lastError.message} `,
+                        true,
+                    );
+                } else {
+                    displayStatus("Settings saved!", false);
+                }
+            },
+        );
+
+        return;
+    }
+
     const currentProvider = apiTypeSelect.value;
     const apiKey = apiKeyInput.value.trim();
     const apiEndpoint = apiEndpointInput.value.trim();
     const modelName = modelNameInput.value.trim();
-    const translationInstructions = translationInstructionsInput ? translationInstructionsInput.value.trim() : DEFAULT_TRANSLATION_INSTRUCTIONS;
+    const translationInstructions = translationInstructionsInput
+        ? translationInstructionsInput.value.trim()
+        : DEFAULT_TRANSLATION_INSTRUCTIONS;
 
     console.log(
         `options.js: Saving for provider = ${currentProvider}: apiKey =***, apiEndpoint = ${apiEndpoint}, modelName = ${modelName} `,
@@ -303,11 +534,15 @@ function saveSetting() {
     };
 
     // Persist providerSettings and currently selected provider (apiType)
-    console.log("options.js: Attempting to save providerSettings to chrome.storage.sync...");
+    console.log(
+        "options.js: Attempting to save providerSettings to chrome.storage.sync...",
+    );
     chrome.storage.sync.set(
         {
             providerSettings,
             apiType: currentProvider,
+            [SETTINGS_MODE_KEY]: settingsMode,
+            [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
         },
         () => {
             if (chrome.runtime.lastError) {
@@ -338,7 +573,67 @@ function displayStatus(message, isError = false) {
 
 document.addEventListener("DOMContentLoaded", () => {
     console.log("options.js: DOMContentLoaded event fired.");
+
+    populateBasicLanguageDropdown();
     loadSettings();
+
+    if (settingsModeSelect) {
+        settingsModeSelect.addEventListener("change", (event) => {
+            settingsMode =
+                event.target.value === SETTINGS_MODE_ADVANCED
+                    ? SETTINGS_MODE_ADVANCED
+                    : SETTINGS_MODE_BASIC;
+
+            const isBasic = settingsMode === SETTINGS_MODE_BASIC;
+
+            let activeProvider = apiTypeSelect.value;
+            if (isBasic && !BASIC_PROVIDERS.includes(activeProvider)) {
+                activeProvider = "openai";
+                apiTypeSelect.value = activeProvider;
+            }
+
+            if (basicProviderSelect) {
+                basicProviderSelect.value = BASIC_PROVIDERS.includes(activeProvider)
+                    ? activeProvider
+                    : "openai";
+            }
+
+            applyProviderToForm(activeProvider);
+            applyBasicSettingsToUI(activeProvider);
+            updateProviderUI(activeProvider);
+            updateSettingsModeUI();
+
+            chrome.storage.sync.set({
+                [SETTINGS_MODE_KEY]: settingsMode,
+                [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
+            });
+
+            autoSaveSetting();
+        });
+    }
+
+    if (basicProviderSelect) {
+        basicProviderSelect.addEventListener("change", () => {
+            const provider = basicProviderSelect.value;
+            const safeProvider = BASIC_PROVIDERS.includes(provider) ? provider : "openai";
+
+            apiTypeSelect.value = safeProvider;
+            applyProviderToForm(safeProvider);
+            applyBasicSettingsToUI(safeProvider);
+            autoSaveSetting();
+        });
+    }
+
+    if (basicApiKeyInput) {
+        basicApiKeyInput.addEventListener("input", autoSaveSetting);
+    }
+
+    if (basicTargetLanguageSelect) {
+        basicTargetLanguageSelect.addEventListener("change", (event) => {
+            basicTargetLanguage = event.target.value || BASIC_TARGET_LANGUAGE_DEFAULT;
+            autoSaveSetting();
+        });
+    }
 
     // Add auto-save listeners to all form inputs
     if (apiKeyInput) {
@@ -359,7 +654,8 @@ document.addEventListener("DOMContentLoaded", () => {
             // When switching provider:
             // 1. Ensure settings object exists for this provider (with defaults)
             if (!providerSettings[selectedApiType]) {
-                providerSettings[selectedApiType] = resolveProviderDefaults(selectedApiType);
+                providerSettings[selectedApiType] =
+                    resolveProviderDefaults(selectedApiType);
             }
 
             // 2. Apply that provider's settings to the form
@@ -371,6 +667,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 {
                     providerSettings,
                     apiType: selectedApiType,
+                    [SETTINGS_MODE_KEY]: settingsMode,
+                    [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
                 },
                 () => {
                     if (chrome.runtime.lastError) {
@@ -419,7 +717,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 );
             }
         });
-        console.log("options.js: Click event listener added to fill default endpoint button.");
+        console.log(
+            "options.js: Click event listener added to fill default endpoint button.",
+        );
     } else {
         console.error("options.js: Could not find fill default endpoint button element!");
     }
@@ -440,20 +740,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.warn(
                     `options.js: No default model found for provider: ${selectedApiType} `,
                 );
-                displayStatus(
-                    `No default model available for ${selectedApiType}.`,
-                    true,
-                );
+                displayStatus(`No default model available for ${selectedApiType}.`, true);
             }
         });
-        console.log("options.js: Click event listener added to fill default model button.");
+        console.log(
+            "options.js: Click event listener added to fill default model button.",
+        );
     } else {
         console.error("options.js: Could not find fill default model button element!");
     }
 
     if (translationInstructionsInput) {
         translationInstructionsInput.addEventListener("input", autoSaveSetting);
-        console.log("options.js: Auto-save listener added to translation-instructions input.");
+        console.log(
+            "options.js: Auto-save listener added to translation-instructions input.",
+        );
     }
 
     if (fillDefaultInstructionsButton) {
@@ -465,9 +766,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 autoSaveSetting();
             }
         });
-        console.log("options.js: Click event listener added to fill default instructions button.");
+        console.log(
+            "options.js: Click event listener added to fill default instructions button.",
+        );
     } else {
-        console.error("options.js: Could not find fill default instructions button element!");
+        console.error(
+            "options.js: Could not find fill default instructions button element!",
+        );
     }
 
     // Ollama-specific event listeners
@@ -490,8 +795,12 @@ document.addEventListener("DOMContentLoaded", () => {
         refreshOllamaModelsButton.addEventListener("click", async () => {
             console.log("options.js: Refresh Ollama models button clicked.");
 
-            const settings = providerSettings["ollama"] || resolveProviderDefaults("ollama");
-            const baseUrl = apiEndpointInput.value.trim() || settings.apiEndpoint || PROVIDER_DEFAULTS.ollama.apiEndpoint;
+            const settings =
+                providerSettings["ollama"] || resolveProviderDefaults("ollama");
+            const baseUrl =
+                apiEndpointInput.value.trim() ||
+                settings.apiEndpoint ||
+                PROVIDER_DEFAULTS.ollama.apiEndpoint;
 
             displayStatus("Fetching models...", false);
 
@@ -503,7 +812,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 displayStatus(`Error: ${error.message}`, true);
             }
         });
-        console.log("options.js: Click event listener added to refresh Ollama models button.");
+        console.log(
+            "options.js: Click event listener added to refresh Ollama models button.",
+        );
     }
 });
 

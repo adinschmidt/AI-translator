@@ -1,4 +1,49 @@
-const PROVIDERS = ["openai", "anthropic", "google", "grok", "openrouter", "deepseek", "mistral", "qwen", "ollama"];
+const SETTINGS_MODE_KEY = "settingsMode";
+const BASIC_TARGET_LANGUAGE_KEY = "basicTargetLanguage";
+
+const SETTINGS_MODE_BASIC = "basic";
+const SETTINGS_MODE_ADVANCED = "advanced";
+
+const BASIC_PROVIDERS = ["openai", "anthropic", "google"];
+
+const BASIC_TARGET_LANGUAGE_DEFAULT = "en";
+
+const BASIC_TARGET_LANGUAGES = [
+    { value: "en", label: "English" },
+    { value: "es", label: "Español" },
+    { value: "fr", label: "Français" },
+    { value: "de", label: "Deutsch" },
+    { value: "it", label: "Italiano" },
+    { value: "pt", label: "Português" },
+    { value: "ru", label: "Русский" },
+    { value: "ja", label: "日本語" },
+    { value: "ko", label: "한국어" },
+    { value: "zh", label: "中文" },
+    { value: "ar", label: "العربية" },
+    { value: "hi", label: "हिन्दी" },
+];
+
+function getBasicTargetLanguageLabel(value) {
+    return (
+        BASIC_TARGET_LANGUAGES.find((lang) => lang.value === value)?.label || "English"
+    );
+}
+
+function buildBasicTranslationInstructions(targetLanguageLabel) {
+    return `Translate the following text to ${targetLanguageLabel}. Keep the same meaning and tone. DO NOT add any additional text or explanations.`;
+}
+
+const PROVIDERS = [
+    "openai",
+    "anthropic",
+    "google",
+    "grok",
+    "openrouter",
+    "deepseek",
+    "mistral",
+    "qwen",
+    "ollama",
+];
 
 // Per-provider defaults (for when no stored settings exist)
 const PROVIDER_DEFAULTS = {
@@ -31,7 +76,8 @@ const PROVIDER_DEFAULTS = {
         modelName: "mistral-small-latest",
     },
     qwen: {
-        apiEndpoint: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+        apiEndpoint:
+            "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
         modelName: "qwen-turbo",
     },
     ollama: {
@@ -54,7 +100,8 @@ function resolveProviderDefaults(provider) {
 const DEFAULT_SETTINGS = resolveProviderDefaults("openai");
 
 // Default translation instructions (can be overridden by user in settings)
-const DEFAULT_TRANSLATION_INSTRUCTIONS = "Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations.";
+const DEFAULT_TRANSLATION_INSTRUCTIONS =
+    "Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations.";
 
 // --- Context Menu Setup ---
 chrome.runtime.onInstalled.addListener(() => {
@@ -81,20 +128,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "translateElement") {
         console.log("Received translateElement request:", {
             textLength: request.text?.length,
-            elementPath: request.elementPath
+            elementPath: request.elementPath,
         });
 
         if (sender.tab?.id) {
             translateElementText(request.text, request.elementPath, sender.tab.id)
                 .then((translation) => {
-                    console.log("Element translation completed for:", request.elementPath);
+                    console.log(
+                        "Element translation completed for:",
+                        request.elementPath,
+                    );
                     sendResponse({ translatedText: translation });
                 })
                 .catch((error) => {
                     console.error("Element translation error:", error);
                     sendResponse({
                         error: error.message,
-                        elementPath: request.elementPath
+                        elementPath: request.elementPath,
                     });
                 });
         } else {
@@ -112,14 +162,14 @@ async function ensureContentScriptInjected(tabId) {
         // Inject DOMPurify and content script together
         await chrome.scripting.executeScript({
             target: { tabId: tabId },
-            files: ["purify.min.js", "content.js"]
+            files: ["purify.min.js", "content.js"],
         });
         await chrome.scripting.insertCSS({
             target: { tabId: tabId },
-            files: ["styles.css"]
+            files: ["styles.css"],
         });
         // Small delay to ensure message listener is ready
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise((resolve) => setTimeout(resolve, 100));
         console.log(`DOMPurify, content script, and CSS injected into tab ${tabId}`);
     } catch (error) {
         console.error(`Failed to inject content script into tab ${tabId}:`, error);
@@ -150,9 +200,18 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         // First, get the HTML content from the selected text to preserve hyperlinks
         chrome.tabs.sendMessage(tabId, { action: "extractSelectedHtml" }, (response) => {
             if (chrome.runtime.lastError) {
-                console.error("Error getting selected HTML:", chrome.runtime.lastError.message);
+                console.error(
+                    "Error getting selected HTML:",
+                    chrome.runtime.lastError.message,
+                );
                 // Selected text translation error -> not full page, show error popup
-                notifyContentScript(tabId, "Could not extract selected content", false, true, false);
+                notifyContentScript(
+                    tabId,
+                    "Could not extract selected content",
+                    false,
+                    true,
+                    false,
+                );
                 return;
             }
 
@@ -165,7 +224,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             } else {
                 console.error("No HTML content received from content script");
                 // Selected text translation error -> not full page, show error popup
-                notifyContentScript(tabId, "Could not extract selected HTML", false, true, false);
+                notifyContentScript(
+                    tabId,
+                    "Could not extract selected HTML",
+                    false,
+                    true,
+                    false,
+                );
             }
         });
     }
@@ -178,32 +243,37 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             if (chrome.runtime.lastError) {
                 console.error(
                     "Error getting page HTML for full page translation:",
-                    chrome.runtime.lastError.message
+                    chrome.runtime.lastError.message,
                 );
                 notifyContentScript(
                     tabId,
                     "Translation failed to start: could not read page content.",
                     true, // isFullPage
                     true, // isError
-                    false // isLoading
+                    false, // isLoading
                 );
                 return;
             }
 
             if (!response || !response.text) {
-                console.error("No page HTML received from content script for full page translation.");
+                console.error(
+                    "No page HTML received from content script for full page translation.",
+                );
                 notifyContentScript(
                     tabId,
                     "Translation failed to start: empty page content.",
                     true, // isFullPage
                     true, // isError
-                    false // isLoading
+                    false, // isLoading
                 );
                 return;
             }
 
             const pageHtml = response.text;
-            console.log("Received page HTML for full page translation, length:", pageHtml.length);
+            console.log(
+                "Received page HTML for full page translation, length:",
+                pageHtml.length,
+            );
 
             // 2) Show loading indicator on page (with initial progress)
             chrome.tabs.sendMessage(
@@ -211,23 +281,31 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                 {
                     action: "showLoadingIndicator",
                     isFullPage: true,
-                    text: "Translating page... 0% (starting)"
+                    text: "Translating page... 0% (starting)",
                 },
                 (indicatorResponse) => {
                     if (chrome.runtime.lastError) {
                         console.warn(
                             "Could not show loading indicator:",
-                            chrome.runtime.lastError.message
+                            chrome.runtime.lastError.message,
                         );
                     } else {
                         console.log("Loading indicator shown:", indicatorResponse);
                     }
-                }
+                },
             );
 
             // 3) Call API with isFullPage = true using the HTML snapshot
             chrome.storage.sync.get(
-                ["apiKey", "apiEndpoint", "apiType", "modelName", "providerSettings"],
+                [
+                    "apiKey",
+                    "apiEndpoint",
+                    "apiType",
+                    "modelName",
+                    "providerSettings",
+                    SETTINGS_MODE_KEY,
+                    BASIC_TARGET_LANGUAGE_KEY,
+                ],
                 (settings) => {
                     const {
                         apiKey,
@@ -235,26 +313,67 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                         apiType,
                         modelName,
                         providerSettings = {},
+                        [SETTINGS_MODE_KEY]: settingsMode,
+                        [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
                     } = settings;
 
-                    const activeProvider = (apiType && PROVIDERS.includes(apiType)) ? apiType : "openai";
+                    const mode = settingsMode || SETTINGS_MODE_BASIC;
+
+                    let activeProvider =
+                        apiType && PROVIDERS.includes(apiType) ? apiType : "openai";
+                    if (
+                        mode === SETTINGS_MODE_BASIC &&
+                        !BASIC_PROVIDERS.includes(activeProvider)
+                    ) {
+                        activeProvider = "openai";
+                    }
+
                     const perProvider = providerSettings[activeProvider];
 
                     const effective = perProvider
                         ? {
-                            apiKey: perProvider.apiKey || "",
-                            apiEndpoint: perProvider.apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
-                            modelName: perProvider.modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
-                            translationInstructions: perProvider.translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS,
-                            apiType: activeProvider,
-                        }
+                              apiKey: perProvider.apiKey || "",
+                              apiEndpoint:
+                                  perProvider.apiEndpoint ||
+                                  PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                                  "",
+                              modelName:
+                                  perProvider.modelName ||
+                                  PROVIDER_DEFAULTS[activeProvider]?.modelName ||
+                                  "",
+                              translationInstructions:
+                                  perProvider.translationInstructions ||
+                                  DEFAULT_TRANSLATION_INSTRUCTIONS,
+                              apiType: activeProvider,
+                          }
                         : {
-                            apiKey: apiKey || "",
-                            apiEndpoint: apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
-                            modelName: modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
-                            translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
-                            apiType: activeProvider,
-                        };
+                              apiKey: apiKey || "",
+                              apiEndpoint:
+                                  apiEndpoint ||
+                                  PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                                  "",
+                              modelName:
+                                  modelName ||
+                                  PROVIDER_DEFAULTS[activeProvider]?.modelName ||
+                                  "",
+                              translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
+                              apiType: activeProvider,
+                          };
+
+                    // In Basic mode, always use fixed endpoint/model and auto-generated instructions.
+                    if (mode === SETTINGS_MODE_BASIC) {
+                        const languageValue =
+                            basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
+                        const languageLabel = getBasicTargetLanguageLabel(languageValue);
+                        effective.apiEndpoint =
+                            PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                            effective.apiEndpoint;
+                        effective.modelName =
+                            PROVIDER_DEFAULTS[activeProvider]?.modelName ||
+                            effective.modelName;
+                        effective.translationInstructions =
+                            buildBasicTranslationInstructions(languageLabel);
+                    }
 
                     const {
                         apiKey: finalKey,
@@ -271,9 +390,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                         notifyContentScript(
                             tabId,
                             errorMsg,
-                            true,  // isFullPage
-                            true,  // isError
-                            false  // isLoading
+                            true, // isFullPage
+                            true, // isError
+                            false, // isLoading
                         );
                         return;
                     }
@@ -281,11 +400,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                     // Optional: send a mid-translation progress hint (best-effort UX)
                     try {
                         const approxTokens = Math.round(pageHtml.length / 4);
-                        chrome.tabs.sendMessage(tabId, {
-                            action: "showLoadingIndicator",
-                            isFullPage: true,
-                            text: `Translating page... input size ~${approxTokens} tokens`
-                        }, () => { /* ignore errors */ });
+                        chrome.tabs.sendMessage(
+                            tabId,
+                            {
+                                action: "showLoadingIndicator",
+                                isFullPage: true,
+                                text: `Translating page... input size ~${approxTokens} tokens`,
+                            },
+                            () => {
+                                /* ignore errors */
+                            },
+                        );
                     } catch (e) {
                         console.warn("Could not send progress hint:", e);
                     }
@@ -295,49 +420,56 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                         finalKey,
                         finalEndpoint,
                         finalType,
-                        true,       // isFullPage
+                        true, // isFullPage
                         finalModel,
-                        finalInstructions
+                        finalInstructions,
                     )
                         .then((translatedHtml) => {
                             console.log(
                                 "Full page translation received, length:",
-                                translatedHtml.length
+                                translatedHtml.length,
                             );
 
                             // 4) Send translated HTML back for in-place replacement
-                            chrome.tabs.sendMessage(tabId, {
-                                action: "applyFullPageTranslation",
-                                html: translatedHtml
-                            }, (applyResponse) => {
-                                if (chrome.runtime.lastError) {
-                                    console.error(
-                                        "Error applying full page translation:",
-                                        chrome.runtime.lastError.message
+                            chrome.tabs.sendMessage(
+                                tabId,
+                                {
+                                    action: "applyFullPageTranslation",
+                                    html: translatedHtml,
+                                },
+                                (applyResponse) => {
+                                    if (chrome.runtime.lastError) {
+                                        console.error(
+                                            "Error applying full page translation:",
+                                            chrome.runtime.lastError.message,
+                                        );
+                                        notifyContentScript(
+                                            tabId,
+                                            "Failed to apply translated content.",
+                                            true, // isFullPage
+                                            true, // isError
+                                            false, // isLoading
+                                        );
+                                        return;
+                                    }
+                                    console.log(
+                                        "Full page translation applied:",
+                                        applyResponse,
                                     );
-                                    notifyContentScript(
-                                        tabId,
-                                        "Failed to apply translated content.",
-                                        true,  // isFullPage
-                                        true,  // isError
-                                        false  // isLoading
-                                    );
-                                    return;
-                                }
-                                console.log("Full page translation applied:", applyResponse);
-                            });
+                                },
+                            );
                         })
                         .catch((error) => {
                             console.error("Full page translation error:", error);
                             notifyContentScript(
                                 tabId,
                                 `Translation Error: ${error.message}`,
-                                true,  // isFullPage
-                                true,  // isError
-                                false  // isLoading
+                                true, // isFullPage
+                                true, // isError
+                                false, // isLoading
                             );
                         });
-                }
+                },
             );
         });
     }
@@ -345,11 +477,21 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 // --- Helper Function to Translate Individual Element Text ---
 async function translateElementText(textToTranslate, elementPath, tabId) {
-    console.log(`Translating element text (length: ${textToTranslate.length}) for path: ${elementPath}`);
+    console.log(
+        `Translating element text (length: ${textToTranslate.length}) for path: ${elementPath}`,
+    );
 
     return new Promise((resolve, reject) => {
         chrome.storage.sync.get(
-            ["apiKey", "apiEndpoint", "apiType", "modelName", "providerSettings"],
+            [
+                "apiKey",
+                "apiEndpoint",
+                "apiType",
+                "modelName",
+                "providerSettings",
+                SETTINGS_MODE_KEY,
+                BASIC_TARGET_LANGUAGE_KEY,
+            ],
             (settings) => {
                 const {
                     apiKey,
@@ -357,26 +499,67 @@ async function translateElementText(textToTranslate, elementPath, tabId) {
                     apiType,
                     modelName,
                     providerSettings = {},
+                    [SETTINGS_MODE_KEY]: settingsMode,
+                    [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
                 } = settings;
 
-                const activeProvider = (apiType && PROVIDERS.includes(apiType)) ? apiType : "openai";
+                const mode = settingsMode || SETTINGS_MODE_BASIC;
+
+                let activeProvider =
+                    apiType && PROVIDERS.includes(apiType) ? apiType : "openai";
+                if (
+                    mode === SETTINGS_MODE_BASIC &&
+                    !BASIC_PROVIDERS.includes(activeProvider)
+                ) {
+                    activeProvider = "openai";
+                }
+
                 const perProvider = providerSettings[activeProvider];
 
                 const effective = perProvider
                     ? {
-                        apiKey: perProvider.apiKey || "",
-                        apiEndpoint: perProvider.apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
-                        modelName: perProvider.modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
-                        translationInstructions: perProvider.translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS,
-                        apiType: activeProvider,
-                    }
+                          apiKey: perProvider.apiKey || "",
+                          apiEndpoint:
+                              perProvider.apiEndpoint ||
+                              PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                              "",
+                          modelName:
+                              perProvider.modelName ||
+                              PROVIDER_DEFAULTS[activeProvider]?.modelName ||
+                              "",
+                          translationInstructions:
+                              perProvider.translationInstructions ||
+                              DEFAULT_TRANSLATION_INSTRUCTIONS,
+                          apiType: activeProvider,
+                      }
                     : {
-                        apiKey: apiKey || "",
-                        apiEndpoint: apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
-                        modelName: modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
-                        translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
-                        apiType: activeProvider,
-                    };
+                          apiKey: apiKey || "",
+                          apiEndpoint:
+                              apiEndpoint ||
+                              PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                              "",
+                          modelName:
+                              modelName ||
+                              PROVIDER_DEFAULTS[activeProvider]?.modelName ||
+                              "",
+                          translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
+                          apiType: activeProvider,
+                      };
+
+                // In Basic mode, always use fixed endpoint/model and auto-generated instructions.
+                if (mode === SETTINGS_MODE_BASIC) {
+                    const languageValue =
+                        basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
+                    const languageLabel = getBasicTargetLanguageLabel(languageValue);
+                    effective.apiEndpoint =
+                        PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                        effective.apiEndpoint;
+                    effective.modelName =
+                        PROVIDER_DEFAULTS[activeProvider]?.modelName ||
+                        effective.modelName;
+                    effective.translationInstructions =
+                        buildBasicTranslationInstructions(languageLabel);
+                }
 
                 const {
                     apiKey: finalKey,
@@ -387,12 +570,24 @@ async function translateElementText(textToTranslate, elementPath, tabId) {
                 } = effective;
 
                 if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
-                    reject(new Error("API Key or Endpoint not set. Please configure in extension settings."));
+                    reject(
+                        new Error(
+                            "API Key or Endpoint not set. Please configure in extension settings.",
+                        ),
+                    );
                     return;
                 }
 
                 // Call the API for element translation
-                translateTextApiCall(textToTranslate, finalKey, finalEndpoint, finalType, false, finalModel, finalInstructions) // false = not full page
+                translateTextApiCall(
+                    textToTranslate,
+                    finalKey,
+                    finalEndpoint,
+                    finalType,
+                    false,
+                    finalModel,
+                    finalInstructions,
+                ) // false = not full page
                     .then((translation) => {
                         console.log("Element translation received:", translation);
                         resolve(translation);
@@ -401,15 +596,28 @@ async function translateElementText(textToTranslate, elementPath, tabId) {
                         console.error("Element translation error:", error);
                         reject(error);
                     });
-            });
+            },
+        );
     });
 }
 
 // --- Helper Function to Get Settings and Call API ---
 function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
-    console.log("getSettingsAndTranslate called.", { textToTranslate, tabId, isFullPage });
+    console.log("getSettingsAndTranslate called.", {
+        textToTranslate,
+        tabId,
+        isFullPage,
+    });
     chrome.storage.sync.get(
-        ["apiKey", "apiEndpoint", "apiType", "modelName", "providerSettings"],
+        [
+            "apiKey",
+            "apiEndpoint",
+            "apiType",
+            "modelName",
+            "providerSettings",
+            SETTINGS_MODE_KEY,
+            BASIC_TARGET_LANGUAGE_KEY,
+        ],
         (settings) => {
             console.log("Settings retrieved from storage:", settings);
             const {
@@ -418,26 +626,64 @@ function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
                 apiType,
                 modelName,
                 providerSettings = {},
+                [SETTINGS_MODE_KEY]: settingsMode,
+                [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
             } = settings;
 
-            const activeProvider = (apiType && PROVIDERS.includes(apiType)) ? apiType : "openai";
+            const mode = settingsMode || SETTINGS_MODE_BASIC;
+
+            let activeProvider =
+                apiType && PROVIDERS.includes(apiType) ? apiType : "openai";
+            if (
+                mode === SETTINGS_MODE_BASIC &&
+                !BASIC_PROVIDERS.includes(activeProvider)
+            ) {
+                activeProvider = "openai";
+            }
+
             const perProvider = providerSettings[activeProvider];
 
             const effective = perProvider
                 ? {
-                    apiKey: perProvider.apiKey || "",
-                    apiEndpoint: perProvider.apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
-                    modelName: perProvider.modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
-                    translationInstructions: perProvider.translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS,
-                    apiType: activeProvider,
-                }
+                      apiKey: perProvider.apiKey || "",
+                      apiEndpoint:
+                          perProvider.apiEndpoint ||
+                          PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                          "",
+                      modelName:
+                          perProvider.modelName ||
+                          PROVIDER_DEFAULTS[activeProvider]?.modelName ||
+                          "",
+                      translationInstructions:
+                          perProvider.translationInstructions ||
+                          DEFAULT_TRANSLATION_INSTRUCTIONS,
+                      apiType: activeProvider,
+                  }
                 : {
-                    apiKey: apiKey || "",
-                    apiEndpoint: apiEndpoint || (PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || ""),
-                    modelName: modelName || (PROVIDER_DEFAULTS[activeProvider]?.modelName || ""),
-                    translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
-                    apiType: activeProvider,
-                };
+                      apiKey: apiKey || "",
+                      apiEndpoint:
+                          apiEndpoint ||
+                          PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                          "",
+                      modelName:
+                          modelName || PROVIDER_DEFAULTS[activeProvider]?.modelName || "",
+                      translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
+                      apiType: activeProvider,
+                  };
+
+            // In Basic mode, always use fixed endpoint/model and auto-generated instructions.
+            if (mode === SETTINGS_MODE_BASIC) {
+                const languageValue =
+                    basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
+                const languageLabel = getBasicTargetLanguageLabel(languageValue);
+                effective.apiEndpoint =
+                    PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                    effective.apiEndpoint;
+                effective.modelName =
+                    PROVIDER_DEFAULTS[activeProvider]?.modelName || effective.modelName;
+                effective.translationInstructions =
+                    buildBasicTranslationInstructions(languageLabel);
+            }
 
             const {
                 apiKey: finalKey,
@@ -456,10 +702,20 @@ function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
                 return;
             }
 
-            console.log("Attempting to call translateTextApiCall with resolved provider settings.");
+            console.log(
+                "Attempting to call translateTextApiCall with resolved provider settings.",
+            );
 
             // Call the API - the promise resolution/rejection will handle sending the final result
-            translateTextApiCall(textToTranslate, finalKey, finalEndpoint, finalType, isFullPage, finalModel, finalInstructions)
+            translateTextApiCall(
+                textToTranslate,
+                finalKey,
+                finalEndpoint,
+                finalType,
+                isFullPage,
+                finalModel,
+                finalInstructions,
+            )
                 .then((translation) => {
                     console.log("Translation received (length):", translation.length);
                     // Send final translation result
@@ -476,11 +732,18 @@ function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
                         false, // isLoading=false
                     );
                 });
-        });
+        },
+    );
 }
 
 // --- Notify Content Script ---
-function notifyContentScript(tabId, text, isFullPage, isError = false, isLoading = false) {
+function notifyContentScript(
+    tabId,
+    text,
+    isFullPage,
+    isError = false,
+    isLoading = false,
+) {
     let message = {
         text: text,
         isError: isError,
@@ -554,13 +817,11 @@ Text to translate: ${textToTranslate}`;
         "You are a professional translator. Translate the provided text accurately. Preserve any HTML structure and formatting in your translation.";
 
     // Normalize provider name
-    const provider = (apiType && PROVIDERS.includes(apiType)) ? apiType : "openai";
+    const provider = apiType && PROVIDERS.includes(apiType) ? apiType : "openai";
 
     // Use modelName from parameter, fallback to provider defaults
     const selectedModelName =
-        modelName ||
-        PROVIDER_DEFAULTS[provider]?.modelName ||
-        DEFAULT_SETTINGS.modelName;
+        modelName || PROVIDER_DEFAULTS[provider]?.modelName || DEFAULT_SETTINGS.modelName;
 
     switch (provider) {
         case "openai":
@@ -592,10 +853,7 @@ Text to translate: ${textToTranslate}`;
             requestBody = {
                 contents: [
                     {
-                        parts: [
-                            { text: systemPrompt },
-                            { text: prompt },
-                        ],
+                        parts: [{ text: systemPrompt }, { text: prompt }],
                     },
                 ],
                 generationConfig: {
@@ -687,7 +945,7 @@ Text to translate: ${textToTranslate}`;
                 model: selectedModelName || PROVIDER_DEFAULTS.ollama.modelName,
                 system: systemPrompt,
                 prompt: prompt,
-                stream: false,  // Get complete response, not streaming
+                stream: false, // Get complete response, not streaming
             };
             break;
         }
@@ -708,7 +966,9 @@ Text to translate: ${textToTranslate}`;
 
         // Explicit logging to help debug partial translations / silent failures
         if (response.status === 429) {
-            console.error("Rate limited by provider (HTTP 429). Consider lowering concurrency or checking your OpenRouter plan/limits.");
+            console.error(
+                "Rate limited by provider (HTTP 429). Consider lowering concurrency or checking your OpenRouter plan/limits.",
+            );
         }
 
         if (!response.ok) {
@@ -716,10 +976,11 @@ Text to translate: ${textToTranslate}`;
             try {
                 const errorData = await response.json();
                 console.error("API Error Response Body:", errorData);
-                errorDetails += `: ${errorData?.error?.message ||
+                errorDetails += `: ${
+                    errorData?.error?.message ||
                     errorData?.detail ||
                     JSON.stringify(errorData)
-                    }`;
+                }`;
             } catch (e) {
                 errorDetails += `: ${response.statusText}`;
             }
@@ -752,7 +1013,10 @@ Text to translate: ${textToTranslate}`;
                 if (data.candidates?.[0]?.content?.parts) {
                     console.log("Google API Parts:", data.candidates[0].content.parts);
                     if (data.candidates[0].content.parts.length > 0) {
-                        console.log("Google API First Part:", data.candidates[0].content.parts[0]);
+                        console.log(
+                            "Google API First Part:",
+                            data.candidates[0].content.parts[0],
+                        );
                     }
                 }
                 translation = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
@@ -763,11 +1027,15 @@ Text to translate: ${textToTranslate}`;
                 break;
             default:
                 throw new Error(
-                    "Could not determine how to extract translation for this provider."
+                    "Could not determine how to extract translation for this provider.",
                 );
         }
 
-        if (translation === undefined || translation === null || translation.trim() === "") {
+        if (
+            translation === undefined ||
+            translation === null ||
+            translation.trim() === ""
+        ) {
             console.error("Extracted translation is empty or null.", data);
             throw new Error("API returned no translation text.");
         }

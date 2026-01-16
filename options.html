@@ -1,130 +1,281 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>AI Translator Settings</title>
+        <script src="tailwindcss.min.js"></script>
+        <link href="options.css" rel="stylesheet" />
+    </head>
 
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Translator Settings</title>
-    <script src="tailwindcss.min.js"></script>
-    <link href="options.css" rel="stylesheet" />
-</head>
+    <body class="bg-gray-100 p-8">
+        <div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md">
+            <h1 class="text-2xl font-semibold mb-6 text-gray-800">
+                AI Translator Settings
+            </h1>
 
-<body class="bg-gray-100 p-8">
-    <div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md">
-        <h1 class="text-2xl font-semibold mb-6 text-gray-800">
-            AI Translator Settings
-        </h1>
-
-        <form id="settings-form">
-            <div class="mb-4">
-                <label for="api-endpoint" class="block text-sm font-medium text-gray-700 mb-1">API Endpoint URL:</label>
-                <div class="flex space-x-2"> <!-- Add a flex container -->
-                    <input type="url" id="api-endpoint" name="api-endpoint" required
-                        class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder="e.g., https://api.openai.com/v1/chat/completions" />
-                    <button type="button" id="fill-default-endpoint"
-                        class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-                        Fill Default
-                    </button>
-                </div>
-            </div>
-
-            <div class="mb-4">
-                <label for="model-name" class="block text-sm font-medium text-gray-700 mb-1">Model Name:</label>
-                <div class="flex space-x-2">
-                    <input type="text" id="model-name" name="model-name" required
-                        class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder="e.g., gpt-4o" />
-                    <button type="button" id="fill-default-model"
-                        class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">
-                        Fill Default
-                    </button>
-                </div>
-            </div>
-
-            <div class="mb-4">
-                <label for="api-key" class="block text-sm font-medium text-gray-700 mb-1">API Key:</label>
-                <input type="password" id="api-key" name="api-key" required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="Enter your API key" />
-                <p class="text-xs text-gray-500 mt-1">
-                    Your key is stored securely in local browser storage.
-                </p>
-            </div>
-
-            <div class="mb-4">
-                <label for="api-type" class="block text-sm font-medium text-gray-700 mb-1">API Type:</label>
-                <select id="api-type" name="api-type"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white">
-                    <option value="openai">OpenAI</option>
-                    <option value="anthropic">Anthropic Claude</option>
-                    <option value="google">Google Gemini</option>
-                    <option value="grok">Grok (xAI)</option>
-                    <option value="openrouter">OpenRouter</option>
-                    <option value="deepseek">DeepSeek</option>
-                    <option value="mistral">Mistral AI</option>
-                    <option value="qwen">Qwen (Alibaba)</option>
-                    <option value="ollama">Ollama (Local)</option>
+            <div class="mb-6">
+                <label
+                    for="settings-mode"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    >Mode:</label
+                >
+                <select
+                    id="settings-mode"
+                    name="settings-mode"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                >
+                    <option value="basic">Basic</option>
+                    <option value="advanced">Advanced</option>
                 </select>
                 <p class="text-xs text-gray-500 mt-1">
-                    Select the format your endpoint expects.
+                    Basic hides advanced configuration like endpoints, models, and custom
+                    prompts.
                 </p>
             </div>
 
-            <!-- Ollama-specific settings -->
-            <div id="ollama-settings" class="mb-4 hidden">
-                <label for="ollama-model-select" class="block text-sm font-medium text-gray-700 mb-1">Model:</label>
-                <div class="flex space-x-2">
-                    <select id="ollama-model-select" name="ollama-model-select"
-                        class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white">
-                        <option value="">-- Select a model --</option>
-                    </select>
-                    <button type="button" id="refresh-ollama-models"
-                        class="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                        Refresh
-                    </button>
+            <form id="settings-form">
+                <div id="basic-settings" class="hidden">
+                    <div class="mb-4">
+                        <label
+                            for="basic-provider"
+                            class="block text-sm font-medium text-gray-700 mb-1"
+                            >Provider:</label
+                        >
+                        <select
+                            id="basic-provider"
+                            name="basic-provider"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                        >
+                            <option value="openai">OpenAI</option>
+                            <option value="anthropic">Anthropic Claude</option>
+                            <option value="google">Google Gemini</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">
+                            In Basic mode, models and endpoints are configured
+                            automatically.
+                        </p>
+                    </div>
+
+                    <div class="mb-4">
+                        <label
+                            for="basic-api-key"
+                            class="block text-sm font-medium text-gray-700 mb-1"
+                            >API Key:</label
+                        >
+                        <input
+                            type="password"
+                            id="basic-api-key"
+                            name="basic-api-key"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Enter your API key"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">
+                            Your key is stored securely in local browser storage.
+                        </p>
+                    </div>
+
+                    <div class="mb-4">
+                        <label
+                            for="basic-target-language"
+                            class="block text-sm font-medium text-gray-700 mb-1"
+                            >Target Language:</label
+                        >
+                        <select
+                            id="basic-target-language"
+                            name="basic-target-language"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                        ></select>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Language names are shown in that language.
+                        </p>
+                    </div>
                 </div>
-                <p class="text-xs text-gray-500 mt-1">
-                    Click Refresh to fetch available models from your Ollama instance.
-                </p>
-                <p class="text-xs text-amber-600 mt-2">
-                    <strong>Note:</strong> Ollama may need to be started with
-                    <code class="bg-gray-100 px-1 rounded">OLLAMA_ORIGINS="*" ollama serve</code>
-                    to allow requests from Chrome extensions.
-                </p>
-            </div>
 
-            <div class="mb-4">
-                <label for="translation-instructions" class="block text-sm font-medium text-gray-700 mb-1">Translation
-                    Instructions:</label>
-                <div class="flex space-x-2">
-                    <textarea id="translation-instructions" name="translation-instructions" rows="3"
-                        class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                        placeholder="e.g., Translate Selected Text. Keep the same meaning and tone."></textarea>
-                    <button type="button" id="fill-default-instructions"
-                        class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 self-start">
-                        Fill Default
-                    </button>
+                <div id="advanced-settings">
+                    <div class="mb-4">
+                        <label
+                            for="api-endpoint"
+                            class="block text-sm font-medium text-gray-700 mb-1"
+                            >API Endpoint URL:</label
+                        >
+                        <div class="flex space-x-2">
+                            <!-- Add a flex container -->
+                            <input
+                                type="url"
+                                id="api-endpoint"
+                                name="api-endpoint"
+                                required
+                                class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="e.g., https://api.openai.com/v1/chat/completions"
+                            />
+                            <button
+                                type="button"
+                                id="fill-default-endpoint"
+                                class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                            >
+                                Fill Default
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label
+                            for="model-name"
+                            class="block text-sm font-medium text-gray-700 mb-1"
+                            >Model Name:</label
+                        >
+                        <div class="flex space-x-2">
+                            <input
+                                type="text"
+                                id="model-name"
+                                name="model-name"
+                                required
+                                class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="e.g., gpt-4o"
+                            />
+                            <button
+                                type="button"
+                                id="fill-default-model"
+                                class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                            >
+                                Fill Default
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label
+                            for="api-key"
+                            class="block text-sm font-medium text-gray-700 mb-1"
+                            >API Key:</label
+                        >
+                        <input
+                            type="password"
+                            id="api-key"
+                            name="api-key"
+                            required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                            placeholder="Enter your API key"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">
+                            Your key is stored securely in local browser storage.
+                        </p>
+                    </div>
+
+                    <div class="mb-4">
+                        <label
+                            for="api-type"
+                            class="block text-sm font-medium text-gray-700 mb-1"
+                            >API Type:</label
+                        >
+                        <select
+                            id="api-type"
+                            name="api-type"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                        >
+                            <option value="openai">OpenAI</option>
+                            <option value="anthropic">Anthropic Claude</option>
+                            <option value="google">Google Gemini</option>
+                            <option value="grok">Grok (xAI)</option>
+                            <option value="openrouter">OpenRouter</option>
+                            <option value="deepseek">DeepSeek</option>
+                            <option value="mistral">Mistral AI</option>
+                            <option value="qwen">Qwen (Alibaba)</option>
+                            <option value="ollama">Ollama (Local)</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Select the format your endpoint expects.
+                        </p>
+                    </div>
+
+                    <!-- Ollama-specific settings -->
+                    <div id="ollama-settings" class="mb-4 hidden">
+                        <label
+                            for="ollama-model-select"
+                            class="block text-sm font-medium text-gray-700 mb-1"
+                            >Model:</label
+                        >
+                        <div class="flex space-x-2">
+                            <select
+                                id="ollama-model-select"
+                                name="ollama-model-select"
+                                class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                            >
+                                <option value="">-- Select a model --</option>
+                            </select>
+                            <button
+                                type="button"
+                                id="refresh-ollama-models"
+                                class="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                            >
+                                Refresh
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Click Refresh to fetch available models from your Ollama
+                            instance.
+                        </p>
+                        <p class="text-xs text-amber-600 mt-2">
+                            <strong>Note:</strong> Ollama may need to be started with
+                            <code class="bg-gray-100 px-1 rounded"
+                                >OLLAMA_ORIGINS="*" ollama serve</code
+                            >
+                            to allow requests from Chrome extensions.
+                        </p>
+                    </div>
+
+                    <div class="mb-4">
+                        <label
+                            for="translation-instructions"
+                            class="block text-sm font-medium text-gray-700 mb-1"
+                            >Translation Instructions:</label
+                        >
+                        <div class="flex space-x-2">
+                            <textarea
+                                id="translation-instructions"
+                                name="translation-instructions"
+                                rows="3"
+                                class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="e.g., Translate Selected Text. Keep the same meaning and tone."
+                            ></textarea>
+                            <button
+                                type="button"
+                                id="fill-default-instructions"
+                                class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 self-start"
+                            >
+                                Fill Default
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Custom instructions for translation (e.g., target language,
+                            tone). The text to translate will be appended automatically.
+                        </p>
+                    </div>
                 </div>
-                <p class="text-xs text-gray-500 mt-1">
-                    Custom instructions for translation (e.g., target language, tone). The text to translate will be
-                    appended automatically.
-                </p>
-            </div>
 
-            <div class="text-center pt-4 mt-4">
-                <span id="status-message" class="text-sm font-medium text-green-600 feedback opacity-0"></span>
-            </div>
-        </form>
-    </div>
+                <div class="text-center pt-4 mt-4">
+                    <span
+                        id="status-message"
+                        class="text-sm font-medium text-green-600 feedback opacity-0"
+                    ></span>
+                </div>
+            </form>
+        </div>
 
-    <script src="options.js"></script>
+        <script src="options.js"></script>
 
-    <div class="fixed bottom-0 left-0 right-0 bg-gray-200 text-center text-xs p-2 border-t border-gray-300 z-50">
-        Icon made by Pixel perfect from
-        <a href="https://www.flaticon.com/" class="text-blue-600 hover:underline" target="_blank"
-            rel="noopener noreferrer">www.flaticon.com</a>
-    </div>
-</body>
-
+        <div
+            class="fixed bottom-0 left-0 right-0 bg-gray-200 text-center text-xs p-2 border-t border-gray-300 z-50"
+        >
+            Icon made by Pixel perfect from
+            <a
+                href="https://www.flaticon.com/"
+                class="text-blue-600 hover:underline"
+                target="_blank"
+                rel="noopener noreferrer"
+                >www.flaticon.com</a
+            >
+        </div>
+    </body>
 </html>
