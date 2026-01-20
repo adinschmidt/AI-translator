@@ -9,6 +9,8 @@ A browser extension that leverages customizable AI models for superior text and 
   <img src="https://img.shields.io/badge/Firefox_Add--ons-Available-FF7139?style=for-the-badge&logo=firefox&logoColor=white" alt="Available on Firefox Add-ons">
 </a>
 
+**Documentation:** https://adinschmidt.github.io/AI-translator/
+
 ## Why AI Translator?
 
 - **More Coherent Output**: AI translation delivers natural, context-aware results that surpass traditional Machine Translation (MTL) in coherence and fluency.
@@ -77,7 +79,8 @@ AI-powered translation provides more natural and contextually accurate results c
 We value your privacy. This extension operates client-side and does not collect your data.
 
 **Permissions:**
-- `activeTab`: Used to access the content of the current tab only when you explicitly interact with the extension (e.g., clicking a context menu item). This replaces the broad `<all_urls>` permission, ensuring the extension only runs when you want it to.
+- `host_permissions` (`https://*/*`, `http://*/*`): Allow the selection button and page translation to run on any site you visit.
+- `activeTab`: Grants temporary access when you explicitly trigger a translation.
 - `storage`: Used to save your settings locally.
 - `scripting`: Used to inject translation scripts into the page when requested.
 
