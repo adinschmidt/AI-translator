@@ -80,7 +80,6 @@ We value your privacy. This extension operates client-side and does not collect 
 
 **Permissions:**
 - `host_permissions` (`https://*/*`, `http://*/*`): Allow the selection button and page translation to run on any site you visit.
-- `activeTab`: Grants temporary access when you explicitly trigger a translation.
 - `storage`: Used to save your settings locally.
 - `scripting`: Used to inject translation scripts into the page when requested.
 
