@@ -84,4 +84,4 @@ We value your privacy. This extension operates client-side and does not collect 
 - `storage`: Used to save your settings locally.
 - `scripting`: Used to inject translation scripts into the page when requested.
 
-See our [Privacy Policy](PRIVACY.md) for full details.
+See our [Privacy Policy](https://adinschmidt.github.io/AI-translator/privacy) for full details.
