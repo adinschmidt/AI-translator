@@ -3,7 +3,7 @@
     "name": "AI Translator",
     "version": "0.2.3",
     "description": "Translate text and pages using customizable AI models.",
-    "permissions": ["contextMenus", "scripting", "storage", "activeTab"],
+    "permissions": ["contextMenus", "scripting", "storage"],
     "host_permissions": ["https://*/*", "http://*/*"],
     "content_scripts": [
         {
