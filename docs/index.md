@@ -13,6 +13,12 @@ hero:
           text: Getting Started
           link: /getting-started
         - theme: alt
+          text: Chrome Web Store
+          link: https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba
+        - theme: alt
+          text: Firefox Add-ons
+          link: https://addons.mozilla.org/en-US/firefox/addon/ai-translator/
+        - theme: alt
           text: Providers & API Keys
           link: /providers
 features:

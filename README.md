@@ -9,7 +9,7 @@ A browser extension that leverages customizable AI models for superior text and 
   <img src="https://img.shields.io/badge/Firefox_Add--ons-Available-FF7139?style=for-the-badge&logo=firefox&logoColor=white" alt="Available on Firefox Add-ons">
 </a>
 
-**Documentation:** https://adinschmidt.github.io/AI-translator/
+**Documentation:** https://adinschmidt.com/AI-translator/
 
 ## Why AI Translator?
 
@@ -84,4 +84,4 @@ We value your privacy. This extension operates client-side and does not collect 
 - `storage`: Used to save your settings locally.
 - `scripting`: Used to inject translation scripts into the page when requested.
 
-See our [Privacy Policy](https://adinschmidt.github.io/AI-translator/privacy) for full details.
+See our [Privacy Policy](https://adinschmidt.com/AI-translator/privacy) for full details.

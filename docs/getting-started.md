@@ -4,7 +4,9 @@ Get up and running in a few minutes.
 
 ## 1) Install the extension
 
-Follow the installation guide for [Chrome/Chromium and Firefox](/installation).
+- [Chrome Web Store](https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba)
+- [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-translator/)
+- [Instructions for Manual Installation](/installation)
 
 ## 2) Configure your provider
 
