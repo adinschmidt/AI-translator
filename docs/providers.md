@@ -65,6 +65,19 @@ providers and customize endpoints and models.
 - Default endpoint: `https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions`
 - Default model: `qwen-turbo`
 
+## Cerebras
+
+- Create a key: [cloud.cerebras.ai](https://cloud.cerebras.ai/)
+- Default endpoint: `https://api.cerebras.ai/v1/chat/completions`
+- Default model: `qwen-3-235b-a22b-instruct-2507`
+- Available models:
+  - `llama3.1-8b` – Fast inference, optimized for speed
+  - `llama-3.3-70b` – Enhanced for coding, math, and reasoning
+  - `qwen-3-32b` – Multilingual with hybrid reasoning
+  - `qwen-3-235b-a22b-instruct-2507` – Large instruct model
+  - `gpt-oss-120b` – Strong reasoning across science, math, and coding
+  - `zai-glm-4.7` – Advanced reasoning with strong coding performance
+
 ## Ollama (Local)
 
 - Install Ollama: [ollama.com/download](https://ollama.com/download)

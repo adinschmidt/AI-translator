@@ -30,6 +30,10 @@ const refreshOllamaModelsButton = document.getElementById("refresh-ollama-models
 const apiKeyContainer = document.getElementById("api-key")?.closest(".mb-4");
 const modelNameContainer = document.getElementById("model-name")?.closest(".mb-4");
 
+// Cerebras-specific elements
+const cerebrasSettingsDiv = document.getElementById("cerebras-settings");
+const cerebrasModelSelect = document.getElementById("cerebras-model-select");
+
 // Settings mode keys
 const SETTINGS_MODE_KEY = "settingsMode";
 const BASIC_TARGET_LANGUAGE_KEY = "basicTargetLanguage";
@@ -55,6 +59,7 @@ const PROVIDERS = [
     "deepseek",
     "mistral",
     "qwen",
+    "cerebras",
     "ollama",
 ];
 
@@ -96,6 +101,10 @@ const PROVIDER_DEFAULTS = {
         apiEndpoint:
             "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
         modelName: "qwen-turbo",
+    },
+    cerebras: {
+        apiEndpoint: "https://api.cerebras.ai/v1/chat/completions",
+        modelName: "qwen-3-235b-a22b-instruct-2507",
     },
     ollama: {
         apiEndpoint: "http://localhost:11434",
@@ -169,23 +178,29 @@ function populateOllamaModelDropdown(models, selectedModel = "") {
 
 /**
  * Update UI visibility based on selected provider.
- * Shows/hides Ollama-specific elements and API key field as appropriate.
+ * Shows/hides Ollama-specific and Cerebras-specific elements and API key field as appropriate.
  * @param {string} provider - The currently selected provider
  */
 function updateProviderUI(provider) {
     const isOllama = provider === "ollama";
+    const isCerebras = provider === "cerebras";
 
     // Show/hide Ollama-specific settings
     if (ollamaSettingsDiv) {
         ollamaSettingsDiv.classList.toggle("hidden", !isOllama);
     }
 
-    // Show/hide standard model name input (hide for Ollama since we use dropdown)
+    // Show/hide Cerebras-specific settings
+    if (cerebrasSettingsDiv) {
+        cerebrasSettingsDiv.classList.toggle("hidden", !isCerebras);
+    }
+
+    // Show/hide standard model name input (hide for Ollama/Cerebras since we use dropdown)
     // Also hide in Basic mode, since model is fixed.
     if (modelNameContainer) {
         modelNameContainer.classList.toggle(
             "hidden",
-            isOllama || settingsMode === SETTINGS_MODE_BASIC,
+            isOllama || isCerebras || settingsMode === SETTINGS_MODE_BASIC,
         );
     }
 
@@ -210,6 +225,12 @@ function updateProviderUI(provider) {
             .catch((error) => {
                 displayStatus(`Could not fetch Ollama models: ${error.message}`, true);
             });
+    }
+
+    // If switching to Cerebras, set the dropdown to the current model
+    if (isCerebras && cerebrasModelSelect) {
+        const settings = providerSettings["cerebras"] || resolveProviderDefaults("cerebras");
+        cerebrasModelSelect.value = settings.modelName || PROVIDER_DEFAULTS.cerebras.modelName;
     }
 }
 
@@ -856,6 +877,26 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         console.log(
             "options.js: Click event listener added to refresh Ollama models button.",
+        );
+    }
+
+    // Cerebras-specific event listeners
+    if (cerebrasModelSelect) {
+        cerebrasModelSelect.addEventListener("change", (event) => {
+            const selectedModel = event.target.value;
+            console.log("options.js: Cerebras model selected:", selectedModel);
+
+            if (selectedModel) {
+                if (!providerSettings["cerebras"]) {
+                    providerSettings["cerebras"] = resolveProviderDefaults("cerebras");
+                }
+                providerSettings["cerebras"].modelName = selectedModel;
+                // Also update the hidden modelNameInput so saving works correctly
+                modelNameInput.value = selectedModel;
+                autoSaveSetting();
+            }
+        });
+        console.log("options.js: Change event listener added to Cerebras model select."
         );
     }
 });

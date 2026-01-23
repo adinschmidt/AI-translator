@@ -43,6 +43,7 @@ const PROVIDERS = [
     "deepseek",
     "mistral",
     "qwen",
+    "cerebras",
     "ollama",
 ];
 
@@ -84,6 +85,10 @@ const PROVIDER_DEFAULTS = {
         apiEndpoint:
             "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
         modelName: "qwen-turbo",
+    },
+    cerebras: {
+        apiEndpoint: "https://api.cerebras.ai/v1/chat/completions",
+        modelName: "qwen-3-235b-a22b-instruct-2507",
     },
     ollama: {
         apiEndpoint: "http://localhost:11434",
@@ -987,6 +992,33 @@ Text to translate: ${textToTranslate}`;
             };
             break;
         }
+        case "cerebras": {
+            // Cerebras - OpenAI-compatible style
+            // Use direct prompt format for better instruct model compatibility
+            // No max_completion_tokens - let model use its maximum
+            headers["Authorization"] = `Bearer ${apiKey}`;
+            const cerebrasUserPrompt = `${userInstructions}
+
+If this contains HTML, preserve the HTML structure and formatting.
+If this is already in the target language, repeat it back verbatim.
+
+Text to translate:
+${textToTranslate}
+
+Translated text:`;
+            requestBody = {
+                model: selectedModelName || PROVIDER_DEFAULTS.cerebras.modelName,
+                messages: [
+                    {
+                        role: "system",
+                        content:
+                            "You are a professional translator. Output only the translated text with no explanations, reasoning, or additional commentary.",
+                    },
+                    { role: "user", content: cerebrasUserPrompt },
+                ],
+            };
+            break;
+        }
         case "ollama": {
             // Ollama uses /api/generate endpoint - no auth needed for local
             const ollamaBase = apiEndpoint || PROVIDER_DEFAULTS.ollama.apiEndpoint;
@@ -1057,6 +1089,12 @@ Text to translate: ${textToTranslate}`;
             case "qwen":
                 translation = data.choices?.[0]?.message?.content?.trim();
                 break;
+            case "cerebras": {
+                // Filter out <think>...</think> blocks from reasoning models (qwen-3-32b, etc.)
+                let content = data.choices?.[0]?.message?.content || "";
+                translation = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+                break;
+            }
             case "anthropic":
                 if (Array.isArray(data.content) && data.content.length > 0) {
                     translation = data.content
