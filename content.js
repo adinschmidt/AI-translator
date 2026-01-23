@@ -8,6 +8,117 @@ if (window.hasRun) {
 
     // content.js - Handles displaying popups, extracting page text, replacing content, and manual translation.
 
+    // --- ELD Language Detection (runs in content script) ---
+    const MAX_TEXT_SAMPLE_FOR_DETECTION = 512;
+
+    // Language code to name mapping (ISO 639-1)
+    const LANGUAGE_NAMES = {
+        en: "English",
+        es: "Spanish",
+        fr: "French",
+        de: "German",
+        it: "Italian",
+        pt: "Portuguese",
+        ru: "Russian",
+        ja: "Japanese",
+        ko: "Korean",
+        zh: "Chinese",
+        "zh-CN": "Chinese (Simplified)",
+        "zh-TW": "Chinese (Traditional)",
+        ar: "Arabic",
+        hi: "Hindi",
+        nl: "Dutch",
+        pl: "Polish",
+        tr: "Turkish",
+        vi: "Vietnamese",
+        th: "Thai",
+        sv: "Swedish",
+        da: "Danish",
+        no: "Norwegian",
+        fi: "Finnish",
+        cs: "Czech",
+        el: "Greek",
+        he: "Hebrew",
+        hu: "Hungarian",
+        id: "Indonesian",
+        ms: "Malay",
+        ro: "Romanian",
+        sk: "Slovak",
+        uk: "Ukrainian",
+        bg: "Bulgarian",
+        hr: "Croatian",
+        sr: "Serbian",
+        sl: "Slovenian",
+        et: "Estonian",
+        lv: "Latvian",
+        lt: "Lithuanian",
+        fa: "Persian",
+        bn: "Bengali",
+        ta: "Tamil",
+        te: "Telugu",
+        mr: "Marathi",
+        gu: "Gujarati",
+        kn: "Kannada",
+        ml: "Malayalam",
+        pa: "Punjabi",
+        ur: "Urdu",
+        sw: "Swahili",
+        af: "Afrikaans",
+        ca: "Catalan",
+        gl: "Galician",
+        eu: "Basque",
+        fil: "Filipino",
+        tl: "Tagalog",
+    };
+
+    function getLanguageDisplayName(languageCode) {
+        if (!languageCode) return "Unknown";
+        const normalizedCode = languageCode.toLowerCase().split("-")[0];
+        return (
+            LANGUAGE_NAMES[languageCode] || LANGUAGE_NAMES[normalizedCode] || languageCode
+        );
+    }
+
+    function detectLanguage(text) {
+        if (!text || typeof text !== "string") {
+            return null;
+        }
+
+        const trimmedText = text.trim();
+        if (trimmedText.length === 0) {
+            return null;
+        }
+
+        const textToAnalyze =
+            trimmedText.length > MAX_TEXT_SAMPLE_FOR_DETECTION
+                ? trimmedText.substring(0, MAX_TEXT_SAMPLE_FOR_DETECTION)
+                : trimmedText;
+
+        try {
+            if (typeof ELD === "undefined" || !ELD.detect) {
+                console.error("ELD module not loaded");
+                return null;
+            }
+
+            const result = ELD.detect(textToAnalyze);
+
+            if (!result || !result.language) {
+                return null;
+            }
+
+            return {
+                language: result.language,
+                languageName: getLanguageDisplayName(result.language),
+                isReliable: result.isReliable ? result.isReliable() : true,
+            };
+        } catch (error) {
+            console.error("Language detection exception:", error);
+            return null;
+        }
+    }
+
+    // --- End ELD Language Detection ---
+
     // Track mouse position
     window.lastMouseX = 0;
     window.lastMouseY = 0;
@@ -27,6 +138,8 @@ if (window.hasRun) {
     let selectionTranslateButton = null;
     let selectionTranslateInProgress = false;
     let selectionListenerCleanup = null;
+    let currentDetectedLanguage = null;
+    let currentDetectedLanguageName = null;
 
     // --- Message Listener (Handles multiple actions) ---
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -41,8 +154,14 @@ if (window.hasRun) {
                     selectionTranslateInProgress = false;
                     hideSelectionTranslateButton();
                 }
-                // Call displayPopup, passing the loading state and error status
-                displayPopup(request.text, request.isError, request.isLoading);
+                // Call displayPopup, passing the loading state, error status, and detection info
+                displayPopup(
+                    request.text,
+                    request.isError,
+                    request.isLoading,
+                    request.detectedLanguageName,
+                    request.targetLanguageName,
+                );
                 sendResponse({ status: "Popup displayed/updated" });
                 break;
 
@@ -219,8 +338,14 @@ if (window.hasRun) {
             hideSelectionTranslateButton();
             displayPopup("Translating...", false, true);
 
+            // Use the new message with detected language info
             chrome.runtime.sendMessage(
-                { action: "translateSelectedHtml", html },
+                {
+                    action: "translateSelectedHtmlWithDetection",
+                    html,
+                    detectedLanguage: currentDetectedLanguage,
+                    detectedLanguageName: currentDetectedLanguageName,
+                },
                 (response) => {
                     if (chrome.runtime.lastError) {
                         selectionTranslateInProgress = false;
@@ -348,7 +473,8 @@ if (window.hasRun) {
             return;
         }
 
-        if ((selection.toString() || "").trim().length === 0) {
+        const selectedText = (selection.toString() || "").trim();
+        if (selectedText.length === 0) {
             hideSelectionTranslateButton();
             return;
         }
@@ -376,8 +502,82 @@ if (window.hasRun) {
             return;
         }
 
+        // Check language BEFORE showing button to avoid flash
+        detectAndShowButton(selectedText, rect);
+    }
+
+    /**
+     * Detect language first, then show button only if appropriate
+     */
+    function detectAndShowButton(text, rect) {
+        // Reset current detection
+        currentDetectedLanguage = null;
+        currentDetectedLanguageName = null;
+
+        // Detect language locally using ELD
+        const detectionResult = detectLanguage(text);
+
+        if (!detectionResult) {
+            console.log("Language detection failed or unavailable, not showing button");
+            hideSelectionTranslateButton();
+            return;
+        }
+
+        // Get target language from background to compare
+        chrome.runtime.sendMessage({ action: "getTargetLanguage" }, (response) => {
+            if (chrome.runtime.lastError) {
+                console.warn(
+                    "Failed to get target language:",
+                    chrome.runtime.lastError.message,
+                );
+                hideSelectionTranslateButton();
+                return;
+            }
+
+            const targetLanguage = response?.targetLanguage || "en";
+
+            // Compare detected language with target language
+            const detectedNormalized = detectionResult.language
+                .toLowerCase()
+                .split("-")[0];
+            const targetNormalized = targetLanguage.toLowerCase().split("-")[0];
+            const isSameLanguage = detectedNormalized === targetNormalized;
+
+            if (isSameLanguage) {
+                console.log(
+                    "Detected language matches target language, not showing button",
+                );
+                hideSelectionTranslateButton();
+                return;
+            }
+
+            // Update detection state
+            currentDetectedLanguage = detectionResult.language;
+            currentDetectedLanguageName = detectionResult.languageName;
+
+            // Now show the button
+            showButtonAtPosition(rect, currentDetectedLanguageName);
+        });
+    }
+
+    /**
+     * Position and show the translate button
+     */
+    function showButtonAtPosition(rect, languageName) {
+        if (!selectionTranslateButton) {
+            return;
+        }
+
+        // Verify selection still exists (user might have clicked away during detection)
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+            return;
+        }
+
         const margin = 8;
-        // First show the button so offsetWidth/Height are measurable.
+
+        // Position the button (use visibility hidden first to measure)
+        selectionTranslateButton.style.visibility = "hidden";
         selectionTranslateButton.style.display = "inline-flex";
 
         const top = window.scrollY + rect.bottom + margin;
@@ -389,7 +589,32 @@ if (window.hasRun) {
 
         selectionTranslateButton.style.top = `${top}px`;
         selectionTranslateButton.style.left = `${left}px`;
-        selectionTranslateButton.style.display = "inline-flex";
+
+        // Update label
+        updateButtonLabel(languageName);
+
+        // Now make it visible
+        selectionTranslateButton.style.visibility = "visible";
+    }
+
+    /**
+     * Update button label to show detected language
+     */
+    function updateButtonLabel(languageName) {
+        if (!selectionTranslateButton) {
+            return;
+        }
+
+        const labelSpan = selectionTranslateButton.querySelector("span");
+        if (!labelSpan) {
+            return;
+        }
+
+        if (languageName) {
+            labelSpan.textContent = `Translate from ${languageName}`;
+        } else {
+            labelSpan.textContent = "Translate";
+        }
     }
 
     // --- Function to Extract Selected HTML Content ---
@@ -884,8 +1109,20 @@ if (window.hasRun) {
     }
 
     // --- Popup Display Function (for selected text) ---
-    function displayPopup(content, isError = false, isLoading = false) {
-        console.log("displayPopup called with:", { content, isError, isLoading });
+    function displayPopup(
+        content,
+        isError = false,
+        isLoading = false,
+        detectedLanguageName = null,
+        targetLanguageName = null,
+    ) {
+        console.log("displayPopup called with:", {
+            content,
+            isError,
+            isLoading,
+            detectedLanguageName,
+            targetLanguageName,
+        });
         const popupId = "translation-popup-extension";
         let existingPopup = document.getElementById(popupId);
 
@@ -1020,12 +1257,28 @@ if (window.hasRun) {
             }
         } else {
             console.log("Setting final content:", content);
-            // Use DOMPurify to sanitize HTML content while preserving formatting
-            setSanitizedContent(existingPopup, content);
+            clearElement(existingPopup);
+
+            // Add language detection header if available
+            if (!isError && detectedLanguageName && targetLanguageName) {
+                const headerDiv = document.createElement("div");
+                headerDiv.style.cssText =
+                    "font-size: 11px; color: #666; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #ddd;";
+                headerDiv.textContent = `${detectedLanguageName} → ${targetLanguageName}`;
+                existingPopup.appendChild(headerDiv);
+            }
+
+            // Add the translated content
+            const contentDiv = document.createElement("div");
+            const sanitized = DOMPurify.sanitize(content ?? "");
+            const fragment = htmlToFragment(sanitized);
+            contentDiv.appendChild(fragment);
+            existingPopup.appendChild(contentDiv);
+
             // Apply final forceful styles (adjusting for error state)
-            existingPopup.style.backgroundColor = isError ? "#ffdddd" : "yellow"; // Error/Success background
-            existingPopup.style.border = `3px solid ${isError ? "red" : "green"}`; // Error/Success border
-            existingPopup.style.color = isError ? "#a00" : "black"; // Error/Success text color
+            existingPopup.style.backgroundColor = isError ? "#ffdddd" : "#f8f9fa"; // Error/Success background
+            existingPopup.style.border = `1px solid ${isError ? "#dc3545" : "#28a745"}`; // Error/Success border
+            existingPopup.style.color = isError ? "#a00" : "#333"; // Error/Success text color
         }
 
         // Add close button (important to add after setting innerHTML)

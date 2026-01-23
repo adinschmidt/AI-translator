@@ -5,10 +5,10 @@ const statusMessage = document.getElementById("status-message");
 const fillDefaultEndpointButton = document.getElementById("fill-default-endpoint");
 const modelNameInput = document.getElementById("model-name");
 const fillDefaultModelButton = document.getElementById("fill-default-model");
-const translationInstructionsInput = document.getElementById("translation-instructions");
-const fillDefaultInstructionsButton = document.getElementById(
-    "fill-default-instructions",
-);
+
+// New UI elements for advanced mode
+const advancedTargetLanguageSelect = document.getElementById("advanced-target-language");
+const extraInstructionsInput = document.getElementById("extra-instructions");
 
 // Basic mode elements
 const settingsModeSelect = document.getElementById("settings-mode");
@@ -37,10 +37,14 @@ const cerebrasModelSelect = document.getElementById("cerebras-model-select");
 // Settings mode keys
 const SETTINGS_MODE_KEY = "settingsMode";
 const BASIC_TARGET_LANGUAGE_KEY = "basicTargetLanguage";
+const ADVANCED_TARGET_LANGUAGE_KEY = "advancedTargetLanguage";
+const EXTRA_INSTRUCTIONS_KEY = "extraInstructions";
 const SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY = "showTranslateButtonOnSelection";
 
 const SETTINGS_MODE_BASIC = "basic";
 const SETTINGS_MODE_ADVANCED = "advanced";
+
+const ADVANCED_TARGET_LANGUAGE_DEFAULT = "en";
 
 // Default translation instructions
 const DEFAULT_TRANSLATION_INSTRUCTIONS =
@@ -120,6 +124,8 @@ const PROVIDER_DEFAULTS = {
 let providerSettings = {};
 let settingsMode = SETTINGS_MODE_BASIC;
 let basicTargetLanguage = BASIC_TARGET_LANGUAGE_DEFAULT;
+let advancedTargetLanguage = ADVANCED_TARGET_LANGUAGE_DEFAULT;
+let extraInstructions = "";
 
 let debounceTimer;
 
@@ -282,6 +288,19 @@ function populateBasicLanguageDropdown() {
     }
 }
 
+function populateAdvancedLanguageDropdown() {
+    if (!advancedTargetLanguageSelect) return;
+
+    advancedTargetLanguageSelect.textContent = "";
+
+    for (const lang of BASIC_TARGET_LANGUAGES) {
+        const option = document.createElement("option");
+        option.value = lang.value;
+        option.textContent = lang.label;
+        advancedTargetLanguageSelect.appendChild(option);
+    }
+}
+
 function updateSettingsModeUI() {
     const isBasic = settingsMode === SETTINGS_MODE_BASIC;
 
@@ -316,6 +335,8 @@ function loadSettings() {
             "translationInstructions",
             SETTINGS_MODE_KEY,
             BASIC_TARGET_LANGUAGE_KEY,
+            ADVANCED_TARGET_LANGUAGE_KEY,
+            EXTRA_INSTRUCTIONS_KEY,
             SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY,
         ],
         (result) => {
@@ -333,10 +354,23 @@ function loadSettings() {
 
             console.log("options.js: Raw settings loaded from storage:", result);
 
-            // Migration/initialization for mode + basic target language
+            // Migration/initialization for mode + target languages
             settingsMode = result[SETTINGS_MODE_KEY] || SETTINGS_MODE_BASIC;
             basicTargetLanguage =
                 result[BASIC_TARGET_LANGUAGE_KEY] || BASIC_TARGET_LANGUAGE_DEFAULT;
+            advancedTargetLanguage =
+                result[ADVANCED_TARGET_LANGUAGE_KEY] || ADVANCED_TARGET_LANGUAGE_DEFAULT;
+            extraInstructions = result[EXTRA_INSTRUCTIONS_KEY] || "";
+
+            // Migration: if old translationInstructions exists, extract any custom parts
+            if (result.translationInstructions && !result[EXTRA_INSTRUCTIONS_KEY]) {
+                const oldInstructions = result.translationInstructions;
+                // Check if it's not the default and extract custom content
+                if (!oldInstructions.startsWith("Translate the following text to")) {
+                    extraInstructions = oldInstructions;
+                    console.log("options.js: Migrated old translationInstructions to extraInstructions");
+                }
+            }
 
             const shouldPersistModeMigration =
                 !result[SETTINGS_MODE_KEY] || !result[BASIC_TARGET_LANGUAGE_KEY];
@@ -353,6 +387,8 @@ function loadSettings() {
                 chrome.storage.sync.set({
                     [SETTINGS_MODE_KEY]: settingsMode,
                     [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
+                    [ADVANCED_TARGET_LANGUAGE_KEY]: advancedTargetLanguage,
+                    [EXTRA_INSTRUCTIONS_KEY]: extraInstructions,
                     [SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY]: showButtonSetting,
                 });
             }
@@ -361,9 +397,20 @@ function loadSettings() {
                 settingsModeSelect.value = settingsMode;
             }
 
+            // Populate language dropdowns
             populateBasicLanguageDropdown();
+            populateAdvancedLanguageDropdown();
+
             if (basicTargetLanguageSelect) {
                 basicTargetLanguageSelect.value = basicTargetLanguage;
+            }
+
+            if (advancedTargetLanguageSelect) {
+                advancedTargetLanguageSelect.value = advancedTargetLanguage;
+            }
+
+            if (extraInstructionsInput) {
+                extraInstructionsInput.value = extraInstructions;
             }
 
             updateSettingsModeUI();
@@ -464,10 +511,6 @@ function applyProviderToForm(provider) {
     apiKeyInput.value = settings.apiKey || "";
     apiEndpointInput.value = settings.apiEndpoint || "";
     modelNameInput.value = settings.modelName || "";
-    if (translationInstructionsInput) {
-        translationInstructionsInput.value =
-            settings.translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS;
-    }
 
     // Update UI visibility based on provider (show/hide Ollama-specific fields)
     updateProviderUI(provider);
@@ -554,12 +597,13 @@ function saveSetting() {
     const apiKey = apiKeyInput.value.trim();
     const apiEndpoint = apiEndpointInput.value.trim();
     const modelName = modelNameInput.value.trim();
-    const translationInstructions = translationInstructionsInput
-        ? translationInstructionsInput.value.trim()
-        : DEFAULT_TRANSLATION_INSTRUCTIONS;
+
+    // Get the new advanced mode settings
+    advancedTargetLanguage = advancedTargetLanguageSelect?.value || ADVANCED_TARGET_LANGUAGE_DEFAULT;
+    extraInstructions = extraInstructionsInput?.value.trim() || "";
 
     console.log(
-        `options.js: Saving for provider = ${currentProvider}: apiKey =***, apiEndpoint = ${apiEndpoint}, modelName = ${modelName} `,
+        `options.js: Saving for provider = ${currentProvider}: apiKey =***, apiEndpoint = ${apiEndpoint}, modelName = ${modelName}, targetLang = ${advancedTargetLanguage}`,
     );
 
     // Validate API endpoint if provided (allow custom base URLs)
@@ -581,10 +625,9 @@ function saveSetting() {
         apiKey,
         apiEndpoint,
         modelName,
-        translationInstructions,
     };
 
-    // Persist providerSettings and currently selected provider (apiType)
+    // Persist providerSettings, currently selected provider, and advanced settings
     console.log(
         "options.js: Attempting to save providerSettings to chrome.storage.sync...",
     );
@@ -594,6 +637,8 @@ function saveSetting() {
             apiType: currentProvider,
             [SETTINGS_MODE_KEY]: settingsMode,
             [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
+            [ADVANCED_TARGET_LANGUAGE_KEY]: advancedTargetLanguage,
+            [EXTRA_INSTRUCTIONS_KEY]: extraInstructions,
         },
         () => {
             if (chrome.runtime.lastError) {
@@ -626,6 +671,7 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log("options.js: DOMContentLoaded event fired.");
 
     populateBasicLanguageDropdown();
+    populateAdvancedLanguageDropdown();
     loadSettings();
 
     if (settingsModeSelect) {
@@ -686,6 +732,24 @@ document.addEventListener("DOMContentLoaded", () => {
             basicTargetLanguage = event.target.value || BASIC_TARGET_LANGUAGE_DEFAULT;
             autoSaveSetting();
         });
+    }
+
+    // Advanced mode target language
+    if (advancedTargetLanguageSelect) {
+        advancedTargetLanguageSelect.addEventListener("change", (event) => {
+            advancedTargetLanguage = event.target.value || ADVANCED_TARGET_LANGUAGE_DEFAULT;
+            autoSaveSetting();
+        });
+        console.log("options.js: Change listener added to advanced-target-language select.");
+    }
+
+    // Extra instructions for advanced mode
+    if (extraInstructionsInput) {
+        extraInstructionsInput.addEventListener("input", () => {
+            extraInstructions = extraInstructionsInput.value.trim();
+            autoSaveSetting();
+        });
+        console.log("options.js: Input listener added to extra-instructions textarea.");
     }
 
     if (showTranslateButtonOnSelectionInput) {
@@ -811,31 +875,6 @@ document.addEventListener("DOMContentLoaded", () => {
         );
     } else {
         console.error("options.js: Could not find fill default model button element!");
-    }
-
-    if (translationInstructionsInput) {
-        translationInstructionsInput.addEventListener("input", autoSaveSetting);
-        console.log(
-            "options.js: Auto-save listener added to translation-instructions input.",
-        );
-    }
-
-    if (fillDefaultInstructionsButton) {
-        fillDefaultInstructionsButton.addEventListener("click", () => {
-            console.log("options.js: Fill Default Instructions button clicked.");
-            if (translationInstructionsInput) {
-                translationInstructionsInput.value = DEFAULT_TRANSLATION_INSTRUCTIONS;
-                console.log(`options.js: Filled translation instructions with default.`);
-                autoSaveSetting();
-            }
-        });
-        console.log(
-            "options.js: Click event listener added to fill default instructions button.",
-        );
-    } else {
-        console.error(
-            "options.js: Could not find fill default instructions button element!",
-        );
     }
 
     // Ollama-specific event listeners
