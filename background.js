@@ -113,6 +113,39 @@ const DEFAULT_SETTINGS = resolveProviderDefaults("openai");
 const DEFAULT_TRANSLATION_INSTRUCTIONS =
     "Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations.";
 
+const DEFAULT_SYSTEM_PROMPT =
+    "You are a professional translator. Translate the provided text accurately. " +
+    "Preserve any HTML structure and formatting in your translation.";
+
+const INSTRUCT_SYSTEM_PROMPT =
+    "You are a professional translator. Output only the translated text with no " +
+    "explanations, reasoning, or additional commentary.";
+
+function isInstructModelName(modelName) {
+    return typeof modelName === "string" && modelName.toLowerCase().includes("instruct");
+}
+
+function buildStandardPrompt(userInstructions, textToTranslate) {
+    return `${userInstructions}
+
+If this contains HTML, preserve the HTML structure and formatting.
+If this is already in the target language, do not translate it, instead repeat it back verbatim.
+
+Text to translate: ${textToTranslate}`;
+}
+
+function buildInstructPrompt(userInstructions, textToTranslate) {
+    return `${userInstructions}
+
+If this contains HTML, preserve the HTML structure and formatting.
+If this is already in the target language, repeat it back verbatim.
+
+Text to translate:
+${textToTranslate}
+
+Translated text:`;
+}
+
 const SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY = "showTranslateButtonOnSelection";
 
 // --- Context Menu Setup ---
@@ -847,24 +880,20 @@ async function translateTextApiCall(
     // Use custom instructions if provided, otherwise fall back to default
     const userInstructions = translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS;
 
-    // Construct the prompt: user instructions + text to translate
-    const prompt = `${userInstructions}
-
-If this contains HTML, preserve the HTML structure and formatting.
-If this is already in the target language, do not translate it, instead repeat it back verbatim.
-
-Text to translate: ${textToTranslate}`;
-
-    // System prompt focuses only on professional translation
-    const systemPrompt =
-        "You are a professional translator. Translate the provided text accurately. Preserve any HTML structure and formatting in your translation.";
-
     // Normalize provider name
     const provider = apiType && PROVIDERS.includes(apiType) ? apiType : "openai";
 
     // Use modelName from parameter, fallback to provider defaults
     const selectedModelName =
         modelName || PROVIDER_DEFAULTS[provider]?.modelName || DEFAULT_SETTINGS.modelName;
+
+    const shouldUseInstructPrompt = isInstructModelName(selectedModelName);
+    const prompt = shouldUseInstructPrompt
+        ? buildInstructPrompt(userInstructions, textToTranslate)
+        : buildStandardPrompt(userInstructions, textToTranslate);
+    const systemPrompt = shouldUseInstructPrompt
+        ? INSTRUCT_SYSTEM_PROMPT
+        : DEFAULT_SYSTEM_PROMPT;
 
     switch (provider) {
         case "openai":
@@ -994,27 +1023,13 @@ Text to translate: ${textToTranslate}`;
         }
         case "cerebras": {
             // Cerebras - OpenAI-compatible style
-            // Use direct prompt format for better instruct model compatibility
             // No max_completion_tokens - let model use its maximum
             headers["Authorization"] = `Bearer ${apiKey}`;
-            const cerebrasUserPrompt = `${userInstructions}
-
-If this contains HTML, preserve the HTML structure and formatting.
-If this is already in the target language, repeat it back verbatim.
-
-Text to translate:
-${textToTranslate}
-
-Translated text:`;
             requestBody = {
                 model: selectedModelName || PROVIDER_DEFAULTS.cerebras.modelName,
                 messages: [
-                    {
-                        role: "system",
-                        content:
-                            "You are a professional translator. Output only the translated text with no explanations, reasoning, or additional commentary.",
-                    },
-                    { role: "user", content: cerebrasUserPrompt },
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: prompt },
                 ],
             };
             break;
