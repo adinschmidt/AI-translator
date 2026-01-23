@@ -30,6 +30,22 @@ features:
       details: Configure OpenAI, Anthropic, Google, Groq, and more.
 ---
 
+## Supported Providers
+
+<div class="provider-grid">
+    <a class="provider-badge" href="/providers#general-setup">OpenAI</a>
+    <a class="provider-badge" href="/providers#general-setup">Anthropic</a>
+    <a class="provider-badge" href="/providers#general-setup">Google</a>
+    <a class="provider-badge" href="/providers#general-setup">Groq</a>
+    <a class="provider-badge" href="/providers#general-setup">Grok</a>
+    <a class="provider-badge" href="/providers#general-setup">OpenRouter</a>
+    <a class="provider-badge" href="/providers#general-setup">DeepSeek</a>
+    <a class="provider-badge" href="/providers#general-setup">Mistral</a>
+    <a class="provider-badge" href="/providers#general-setup">Qwen</a>
+    <a class="provider-badge" href="/providers#general-setup">Cerebras</a>
+    <a class="provider-badge" href="/providers#general-setup">Ollama</a>
+</div>
+
 ## What is AI Translator?
 
 AI Translator is a Chrome and Firefox extension that translates selected text or
