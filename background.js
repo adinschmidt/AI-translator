@@ -1,5 +1,7 @@
 const SETTINGS_MODE_KEY = "settingsMode";
 const BASIC_TARGET_LANGUAGE_KEY = "basicTargetLanguage";
+const ADVANCED_TARGET_LANGUAGE_KEY = "advancedTargetLanguage";
+const EXTRA_INSTRUCTIONS_KEY = "extraInstructions";
 
 const SETTINGS_MODE_BASIC = "basic";
 const SETTINGS_MODE_ADVANCED = "advanced";
@@ -7,6 +9,76 @@ const SETTINGS_MODE_ADVANCED = "advanced";
 const BASIC_PROVIDERS = ["openai", "anthropic", "google"];
 
 const BASIC_TARGET_LANGUAGE_DEFAULT = "en";
+const ADVANCED_TARGET_LANGUAGE_DEFAULT = "en";
+
+// Language code to name mapping (ISO 639-1)
+const LANGUAGE_NAMES = {
+    en: "English",
+    es: "Spanish",
+    fr: "French",
+    de: "German",
+    it: "Italian",
+    pt: "Portuguese",
+    ru: "Russian",
+    ja: "Japanese",
+    ko: "Korean",
+    zh: "Chinese",
+    "zh-CN": "Chinese (Simplified)",
+    "zh-TW": "Chinese (Traditional)",
+    ar: "Arabic",
+    hi: "Hindi",
+    nl: "Dutch",
+    pl: "Polish",
+    tr: "Turkish",
+    vi: "Vietnamese",
+    th: "Thai",
+    sv: "Swedish",
+    da: "Danish",
+    no: "Norwegian",
+    fi: "Finnish",
+    cs: "Czech",
+    el: "Greek",
+    he: "Hebrew",
+    hu: "Hungarian",
+    id: "Indonesian",
+    ms: "Malay",
+    ro: "Romanian",
+    sk: "Slovak",
+    uk: "Ukrainian",
+    bg: "Bulgarian",
+    hr: "Croatian",
+    sr: "Serbian",
+    sl: "Slovenian",
+    et: "Estonian",
+    lv: "Latvian",
+    lt: "Lithuanian",
+    fa: "Persian",
+    bn: "Bengali",
+    ta: "Tamil",
+    te: "Telugu",
+    mr: "Marathi",
+    gu: "Gujarati",
+    kn: "Kannada",
+    ml: "Malayalam",
+    pa: "Punjabi",
+    ur: "Urdu",
+    sw: "Swahili",
+    af: "Afrikaans",
+    ca: "Catalan",
+    gl: "Galician",
+    eu: "Basque",
+    fil: "Filipino",
+    tl: "Tagalog",
+};
+
+/**
+ * Get the display name for a language code
+ */
+function getLanguageDisplayName(languageCode) {
+    if (!languageCode) return "Unknown";
+    const normalizedCode = languageCode.toLowerCase().split("-")[0];
+    return LANGUAGE_NAMES[languageCode] || LANGUAGE_NAMES[normalizedCode] || languageCode;
+}
 
 const BASIC_TARGET_LANGUAGES = [
     { value: "en", label: "English" },
@@ -31,6 +103,35 @@ function getBasicTargetLanguageLabel(value) {
 
 function buildBasicTranslationInstructions(targetLanguageLabel) {
     return `Translate the following text to ${targetLanguageLabel}. Keep the same meaning and tone. DO NOT add any additional text or explanations.`;
+}
+
+/**
+ * Build translation instructions with detected source language and optional extra instructions
+ * @param {string|null} detectedLanguageName - Name of detected source language (or null if unknown)
+ * @param {string} targetLanguageLabel - Name of target language
+ * @param {string} extraInstructions - Optional additional instructions from user
+ */
+function buildTranslationInstructionsWithDetection(
+    detectedLanguageName,
+    targetLanguageLabel,
+    extraInstructions,
+) {
+    let instructions;
+
+    if (detectedLanguageName && detectedLanguageName !== targetLanguageLabel) {
+        instructions = `Translate the following text from ${detectedLanguageName} to ${targetLanguageLabel}.`;
+    } else {
+        instructions = `Translate the following text to ${targetLanguageLabel}.`;
+    }
+
+    instructions +=
+        " Keep the same meaning and tone. DO NOT add any additional text or explanations.";
+
+    if (extraInstructions && extraInstructions.trim()) {
+        instructions += `\n\nAdditional instructions: ${extraInstructions.trim()}`;
+    }
+
+    return instructions;
 }
 
 const PROVIDERS = [
@@ -184,6 +285,48 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // --- Message Listener (for Element Translation Only) ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    // Handle target language lookup request (for content script language detection)
+    if (request.action === "getTargetLanguage") {
+        chrome.storage.sync.get(
+            [SETTINGS_MODE_KEY, BASIC_TARGET_LANGUAGE_KEY, ADVANCED_TARGET_LANGUAGE_KEY],
+            (settings) => {
+                const mode = settings[SETTINGS_MODE_KEY] || SETTINGS_MODE_BASIC;
+                const targetLanguage =
+                    mode === SETTINGS_MODE_BASIC
+                        ? settings[BASIC_TARGET_LANGUAGE_KEY] ||
+                          BASIC_TARGET_LANGUAGE_DEFAULT
+                        : settings[ADVANCED_TARGET_LANGUAGE_KEY] ||
+                          ADVANCED_TARGET_LANGUAGE_DEFAULT;
+
+                sendResponse({ targetLanguage });
+            },
+        );
+        return true; // Async response
+    }
+
+    // Handle translation with detected language
+    if (request.action === "translateSelectedHtmlWithDetection") {
+        if (!sender.tab?.id) {
+            sendResponse({ status: "error", message: "No sender tab ID" });
+            return;
+        }
+
+        if (!request.html) {
+            sendResponse({ status: "error", message: "No HTML provided" });
+            return;
+        }
+
+        getSettingsAndTranslateWithDetection(
+            request.html,
+            sender.tab.id,
+            false,
+            request.detectedLanguage,
+            request.detectedLanguageName,
+        );
+        sendResponse({ status: "ok" });
+        return;
+    }
+
     if (request.action === "translateSelectedHtml") {
         if (!sender.tab?.id) {
             sendResponse({ status: "error", message: "No sender tab ID" });
@@ -810,6 +953,227 @@ function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
                 });
         },
     );
+}
+
+// --- Helper Function to Get Settings and Translate with Detected Language ---
+function getSettingsAndTranslateWithDetection(
+    textToTranslate,
+    tabId,
+    isFullPage,
+    detectedLanguage,
+    detectedLanguageName,
+) {
+    console.log("getSettingsAndTranslateWithDetection called.", {
+        textToTranslate,
+        tabId,
+        isFullPage,
+        detectedLanguage,
+        detectedLanguageName,
+    });
+    chrome.storage.sync.get(
+        [
+            "apiKey",
+            "apiEndpoint",
+            "apiType",
+            "modelName",
+            "providerSettings",
+            SETTINGS_MODE_KEY,
+            BASIC_TARGET_LANGUAGE_KEY,
+            ADVANCED_TARGET_LANGUAGE_KEY,
+            EXTRA_INSTRUCTIONS_KEY,
+        ],
+        (settings) => {
+            console.log("Settings retrieved from storage:", settings);
+            const {
+                apiKey,
+                apiEndpoint,
+                apiType,
+                modelName,
+                providerSettings = {},
+                [SETTINGS_MODE_KEY]: settingsMode,
+                [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
+                [ADVANCED_TARGET_LANGUAGE_KEY]: advancedTargetLanguage,
+                [EXTRA_INSTRUCTIONS_KEY]: extraInstructions,
+            } = settings;
+
+            const mode = settingsMode || SETTINGS_MODE_BASIC;
+
+            let activeProvider =
+                apiType && PROVIDERS.includes(apiType) ? apiType : "openai";
+            if (
+                mode === SETTINGS_MODE_BASIC &&
+                !BASIC_PROVIDERS.includes(activeProvider)
+            ) {
+                activeProvider = "openai";
+            }
+
+            const perProvider = providerSettings[activeProvider];
+
+            const effective = perProvider
+                ? {
+                      apiKey: perProvider.apiKey || "",
+                      apiEndpoint:
+                          perProvider.apiEndpoint ||
+                          PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                          "",
+                      modelName:
+                          perProvider.modelName ||
+                          PROVIDER_DEFAULTS[activeProvider]?.modelName ||
+                          "",
+                      apiType: activeProvider,
+                  }
+                : {
+                      apiKey: apiKey || "",
+                      apiEndpoint:
+                          apiEndpoint ||
+                          PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                          "",
+                      modelName:
+                          modelName || PROVIDER_DEFAULTS[activeProvider]?.modelName || "",
+                      apiType: activeProvider,
+                  };
+
+            // Build translation instructions based on mode
+            let targetLanguageLabel;
+            let finalInstructions;
+
+            if (mode === SETTINGS_MODE_BASIC) {
+                const languageValue =
+                    basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
+                targetLanguageLabel = getBasicTargetLanguageLabel(languageValue);
+                effective.apiEndpoint =
+                    PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                    effective.apiEndpoint;
+                effective.modelName =
+                    PROVIDER_DEFAULTS[activeProvider]?.modelName || effective.modelName;
+                // Use detected language in the prompt
+                finalInstructions = buildTranslationInstructionsWithDetection(
+                    detectedLanguageName,
+                    targetLanguageLabel,
+                    "", // No extra instructions in basic mode
+                );
+            } else {
+                // Advanced mode
+                const languageValue =
+                    advancedTargetLanguage || ADVANCED_TARGET_LANGUAGE_DEFAULT;
+                targetLanguageLabel = getBasicTargetLanguageLabel(languageValue);
+                // Use detected language and extra instructions in the prompt
+                finalInstructions = buildTranslationInstructionsWithDetection(
+                    detectedLanguageName,
+                    targetLanguageLabel,
+                    extraInstructions || "",
+                );
+            }
+
+            const {
+                apiKey: finalKey,
+                apiEndpoint: finalEndpoint,
+                apiType: finalType,
+                modelName: finalModel,
+            } = effective;
+
+            if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
+                const errorMsg =
+                    "Translation Error: API Key or Endpoint not set. Please configure in extension settings.";
+                console.error(errorMsg);
+                notifyContentScriptWithDetection(
+                    tabId,
+                    errorMsg,
+                    isFullPage,
+                    true,
+                    false,
+                    detectedLanguageName,
+                    targetLanguageLabel,
+                );
+                return;
+            }
+
+            console.log(
+                "Attempting to call translateTextApiCall with detected language.",
+                { detectedLanguageName, targetLanguageLabel },
+            );
+
+            // Call the API
+            translateTextApiCall(
+                textToTranslate,
+                finalKey,
+                finalEndpoint,
+                finalType,
+                isFullPage,
+                finalModel,
+                finalInstructions,
+            )
+                .then((translation) => {
+                    console.log("Translation received (length):", translation.length);
+                    notifyContentScriptWithDetection(
+                        tabId,
+                        translation,
+                        isFullPage,
+                        false,
+                        false,
+                        detectedLanguageName,
+                        targetLanguageLabel,
+                    );
+                })
+                .catch((error) => {
+                    console.error("Translation error:", error);
+                    notifyContentScriptWithDetection(
+                        tabId,
+                        `Translation Error: ${error.message}`,
+                        isFullPage,
+                        true,
+                        false,
+                        detectedLanguageName,
+                        targetLanguageLabel,
+                    );
+                });
+        },
+    );
+}
+
+// --- Notify Content Script with Detection Info ---
+function notifyContentScriptWithDetection(
+    tabId,
+    text,
+    isFullPage,
+    isError,
+    isLoading,
+    detectedLanguageName,
+    targetLanguageName,
+) {
+    let message = {
+        text: text,
+        isError: isError,
+        isLoading: isLoading,
+        detectedLanguageName: detectedLanguageName,
+        targetLanguageName: targetLanguageName,
+    };
+
+    if (isFullPage) {
+        if (isLoading) {
+            message.action = "showLoadingIndicator";
+        } else {
+            message.action = "startElementTranslation";
+        }
+    } else {
+        message.action = "displayTranslation";
+    }
+
+    console.log(`Sending message to content script with detection:`, message);
+
+    chrome.tabs.sendMessage(tabId, message, (response) => {
+        if (chrome.runtime.lastError) {
+            if (
+                !chrome.runtime.lastError.message.includes("Receiving end does not exist")
+            ) {
+                console.warn(
+                    `Could not send message to tab ${tabId} for action ${message.action}: ${chrome.runtime.lastError.message}.`,
+                );
+            }
+        } else if (response?.status === "received") {
+            console.log(`Content script in tab ${tabId} acknowledged ${message.action}.`);
+        }
+    });
 }
 
 // --- Notify Content Script ---
