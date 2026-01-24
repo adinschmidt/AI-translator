@@ -1312,46 +1312,18 @@ if (window.hasRun) {
         element.appendChild(fragment);
     }
 
-    function updateStreamingPopup(popup, content, detectedLanguageName, targetLanguageName) {
+    function updateStreamingPopup(popup, content) {
         if (!popup) {
             return;
         }
 
         clearElement(popup);
         popup.classList.add("is-streaming");
-        popup.style.backgroundColor = "#fffbeb";
-        popup.style.border = "1px solid #f59e0b";
+        popup.style.backgroundColor = "white";
+        popup.style.border = "1px solid #ccc";
         popup.style.color = "#333";
 
-        const headerDiv = document.createElement("div");
-        headerDiv.style.cssText =
-            "font-size: 11px; color: #666; margin-bottom: 8px; " +
-            "padding-bottom: 6px; border-bottom: 1px solid #ddd; " +
-            "display: flex; align-items: center; justify-content: space-between; " +
-            "gap: 6px;";
-
-        if (detectedLanguageName && targetLanguageName) {
-            const labelSpan = document.createElement("span");
-            labelSpan.textContent = `${detectedLanguageName} → ${targetLanguageName}`;
-            headerDiv.appendChild(labelSpan);
-        } else {
-            const spacer = document.createElement("span");
-            spacer.textContent = "";
-            headerDiv.appendChild(spacer);
-        }
-
-        const badge = document.createElement("span");
-        badge.className = "translation-streaming-badge";
-        badge.textContent = "Streaming";
-        headerDiv.appendChild(badge);
-
-        popup.appendChild(headerDiv);
-
-        const contentDiv = document.createElement("div");
-        contentDiv.textContent = content || "";
-        contentDiv.style.whiteSpace = "pre-wrap";
-        popup.appendChild(contentDiv);
-
+        setSanitizedContent(popup, content || "");
         addCloseButton(popup);
     }
 
@@ -1425,12 +1397,7 @@ if (window.hasRun) {
         let existingPopup = document.getElementById(popupId);
 
         if (existingPopup && isStreaming) {
-            updateStreamingPopup(
-                existingPopup,
-                content,
-                detectedLanguageName,
-                targetLanguageName,
-            );
+            updateStreamingPopup(existingPopup, content);
             return;
         }
 
@@ -1567,12 +1534,7 @@ if (window.hasRun) {
                 document.head.appendChild(style);
             }
         } else if (isStreaming) {
-            updateStreamingPopup(
-                existingPopup,
-                content,
-                detectedLanguageName,
-                targetLanguageName,
-            );
+            updateStreamingPopup(existingPopup, content);
             return;
         } else {
             console.log("Setting final content:", content);
