@@ -1428,9 +1428,13 @@ if (window.hasRun) {
             console.log("Creating new popup.");
             removePopup(false);  // Don't reset selectionTranslateInProgress
 
-            // Calculate position based on selection
+            // Calculate position and width based on selection
             let top = 0;
             let left = 0;
+            let popupWidth = 350; // Default/minimum width
+            const minWidth = 350;
+            const maxWidth = window.innerWidth * 0.8;
+
             const selection = window.getSelection();
             if (selection.rangeCount > 0) {
                 const range = selection.getRangeAt(0);
@@ -1438,10 +1442,12 @@ if (window.hasRun) {
                 top = window.scrollY + rect.bottom + 10; // 10px below selection
                 left = window.scrollX + rect.left;
 
+                // Calculate popup width based on selection width, clamped to min/max
+                popupWidth = Math.max(minWidth, Math.min(rect.width, maxWidth));
+
                 // Keep it within viewport width
-                if (left + 350 > window.innerWidth) {
-                    // 350 is approx max width
-                    left = window.innerWidth - 370;
+                if (left + popupWidth > window.innerWidth) {
+                    left = window.innerWidth - popupWidth - 20;
                 }
             } else {
                 // Fallback to mouse position if for some reason selection is gone
@@ -1462,7 +1468,8 @@ if (window.hasRun) {
             translationPopup.style.borderRadius = "5px";
             translationPopup.style.padding = "10px 25px 10px 15px";
             translationPopup.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
-            translationPopup.style.maxWidth = "350px";
+            translationPopup.style.width = `${popupWidth}px`;
+            translationPopup.style.maxWidth = `${maxWidth}px`;
             translationPopup.style.fontFamily = "Arial, sans-serif";
             translationPopup.style.fontSize = "14px";
             translationPopup.style.lineHeight = "1.4";
@@ -1473,7 +1480,7 @@ if (window.hasRun) {
             translationPopup.style.backgroundColor = isError ? "#fff0f0" : "white";
             translationPopup.style.border = `1px solid ${isError ? "#f00" : "#ccc"}`;
             translationPopup.style.color = isError ? "#a00" : "#333";
-            translationPopup.style.minWidth = "50px";
+            translationPopup.style.minWidth = `${minWidth}px`;
             translationPopup.style.minHeight = "20px";
             translationPopup.style.visibility = "visible";
             translationPopup.style.opacity = "1";
