@@ -1,3 +1,8 @@
+import { generateText, streamText } from "ai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createOpenAI } from "@ai-sdk/openai";
+
 const SETTINGS_MODE_KEY = "settingsMode";
 const BASIC_TARGET_LANGUAGE_KEY = "basicTargetLanguage";
 const ADVANCED_TARGET_LANGUAGE_KEY = "advancedTargetLanguage";
@@ -222,6 +227,11 @@ const INSTRUCT_SYSTEM_PROMPT =
     "You are a professional translator. Output only the translated text with no " +
     "explanations, reasoning, or additional commentary.";
 
+const STREAM_PORT_NAME = "translationStream";
+const STREAM_UPDATE_THROTTLE_MS = 120;
+const STREAM_KEEP_ALIVE_INTERVAL_MS = 20000;
+const activeStreams = new Map();
+
 function isInstructModelName(modelName) {
     return typeof modelName === "string" && modelName.toLowerCase().includes("instruct");
 }
@@ -245,6 +255,127 @@ Text to translate:
 ${textToTranslate}
 
 Translated text:`;
+}
+
+function createRequestId() {
+    return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function normalizeOpenAIBaseUrl(apiEndpoint, provider) {
+    const fallback = PROVIDER_DEFAULTS[provider]?.apiEndpoint || "";
+    const endpoint = (apiEndpoint || fallback).trim();
+    if (!endpoint) {
+        return "";
+    }
+
+    let base = endpoint.replace(/\/+$/, "");
+    if (base.endsWith("/chat/completions")) {
+        base = base.slice(0, -"/chat/completions".length);
+    }
+
+    if (provider === "ollama" && !base.endsWith("/v1")) {
+        base = `${base}/v1`;
+    }
+
+    return base;
+}
+
+function normalizeAnthropicBaseUrl(apiEndpoint) {
+    const fallback = PROVIDER_DEFAULTS.anthropic.apiEndpoint || "";
+    const endpoint = (apiEndpoint || fallback).trim();
+    if (!endpoint) {
+        return "";
+    }
+
+    let base = endpoint.replace(/\/+$/, "");
+    if (base.endsWith("/messages")) {
+        base = base.slice(0, -"/messages".length);
+    }
+
+    return base;
+}
+
+function normalizeGoogleBaseUrl(apiEndpoint) {
+    const fallback = PROVIDER_DEFAULTS.google.apiEndpoint || "";
+    const endpoint = (apiEndpoint || fallback).trim();
+    if (!endpoint) {
+        return "";
+    }
+
+    let base = endpoint.replace(/\/+$/, "");
+    const modelsIndex = base.indexOf("/models/");
+    if (modelsIndex !== -1) {
+        base = base.slice(0, modelsIndex);
+    }
+
+    if (base.endsWith(":generateContent")) {
+        base = base.replace(/:generateContent$/, "");
+    }
+
+    return base;
+}
+
+function resolveProviderModel(provider, apiKey, apiEndpoint, modelName) {
+    if (provider === "anthropic") {
+        const anthropic = createAnthropic({
+            apiKey,
+            baseURL: normalizeAnthropicBaseUrl(apiEndpoint) || undefined,
+        });
+        return anthropic(modelName);
+    }
+
+    if (provider === "google") {
+        const google = createGoogleGenerativeAI({
+            apiKey,
+            baseURL: normalizeGoogleBaseUrl(apiEndpoint) || undefined,
+        });
+        return google(modelName);
+    }
+
+    const baseURL = normalizeOpenAIBaseUrl(apiEndpoint, provider);
+    const headers =
+        provider === "openrouter"
+            ? {
+                  "HTTP-Referer": "https://github.com/",
+                  "X-Title": "AI Translator Extension",
+              }
+            : undefined;
+    const openai = createOpenAI({
+        apiKey: apiKey || "ollama",
+        baseURL: baseURL || undefined,
+        headers,
+    });
+    return openai(modelName);
+}
+
+function resolveMaxTokens(provider, isFullPage) {
+    if (provider === "openrouter") {
+        return isFullPage ? 8192 : 2048;
+    }
+
+    if (provider === "google") {
+        return isFullPage ? 65536 : 8000;
+    }
+
+    if (provider === "groq" || provider === "cerebras") {
+        return undefined;
+    }
+
+    return isFullPage ? 4000 : 800;
+}
+
+function shouldStripThinkBlocks(provider) {
+    return provider === "groq" || provider === "cerebras";
+}
+
+function stripThinkBlocks(text) {
+    return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+
+function startStreamKeepAlive() {
+    return setInterval(() => {
+        chrome.runtime.getPlatformInfo(() => {});
+    }, STREAM_KEEP_ALIVE_INTERVAL_MS);
 }
 
 const SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY = "showTranslateButtonOnSelection";
@@ -285,6 +416,14 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // --- Message Listener (for Element Translation Only) ---
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "cancelTranslation") {
+        if (sender.tab?.id) {
+            cancelActiveStream(sender.tab.id, request.requestId);
+        }
+        sendResponse({ status: "ok" });
+        return;
+    }
+
     // Handle target language lookup request (for content script language detection)
     if (request.action === "getTargetLanguage") {
         chrome.storage.sync.get(
@@ -316,12 +455,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return;
         }
 
+        const requestId = createRequestId();
         getSettingsAndTranslateWithDetection(
             request.html,
             sender.tab.id,
             false,
             request.detectedLanguage,
             request.detectedLanguageName,
+            requestId,
         );
         sendResponse({ status: "ok" });
         return;
@@ -338,7 +479,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return;
         }
 
-        getSettingsAndTranslate(request.html, sender.tab.id, false);
+        const requestId = createRequestId();
+        getSettingsAndTranslate(request.html, sender.tab.id, false, requestId);
         sendResponse({ status: "ok" });
         return;
     }
@@ -436,10 +578,8 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
             if (response && response.html) {
                 console.log("Received selected HTML:", response.html);
-                // Immediately tell content script to show the popup in loading state
-                notifyContentScript(tabId, "Translating...", false, false, true); // isFullPage=false, isError=false, isLoading=true
-                // Then, get settings and start the actual translation with HTML content
-                getSettingsAndTranslate(response.html, tabId, false); // false = not full page
+                const requestId = createRequestId();
+                getSettingsAndTranslate(response.html, tabId, false, requestId); // false = not full page
             } else {
                 console.error("No HTML content received from content script");
                 // Selected text translation error -> not full page, show error popup
@@ -821,7 +961,7 @@ async function translateElementText(textToTranslate, elementPath, tabId) {
 }
 
 // --- Helper Function to Get Settings and Call API ---
-function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
+function getSettingsAndTranslate(textToTranslate, tabId, isFullPage, requestId = null) {
     console.log("getSettingsAndTranslate called.", {
         textToTranslate,
         tabId,
@@ -912,12 +1052,61 @@ function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
                 translationInstructions: finalInstructions,
             } = effective;
 
+            const resolvedRequestId = requestId || createRequestId();
+
             if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
                 const errorMsg =
                     "Translation Error: API Key or Endpoint not set. Please configure in extension settings.";
                 console.error(errorMsg);
                 // Send error back to content script to update the popup/indicator
-                notifyContentScript(tabId, errorMsg, isFullPage, true, false); // isError=true, isLoading=false
+                notifyContentScript(tabId, errorMsg, isFullPage, true, false, resolvedRequestId);
+                return;
+            }
+
+            if (!isFullPage) {
+                notifyContentScript(
+                    tabId,
+                    "Translating...",
+                    false,
+                    false,
+                    true,
+                    resolvedRequestId,
+                );
+
+                streamSelectedTranslation(
+                    tabId,
+                    resolvedRequestId,
+                    textToTranslate,
+                    finalKey,
+                    finalEndpoint,
+                    finalType,
+                    finalModel,
+                    finalInstructions,
+                )
+                    .then((translation) => {
+                        if (!translation) {
+                            return;
+                        }
+                        notifyContentScript(
+                            tabId,
+                            translation,
+                            false,
+                            false,
+                            false,
+                            resolvedRequestId,
+                        );
+                    })
+                    .catch((error) => {
+                        console.error("Translation error:", error);
+                        notifyContentScript(
+                            tabId,
+                            `Translation Error: ${error.message}`,
+                            false,
+                            true,
+                            false,
+                            resolvedRequestId,
+                        );
+                    });
                 return;
             }
 
@@ -938,7 +1127,14 @@ function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
                 .then((translation) => {
                     console.log("Translation received (length):", translation.length);
                     // Send final translation result
-                    notifyContentScript(tabId, translation, isFullPage, false, false); // isError=false, isLoading=false
+                    notifyContentScript(
+                        tabId,
+                        translation,
+                        isFullPage,
+                        false,
+                        false,
+                        resolvedRequestId,
+                    );
                 })
                 .catch((error) => {
                     console.error("Translation error:", error);
@@ -947,8 +1143,9 @@ function getSettingsAndTranslate(textToTranslate, tabId, isFullPage) {
                         tabId,
                         `Translation Error: ${error.message}`,
                         isFullPage,
-                        true, // isError=true
-                        false, // isLoading=false
+                        true,
+                        false,
+                        resolvedRequestId,
                     );
                 });
         },
@@ -962,6 +1159,7 @@ function getSettingsAndTranslateWithDetection(
     isFullPage,
     detectedLanguage,
     detectedLanguageName,
+    requestId = null,
 ) {
     console.log("getSettingsAndTranslateWithDetection called.", {
         textToTranslate,
@@ -1072,6 +1270,8 @@ function getSettingsAndTranslateWithDetection(
                 modelName: finalModel,
             } = effective;
 
+            const resolvedRequestId = requestId || createRequestId();
+
             if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
                 const errorMsg =
                     "Translation Error: API Key or Endpoint not set. Please configure in extension settings.";
@@ -1084,7 +1284,63 @@ function getSettingsAndTranslateWithDetection(
                     false,
                     detectedLanguageName,
                     targetLanguageLabel,
+                    resolvedRequestId,
                 );
+                return;
+            }
+
+            if (!isFullPage) {
+                notifyContentScriptWithDetection(
+                    tabId,
+                    "Translating...",
+                    false,
+                    false,
+                    true,
+                    detectedLanguageName,
+                    targetLanguageLabel,
+                    resolvedRequestId,
+                );
+
+                streamSelectedTranslation(
+                    tabId,
+                    resolvedRequestId,
+                    textToTranslate,
+                    finalKey,
+                    finalEndpoint,
+                    finalType,
+                    finalModel,
+                    finalInstructions,
+                    detectedLanguageName,
+                    targetLanguageLabel,
+                )
+                    .then((translation) => {
+                        if (!translation) {
+                            return;
+                        }
+                        notifyContentScriptWithDetection(
+                            tabId,
+                            translation,
+                            false,
+                            false,
+                            false,
+                            detectedLanguageName,
+                            targetLanguageLabel,
+                            resolvedRequestId,
+                        );
+                    })
+                    .catch((error) => {
+                        console.error("Translation error:", error);
+                        notifyContentScriptWithDetection(
+                            tabId,
+                            `Translation Error: ${error.message}`,
+                            false,
+                            true,
+                            false,
+                            detectedLanguageName,
+                            targetLanguageLabel,
+                            resolvedRequestId,
+                        );
+                    });
                 return;
             }
 
@@ -1113,6 +1369,7 @@ function getSettingsAndTranslateWithDetection(
                         false,
                         detectedLanguageName,
                         targetLanguageLabel,
+                        resolvedRequestId,
                     );
                 })
                 .catch((error) => {
@@ -1125,6 +1382,7 @@ function getSettingsAndTranslateWithDetection(
                         false,
                         detectedLanguageName,
                         targetLanguageLabel,
+                        resolvedRequestId,
                     );
                 });
         },
@@ -1140,6 +1398,7 @@ function notifyContentScriptWithDetection(
     isLoading,
     detectedLanguageName,
     targetLanguageName,
+    requestId = null,
 ) {
     let message = {
         text: text,
@@ -1148,6 +1407,10 @@ function notifyContentScriptWithDetection(
         detectedLanguageName: detectedLanguageName,
         targetLanguageName: targetLanguageName,
     };
+
+    if (requestId) {
+        message.requestId = requestId;
+    }
 
     if (isFullPage) {
         if (isLoading) {
@@ -1183,12 +1446,17 @@ function notifyContentScript(
     isFullPage,
     isError = false,
     isLoading = false,
+    requestId = null,
 ) {
     let message = {
         text: text,
         isError: isError,
         isLoading: isLoading, // Pass loading state
     };
+
+    if (requestId) {
+        message.requestId = requestId;
+    }
 
     if (isFullPage) {
         // Full page now uses startElementTranslation
@@ -1220,6 +1488,193 @@ function notifyContentScript(
     });
 }
 
+function cancelActiveStream(tabId, requestId = null) {
+    const existing = activeStreams.get(tabId);
+    if (!existing) {
+        return;
+    }
+
+    if (requestId && existing.requestId !== requestId) {
+        return;
+    }
+
+    if (existing.throttleTimer) {
+        clearTimeout(existing.throttleTimer);
+    }
+
+    if (existing.keepAliveTimer) {
+        clearInterval(existing.keepAliveTimer);
+    }
+
+    if (existing.controller) {
+        existing.controller.abort();
+    }
+
+    if (existing.port) {
+        try {
+            existing.port.disconnect();
+        } catch (error) {
+            console.warn("Could not disconnect stream port:", error);
+        }
+    }
+
+    activeStreams.delete(tabId);
+}
+
+function sendStreamUpdate(streamState, text, detectedLanguageName, targetLanguageName) {
+    if (!streamState.port) {
+        return;
+    }
+
+    try {
+        streamState.port.postMessage({
+            action: "streamTranslationUpdate",
+            requestId: streamState.requestId,
+            text,
+            detectedLanguageName,
+            targetLanguageName,
+        });
+    } catch (error) {
+        console.warn("Failed to post stream update:", error);
+    }
+}
+
+function scheduleStreamUpdate(streamState, text, detectedLanguageName, targetLanguageName) {
+    streamState.pendingText = text;
+
+    if (streamState.throttleTimer) {
+        return;
+    }
+
+    streamState.throttleTimer = setTimeout(() => {
+        streamState.throttleTimer = null;
+        sendStreamUpdate(
+            streamState,
+            streamState.pendingText,
+            detectedLanguageName,
+            targetLanguageName,
+        );
+    }, STREAM_UPDATE_THROTTLE_MS);
+}
+
+function flushStreamUpdate(streamState, text, detectedLanguageName, targetLanguageName) {
+    if (streamState.throttleTimer) {
+        clearTimeout(streamState.throttleTimer);
+        streamState.throttleTimer = null;
+    }
+
+    sendStreamUpdate(streamState, text, detectedLanguageName, targetLanguageName);
+}
+
+async function streamSelectedTranslation(
+    tabId,
+    requestId,
+    textToTranslate,
+    apiKey,
+    apiEndpoint,
+    apiType,
+    modelName,
+    translationInstructions,
+    detectedLanguageName = null,
+    targetLanguageName = null,
+) {
+    cancelActiveStream(tabId);
+
+    const userInstructions = translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS;
+    const provider = apiType && PROVIDERS.includes(apiType) ? apiType : "openai";
+    const selectedModelName =
+        modelName || PROVIDER_DEFAULTS[provider]?.modelName || DEFAULT_SETTINGS.modelName;
+    const shouldUseInstructPrompt = isInstructModelName(selectedModelName);
+    const prompt = shouldUseInstructPrompt
+        ? buildInstructPrompt(userInstructions, textToTranslate)
+        : buildStandardPrompt(userInstructions, textToTranslate);
+    const systemPrompt = shouldUseInstructPrompt
+        ? INSTRUCT_SYSTEM_PROMPT
+        : DEFAULT_SYSTEM_PROMPT;
+    const maxTokens = resolveMaxTokens(provider, false);
+    const model = resolveProviderModel(provider, apiKey, apiEndpoint, selectedModelName);
+
+    const controller = new AbortController();
+    const port = chrome.tabs.connect(tabId, { name: STREAM_PORT_NAME });
+    const streamState = {
+        requestId,
+        controller,
+        port,
+        throttleTimer: null,
+        pendingText: "",
+        keepAliveTimer: startStreamKeepAlive(),
+    };
+
+    activeStreams.set(tabId, streamState);
+
+    port.onMessage.addListener((message) => {
+        if (message?.action === "cancelStream" && message.requestId === requestId) {
+            cancelActiveStream(tabId, requestId);
+        }
+    });
+
+    port.onDisconnect.addListener(() => {
+        cancelActiveStream(tabId, requestId);
+    });
+
+    try {
+        const result = await streamText({
+            model,
+            system: systemPrompt,
+            prompt,
+            maxTokens: maxTokens ?? undefined,
+            abortSignal: controller.signal,
+        });
+
+        let translation = "";
+        for await (const chunk of result.textStream) {
+            translation += chunk;
+            const streamedText = shouldStripThinkBlocks(provider)
+                ? stripThinkBlocks(translation)
+                : translation;
+            scheduleStreamUpdate(
+                streamState,
+                streamedText,
+                detectedLanguageName,
+                targetLanguageName,
+            );
+        }
+
+        const finalText = shouldStripThinkBlocks(provider)
+            ? stripThinkBlocks(translation)
+            : translation;
+        flushStreamUpdate(
+            streamState,
+            finalText,
+            detectedLanguageName,
+            targetLanguageName,
+        );
+        return finalText;
+    } catch (error) {
+        if (controller.signal.aborted || error?.name === "AbortError") {
+            return null;
+        }
+        throw error;
+    } finally {
+        if (activeStreams.get(tabId) === streamState) {
+            activeStreams.delete(tabId);
+        }
+        if (streamState.throttleTimer) {
+            clearTimeout(streamState.throttleTimer);
+        }
+        if (streamState.keepAliveTimer) {
+            clearInterval(streamState.keepAliveTimer);
+        }
+        if (streamState.port) {
+            try {
+                streamState.port.disconnect();
+            } catch (error) {
+                console.warn("Could not disconnect stream port:", error);
+            }
+        }
+    }
+}
+
 // --- API Call Function (Updated to include modelName parameter) ---
 async function translateTextApiCall(
     textToTranslate,
@@ -1231,26 +1686,13 @@ async function translateTextApiCall(
     translationInstructions,
 ) {
     console.log(
-        `Sending text to API (${apiType}) at ${apiEndpoint}. FullPage: ${isFullPage}. Text length: ${textToTranslate.length}`,
+        `Sending text to AI SDK (${apiType}). FullPage: ${isFullPage}. Text length: ${textToTranslate.length}`,
     );
 
-    // When doing element-wise full page translation, we already split work in small batches (see content.js translatePageElements()).
-    // For OpenRouter (and other stricter providers), additionally clamp max_tokens to reduce chances of rate/size errors.
-    console.log("Text being sent for translation:", textToTranslate);
-
-    let requestBody;
-    let headers = { "Content-Type": "application/json" };
-
-    // Use custom instructions if provided, otherwise fall back to default
     const userInstructions = translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS;
-
-    // Normalize provider name
     const provider = apiType && PROVIDERS.includes(apiType) ? apiType : "openai";
-
-    // Use modelName from parameter, fallback to provider defaults
     const selectedModelName =
         modelName || PROVIDER_DEFAULTS[provider]?.modelName || DEFAULT_SETTINGS.modelName;
-
     const shouldUseInstructPrompt = isInstructModelName(selectedModelName);
     const prompt = shouldUseInstructPrompt
         ? buildInstructPrompt(userInstructions, textToTranslate)
@@ -1258,268 +1700,30 @@ async function translateTextApiCall(
     const systemPrompt = shouldUseInstructPrompt
         ? INSTRUCT_SYSTEM_PROMPT
         : DEFAULT_SYSTEM_PROMPT;
-
-    switch (provider) {
-        case "openai":
-            headers["Authorization"] = `Bearer ${apiKey}`;
-            requestBody = {
-                model: selectedModelName || "gpt-5-mini",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: prompt },
-                ],
-                // Allow larger responses, but keep reasonable bounds
-                max_tokens: isFullPage ? 4000 : 800,
-            };
-            break;
-        case "anthropic":
-            headers["x-api-key"] = apiKey;
-            headers["anthropic-version"] = "2023-06-01";
-            requestBody = {
-                model: selectedModelName || "claude-haiku-4-5",
-                max_tokens: isFullPage ? 4000 : 800,
-                system: systemPrompt,
-                messages: [{ role: "user", content: prompt }],
-            };
-            break;
-        case "google": {
-            headers["x-goog-api-key"] = apiKey;
-            const base = apiEndpoint || PROVIDER_DEFAULTS.google.apiEndpoint;
-            const googleApiUrl = `${base.replace(/\/+$/, "")}/models/${selectedModelName || "gemini-3-flash-preview"}:generateContent`;
-            requestBody = {
-                contents: [
-                    {
-                        parts: [{ text: systemPrompt }, { text: prompt }],
-                    },
-                ],
-                generationConfig: {
-                    maxOutputTokens: isFullPage ? 65536 : 8000,
-                },
-            };
-            console.log("Google API Request Body:", JSON.stringify(requestBody));
-            apiEndpoint = googleApiUrl;
-            break;
-        }
-        case "groq": {
-            // Groq - OpenAI-compatible style
-            // No max_completion_tokens - use model's maximum
-            headers["Authorization"] = `Bearer ${apiKey}`;
-            requestBody = {
-                model: selectedModelName || PROVIDER_DEFAULTS.groq.modelName,
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: prompt },
-                ],
-            };
-            break;
-        }
-        case "grok": {
-            // Grok (xAI) - OpenAI-compatible style
-            headers["Authorization"] = `Bearer ${apiKey}`;
-            requestBody = {
-                model: selectedModelName || PROVIDER_DEFAULTS.grok.modelName,
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: prompt },
-                ],
-                max_tokens: isFullPage ? 4000 : 800,
-            };
-            break;
-        }
-        case "openrouter": {
-            headers["Authorization"] = `Bearer ${apiKey}`;
-            headers["HTTP-Referer"] = "https://github.com/"; // safe generic referer
-            headers["X-Title"] = "AI Translator Extension";
-
-            // For OpenRouter, allow large outputs so we don't truncate:
-            // - Full page / large HTML: up to 8192 tokens
-            // - Selection / single element: up to 2048 tokens
-            const openRouterMaxTokens = isFullPage ? 8192 : 2048;
-
-            requestBody = {
-                model: selectedModelName || PROVIDER_DEFAULTS.openrouter.modelName,
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: prompt },
-                ],
-                max_tokens: openRouterMaxTokens,
-            };
-            break;
-        }
-        case "deepseek": {
-            // DeepSeek - OpenAI-compatible
-            headers["Authorization"] = `Bearer ${apiKey}`;
-            requestBody = {
-                model: selectedModelName || PROVIDER_DEFAULTS.deepseek.modelName,
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: prompt },
-                ],
-                max_tokens: isFullPage ? 4000 : 800,
-            };
-            break;
-        }
-        case "mistral": {
-            // Mistral AI - OpenAI-compatible
-            headers["Authorization"] = `Bearer ${apiKey}`;
-            requestBody = {
-                model: selectedModelName || PROVIDER_DEFAULTS.mistral.modelName,
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: prompt },
-                ],
-                max_tokens: isFullPage ? 4000 : 800,
-            };
-            break;
-        }
-        case "qwen": {
-            // Qwen (Alibaba DashScope) - OpenAI-compatible via compatible-mode endpoint
-            headers["Authorization"] = `Bearer ${apiKey}`;
-            requestBody = {
-                model: selectedModelName || PROVIDER_DEFAULTS.qwen.modelName,
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: prompt },
-                ],
-                max_tokens: isFullPage ? 4000 : 800,
-            };
-            break;
-        }
-        case "cerebras": {
-            // Cerebras - OpenAI-compatible style
-            // No max_completion_tokens - let model use its maximum
-            headers["Authorization"] = `Bearer ${apiKey}`;
-            requestBody = {
-                model: selectedModelName || PROVIDER_DEFAULTS.cerebras.modelName,
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: prompt },
-                ],
-            };
-            break;
-        }
-        case "ollama": {
-            // Ollama uses /api/generate endpoint - no auth needed for local
-            const ollamaBase = apiEndpoint || PROVIDER_DEFAULTS.ollama.apiEndpoint;
-            apiEndpoint = `${ollamaBase.replace(/\/+$/, "")}/api/generate`;
-
-            requestBody = {
-                model: selectedModelName || PROVIDER_DEFAULTS.ollama.modelName,
-                system: systemPrompt,
-                prompt: prompt,
-                stream: false, // Get complete response, not streaming
-            };
-            break;
-        }
-        default:
-            throw new Error(`Unsupported API type configured: ${provider}`);
-    }
-
-    console.log(`Sending request to ${apiEndpoint} with body:`, requestBody);
+    const model = resolveProviderModel(provider, apiKey, apiEndpoint, selectedModelName);
+    const maxTokens = resolveMaxTokens(provider, isFullPage);
 
     try {
-        const response = await fetch(apiEndpoint, {
-            method: "POST",
-            headers: headers,
-            body: JSON.stringify(requestBody),
+        const { text } = await generateText({
+            model,
+            system: systemPrompt,
+            prompt,
+            maxTokens: maxTokens ?? undefined,
         });
 
-        console.log("Received API response:", response);
+        let translation = text;
 
-        // Explicit logging to help debug partial translations / silent failures
-        if (response.status === 429) {
-            console.error(
-                "Rate limited by provider (HTTP 429). Consider lowering concurrency or checking your OpenRouter plan/limits.",
-            );
+        if (shouldStripThinkBlocks(provider)) {
+            translation = stripThinkBlocks(translation);
         }
 
-        if (!response.ok) {
-            let errorDetails = `API request failed with status ${response.status}`;
-            try {
-                const errorData = await response.json();
-                console.error("API Error Response Body:", errorData);
-                errorDetails += `: ${
-                    errorData?.error?.message ||
-                    errorData?.detail ||
-                    JSON.stringify(errorData)
-                }`;
-            } catch (e) {
-                errorDetails += `: ${response.statusText}`;
-            }
-            console.error("API request failed:", errorDetails);
-            throw new Error(errorDetails);
-        }
-        const data = await response.json();
-        console.log("API Response Data Received Successfully:", data);
-
-        let translation;
-        switch (provider) {
-            case "groq": {
-                // Filter out <think>...</think> blocks from reasoning models
-                let content = data.choices?.[0]?.message?.content || "";
-                translation = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-                break;
-            }
-            case "openai":
-            case "grok":
-            case "openrouter":
-            case "deepseek":
-            case "mistral":
-            case "qwen":
-                translation = data.choices?.[0]?.message?.content?.trim();
-                break;
-            case "cerebras": {
-                // Filter out <think>...</think> blocks from reasoning models (qwen-3-32b, etc.)
-                let content = data.choices?.[0]?.message?.content || "";
-                translation = content.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-                break;
-            }
-            case "anthropic":
-                if (Array.isArray(data.content) && data.content.length > 0) {
-                    translation = data.content
-                        .map((block) => block.text || "")
-                        .join("\n")
-                        .trim();
-                }
-                break;
-            case "google":
-                console.log("Google API Candidates:", data.candidates);
-                if (data.candidates?.[0]?.content?.parts) {
-                    console.log("Google API Parts:", data.candidates[0].content.parts);
-                    if (data.candidates[0].content.parts.length > 0) {
-                        console.log(
-                            "Google API First Part:",
-                            data.candidates[0].content.parts[0],
-                        );
-                    }
-                }
-                translation = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-                break;
-            case "ollama":
-                // Ollama /api/generate returns { response: "..." }
-                translation = data.response?.trim();
-                break;
-            default:
-                throw new Error(
-                    "Could not determine how to extract translation for this provider.",
-                );
-        }
-
-        if (
-            translation === undefined ||
-            translation === null ||
-            translation.trim() === ""
-        ) {
-            console.error("Extracted translation is empty or null.", data);
+        if (!translation || translation.trim() === "") {
             throw new Error("API returned no translation text.");
         }
-        console.log("Successfully extracted translation:", translation);
-        console.log("=== RAW TRANSLATION DEBUG START ===");
-        console.log("Raw translation text:", translation);
-        console.log("=== RAW TRANSLATION DEBUG END ===");
-        return translation;
+
+        return translation.trim();
     } catch (error) {
-        console.error("Fetch API error:", error);
+        console.error("AI SDK translation error:", error);
         throw error;
     }
 }

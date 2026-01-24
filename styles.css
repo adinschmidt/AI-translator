@@ -109,3 +109,23 @@ body {
     height: 14px;
     fill: currentColor;
 }
+
+#translation-popup-extension.is-streaming {
+    background-color: #fffbeb;
+    border-color: #f59e0b;
+}
+
+#translation-popup-extension .translation-streaming-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: 9999px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #b45309;
+    background-color: #fef3c7;
+    border: 1px solid #f59e0b;
+}

@@ -133,6 +133,11 @@ if (window.hasRun) {
     let isTranslated = false; // Track if the page is currently translated
     let stopTranslationFlag = false; // Flag to stop translation process
 
+    const STREAM_PORT_NAME = "translationStream";
+    let activeStreamPort = null;
+    let activeStreamRequestId = null;
+    let completedStreamRequestId = null;
+
     const SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY = "showTranslateButtonOnSelection";
     let showTranslateButtonOnSelectionEnabled = true;
     let selectionTranslateButton = null;
@@ -147,9 +152,27 @@ if (window.hasRun) {
 
         switch (request.action) {
             // --- Display Popup for Selected Text (Handles Loading and Result) ---
-            case "displayTranslation":
+            case "displayTranslation": {
+                const requestId = request.requestId || null;
+                const isStreaming = request.isStreaming === true;
+
+                if (requestId) {
+                    if (completedStreamRequestId === requestId) {
+                        sendResponse({ status: "ignored" });
+                        break;
+                    }
+                    if (activeStreamRequestId && requestId !== activeStreamRequestId) {
+                        sendResponse({ status: "ignored" });
+                        break;
+                    }
+                    if (!activeStreamRequestId) {
+                        activeStreamRequestId = requestId;
+                        completedStreamRequestId = null;
+                    }
+                }
+
                 // If it's the final result (not loading), remove any separate loading indicator
-                if (!request.isLoading) {
+                if (!request.isLoading && !isStreaming) {
                     removeLoadingIndicator();
                     selectionTranslateInProgress = false;
                     hideSelectionTranslateButton();
@@ -161,9 +184,17 @@ if (window.hasRun) {
                     request.isLoading,
                     request.detectedLanguageName,
                     request.targetLanguageName,
+                    isStreaming,
                 );
+
+                if (requestId && !request.isLoading && !isStreaming) {
+                    completedStreamRequestId = requestId;
+                    activeStreamRequestId = null;
+                }
+
                 sendResponse({ status: "Popup displayed/updated" });
                 break;
+            }
 
             // --- Request from Background to Get Page Text (for full-page translation) ---
             case "getPageText":
@@ -252,6 +283,28 @@ if (window.hasRun) {
         // Return true if you intend to send a response asynchronously (like for getPageText)
         // For others, it's okay to return false or nothing.
         return request.action === "getPageText";
+    });
+
+    chrome.runtime.onConnect.addListener((port) => {
+        if (port.name !== STREAM_PORT_NAME) {
+            return;
+        }
+
+        activeStreamPort = port;
+
+        port.onMessage.addListener((message) => {
+            if (message?.action !== "streamTranslationUpdate") {
+                return;
+            }
+            handleStreamUpdate(message);
+        });
+
+        port.onDisconnect.addListener(() => {
+            if (activeStreamPort === port) {
+                activeStreamPort = null;
+                activeStreamRequestId = null;
+            }
+        });
     });
 
     chrome.storage.sync.get([SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY], (result) => {
@@ -1108,6 +1161,99 @@ if (window.hasRun) {
         element.appendChild(fragment);
     }
 
+    function updateStreamingPopup(popup, content, detectedLanguageName, targetLanguageName) {
+        if (!popup) {
+            return;
+        }
+
+        clearElement(popup);
+        popup.classList.add("is-streaming");
+        popup.style.backgroundColor = "#fffbeb";
+        popup.style.border = "1px solid #f59e0b";
+        popup.style.color = "#333";
+
+        const headerDiv = document.createElement("div");
+        headerDiv.style.cssText =
+            "font-size: 11px; color: #666; margin-bottom: 8px; " +
+            "padding-bottom: 6px; border-bottom: 1px solid #ddd; " +
+            "display: flex; align-items: center; justify-content: space-between; " +
+            "gap: 6px;";
+
+        if (detectedLanguageName && targetLanguageName) {
+            const labelSpan = document.createElement("span");
+            labelSpan.textContent = `${detectedLanguageName} → ${targetLanguageName}`;
+            headerDiv.appendChild(labelSpan);
+        } else {
+            const spacer = document.createElement("span");
+            spacer.textContent = "";
+            headerDiv.appendChild(spacer);
+        }
+
+        const badge = document.createElement("span");
+        badge.className = "translation-streaming-badge";
+        badge.textContent = "Streaming";
+        headerDiv.appendChild(badge);
+
+        popup.appendChild(headerDiv);
+
+        const contentDiv = document.createElement("div");
+        contentDiv.textContent = content || "";
+        contentDiv.style.whiteSpace = "pre-wrap";
+        popup.appendChild(contentDiv);
+
+        addCloseButton(popup);
+    }
+
+    function handleStreamUpdate(message) {
+        if (!message?.requestId) {
+            return;
+        }
+
+        if (completedStreamRequestId === message.requestId) {
+            return;
+        }
+
+        if (activeStreamRequestId && message.requestId !== activeStreamRequestId) {
+            return;
+        }
+
+        activeStreamRequestId = message.requestId;
+        completedStreamRequestId = null;
+
+        displayPopup(
+            message.text || "",
+            false,
+            false,
+            message.detectedLanguageName,
+            message.targetLanguageName,
+            true,
+        );
+    }
+
+    function cancelActiveStream() {
+        if (!activeStreamRequestId) {
+            return;
+        }
+
+        const requestId = activeStreamRequestId;
+        activeStreamRequestId = null;
+        completedStreamRequestId = null;
+
+        if (activeStreamPort) {
+            try {
+                activeStreamPort.postMessage({
+                    action: "cancelStream",
+                    requestId: requestId,
+                });
+                return;
+            } catch (error) {
+                console.warn("Failed to send cancel message:", error);
+            }
+        }
+
+        chrome.runtime.sendMessage({ action: "cancelTranslation", requestId: requestId });
+    }
+
     // --- Popup Display Function (for selected text) ---
     function displayPopup(
         content,
@@ -1115,6 +1261,7 @@ if (window.hasRun) {
         isLoading = false,
         detectedLanguageName = null,
         targetLanguageName = null,
+        isStreaming = false,
     ) {
         console.log("displayPopup called with:", {
             content,
@@ -1126,8 +1273,19 @@ if (window.hasRun) {
         const popupId = "translation-popup-extension";
         let existingPopup = document.getElementById(popupId);
 
+        if (existingPopup && isStreaming) {
+            updateStreamingPopup(
+                existingPopup,
+                content,
+                detectedLanguageName,
+                targetLanguageName,
+            );
+            return;
+        }
+
         // If the popup already exists (from loading state) and this is the final result
         if (existingPopup && !isLoading) {
+            existingPopup.classList.remove("is-streaming");
             console.log("Updating existing popup content.");
             // Use DOMPurify to sanitize HTML content while preserving formatting
             setSanitizedContent(existingPopup, content);
@@ -1142,6 +1300,7 @@ if (window.hasRun) {
 
         // If popup exists and we get another loading message (shouldn't happen often, but handle)
         if (existingPopup && isLoading) {
+            existingPopup.classList.remove("is-streaming");
             console.log("Popup already exists in loading state.");
             return;
         }
@@ -1223,6 +1382,7 @@ if (window.hasRun) {
 
         // Set content and style based on loading/error state for the newly created or existing popup
         if (isLoading) {
+            existingPopup.classList.remove("is-streaming");
             clearElement(existingPopup);
             console.log("Setting loading content.");
             // Keep forceful styles, maybe adjust background slightly
@@ -1255,8 +1415,17 @@ if (window.hasRun) {
                     "@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
                 document.head.appendChild(style);
             }
+        } else if (isStreaming) {
+            updateStreamingPopup(
+                existingPopup,
+                content,
+                detectedLanguageName,
+                targetLanguageName,
+            );
+            return;
         } else {
             console.log("Setting final content:", content);
+            existingPopup.classList.remove("is-streaming");
             clearElement(existingPopup);
 
             // Add language detection header if available
@@ -1313,6 +1482,9 @@ if (window.hasRun) {
 
     // --- Popup Removal Function ---
     function removePopup() {
+        cancelActiveStream();
+        selectionTranslateInProgress = false;
+        hideSelectionTranslateButton();
         const popup = document.getElementById("translation-popup-extension");
         if (popup && popup.parentNode) {
             popup.parentNode.removeChild(popup);

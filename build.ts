@@ -1,19 +1,24 @@
-import { rm, mkdir, cp } from "fs/promises";
+import { rm, mkdir, cp, writeFile } from "fs/promises";
 import { existsSync } from "fs";
 import { join } from "path";
 
 const ROOT = import.meta.dir;
 const DIST = join(ROOT, "dist");
+const SRC = ROOT;
 
-// Files to include in both builds
-const COMMON_FILES = [
+// Entry points to bundle
+const ENTRYPOINTS = {
+    background: join(SRC, "background.js"),
+    content: join(SRC, "content.js"),
+    options: join(SRC, "options.js"),
+};
+
+// Static files to copy (not bundled)
+const STATIC_FILES = [
     "eld-bundle.js",
-    "background.js",
-    "content.js",
     "purify.min.js",
     "styles.css",
     "options.html",
-    "options.js",
     "options.css",
     "tailwindcss.min.js",
 ];
@@ -26,6 +31,37 @@ async function clean() {
     }
 }
 
+/**
+ * Bundle a single entry point using Bun.build
+ */
+async function bundleEntrypoint(
+    entrypoint: string,
+    outfile: string,
+): Promise<void> {
+    const result = await Bun.build({
+        entrypoints: [entrypoint],
+        outdir: join(DIST, "temp"),
+        target: "browser",
+        format: "iife",
+        minify: false,
+        sourcemap: "none",
+        splitting: false,
+    });
+
+    if (!result.success) {
+        console.error(`Build failed for ${entrypoint}:`);
+        for (const log of result.logs) {
+            console.error(log);
+        }
+        throw new Error(`Failed to bundle ${entrypoint}`);
+    }
+
+    // Read the bundled output and write to target location
+    const bundledPath = result.outputs[0].path;
+    const bundledContent = await Bun.file(bundledPath).text();
+    await writeFile(outfile, bundledContent);
+}
+
 async function buildChrome() {
     const chromeDir = join(DIST, "chrome");
     await mkdir(join(chromeDir, "images"), { recursive: true });
@@ -33,8 +69,13 @@ async function buildChrome() {
     // Copy manifest
     await cp(join(ROOT, "manifest.json"), join(chromeDir, "manifest.json"));
 
-    // Copy common files
-    for (const file of COMMON_FILES) {
+    // Bundle JavaScript entry points
+    await bundleEntrypoint(ENTRYPOINTS.background, join(chromeDir, "background.js"));
+    await bundleEntrypoint(ENTRYPOINTS.content, join(chromeDir, "content.js"));
+    await bundleEntrypoint(ENTRYPOINTS.options, join(chromeDir, "options.js"));
+
+    // Copy static files
+    for (const file of STATIC_FILES) {
         await cp(join(ROOT, file), join(chromeDir, file));
     }
 
@@ -53,8 +94,13 @@ async function buildFirefox() {
     // Copy Firefox manifest (renamed to manifest.json)
     await cp(join(ROOT, "manifest.firefox.json"), join(firefoxDir, "manifest.json"));
 
-    // Copy common files
-    for (const file of COMMON_FILES) {
+    // Bundle JavaScript entry points
+    await bundleEntrypoint(ENTRYPOINTS.background, join(firefoxDir, "background.js"));
+    await bundleEntrypoint(ENTRYPOINTS.content, join(firefoxDir, "content.js"));
+    await bundleEntrypoint(ENTRYPOINTS.options, join(firefoxDir, "options.js"));
+
+    // Copy static files
+    for (const file of STATIC_FILES) {
         await cp(join(ROOT, file), join(firefoxDir, file));
     }
 
@@ -64,6 +110,13 @@ async function buildFirefox() {
     }
 
     console.log("Built Firefox extension -> dist/firefox/");
+}
+
+async function cleanupTemp() {
+    const tempDir = join(DIST, "temp");
+    if (existsSync(tempDir)) {
+        await rm(tempDir, { recursive: true });
+    }
 }
 
 async function createZips() {
@@ -96,6 +149,9 @@ async function main() {
     console.log("Building extensions...");
     await buildChrome();
     await buildFirefox();
+
+    // Clean up temp directory used by bundler
+    await cleanupTemp();
 
     if (shouldZip) {
         console.log("Creating zip files...");
