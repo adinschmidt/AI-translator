@@ -446,7 +446,7 @@ if (window.hasRun) {
             }, 120);
         };
 
-        const onScrollOrResize = () => {
+        const onResize = () => {
             hideSelectionTranslateButton();
         };
 
@@ -473,8 +473,7 @@ if (window.hasRun) {
 
         document.addEventListener("selectionchange", onSelectionMaybeChanged, true);
         document.addEventListener("mouseup", onSelectionMaybeChanged, true);
-        window.addEventListener("scroll", onScrollOrResize, true);
-        window.addEventListener("resize", onScrollOrResize, true);
+        window.addEventListener("resize", onResize, true);
         document.addEventListener("keydown", onKeyDown, true);
         document.addEventListener("mousedown", onDocumentMouseDown, true);
 
@@ -489,8 +488,7 @@ if (window.hasRun) {
                 true,
             );
             document.removeEventListener("mouseup", onSelectionMaybeChanged, true);
-            window.removeEventListener("scroll", onScrollOrResize, true);
-            window.removeEventListener("resize", onScrollOrResize, true);
+            window.removeEventListener("resize", onResize, true);
             document.removeEventListener("keydown", onKeyDown, true);
             document.removeEventListener("mousedown", onDocumentMouseDown, true);
         };
@@ -604,6 +602,11 @@ if (window.hasRun) {
                 return;
             }
 
+            // Check if translation started while we were waiting for target language
+            if (selectionTranslateInProgress) {
+                return;
+            }
+
             // Update detection state
             currentDetectedLanguage = detectionResult.language;
             currentDetectedLanguageName = detectionResult.languageName;
@@ -618,6 +621,11 @@ if (window.hasRun) {
      */
     function showButtonAtPosition(rect, languageName) {
         if (!selectionTranslateButton) {
+            return;
+        }
+
+        // Never show button if translation is in progress
+        if (selectionTranslateInProgress) {
             return;
         }
 
@@ -1451,7 +1459,7 @@ if (window.hasRun) {
         // If popup doesn't exist, create it
         if (!existingPopup) {
             console.log("Creating new popup.");
-            removePopup();
+            removePopup(false);  // Don't reset selectionTranslateInProgress
 
             // Calculate position based on selection
             let top = 0;
@@ -1624,9 +1632,11 @@ if (window.hasRun) {
     }
 
     // --- Popup Removal Function ---
-    function removePopup() {
+    function removePopup(resetInProgress = true) {
         cancelActiveStream();
-        selectionTranslateInProgress = false;
+        if (resetInProgress) {
+            selectionTranslateInProgress = false;
+        }
         hideSelectionTranslateButton();
         const popup = document.getElementById("translation-popup-extension");
         if (popup && popup.parentNode) {
