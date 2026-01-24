@@ -685,7 +685,150 @@ if (window.hasRun) {
         // Serialize to HTML
         const tempDiv = document.createElement("div");
         tempDiv.appendChild(fragment);
-        return tempDiv.innerHTML;
+
+        // Simplify the HTML before returning
+        return simplifyHtmlForTranslation(tempDiv.innerHTML);
+    }
+
+    // --- Function to Simplify HTML for Translation ---
+    // Strips layout wrappers while preserving meaningful formatting
+    function simplifyHtmlForTranslation(html) {
+        if (!html || typeof html !== "string") {
+            return html;
+        }
+
+        // Tags to keep (preserve element; strip attributes except href on <a>)
+        const KEEP_TAGS = new Set([
+            "b", "strong", "i", "em", "u", "s", "strike", "mark", "sub", "sup",
+            "p", "br", "h1", "h2", "h3", "h4", "h5", "h6",
+            "ul", "ol", "li",
+            "a",
+            "pre", "code",
+            "blockquote",
+            "table", "thead", "tbody", "tfoot", "tr", "td", "th"
+        ]);
+
+        // Tags to unwrap (remove tag but keep contents)
+        const UNWRAP_TAGS = new Set([
+            "span",
+            "section", "article", "aside", "main", "nav", "header", "footer",
+            "figure", "figcaption", "details", "summary"
+        ]);
+
+        // Tags to remove entirely (drop element + content)
+        const REMOVE_TAGS = new Set([
+            "img", "video", "audio", "iframe", "canvas", "svg", "object", "embed",
+            "button", "input", "select", "textarea", "form",
+            "link", "meta",
+            "script", "style", "noscript"
+        ]);
+
+        // Allowed URL schemes for href
+        const ALLOWED_SCHEMES = ["http:", "https:", "mailto:"];
+
+        // Parse HTML into a detached container
+        const root = document.createElement("div");
+        root.innerHTML = html;
+
+        // Step 1: Pre-remove all REMOVE tags
+        REMOVE_TAGS.forEach(tag => {
+            root.querySelectorAll(tag).forEach(el => el.remove());
+        });
+
+        // Step 2: Transform div blocks - convert to p if they have text content
+        const divs = Array.from(root.querySelectorAll("div"));
+        for (const div of divs) {
+            if (div.textContent.trim() !== "") {
+                // Replace div with p, preserving children
+                const p = document.createElement("p");
+                while (div.firstChild) {
+                    p.appendChild(div.firstChild);
+                }
+                div.parentNode.replaceChild(p, div);
+            } else {
+                // Empty div - remove it
+                div.remove();
+            }
+        }
+
+        // Step 3: Walk the tree bottom-up and process nodes
+        // We need to collect all elements first, then process from deepest to shallowest
+        function processNode(node) {
+            if (node.nodeType !== Node.ELEMENT_NODE) {
+                return;
+            }
+
+            // Process children first (bottom-up)
+            Array.from(node.children).forEach(child => processNode(child));
+
+            const tagName = node.tagName.toLowerCase();
+
+            if (KEEP_TAGS.has(tagName)) {
+                // Strip all attributes except href on <a> tags
+                const attrs = Array.from(node.attributes);
+                for (const attr of attrs) {
+                    if (tagName === "a" && attr.name === "href") {
+                        // Sanitize href
+                        const sanitizedHref = sanitizeHref(attr.value);
+                        if (sanitizedHref) {
+                            node.setAttribute("href", sanitizedHref);
+                        } else {
+                            node.removeAttribute("href");
+                        }
+                    } else {
+                        node.removeAttribute(attr.name);
+                    }
+                }
+            } else if (UNWRAP_TAGS.has(tagName) || !KEEP_TAGS.has(tagName)) {
+                // Unwrap: replace element with its children
+                unwrapElement(node);
+            }
+        }
+
+        // Helper: Sanitize href value
+        function sanitizeHref(href) {
+            if (!href || typeof href !== "string") {
+                return null;
+            }
+
+            const trimmed = href.trim();
+            if (trimmed === "") {
+                return null;
+            }
+
+            // Check for allowed schemes
+            try {
+                const url = new URL(trimmed, window.location.href);
+                if (ALLOWED_SCHEMES.some(scheme => url.protocol === scheme)) {
+                    return trimmed;
+                }
+                return null;
+            } catch {
+                // If URL parsing fails, check if it's a relative URL (no scheme)
+                if (!trimmed.includes(":") || trimmed.startsWith("/")) {
+                    return trimmed;
+                }
+                return null;
+            }
+        }
+
+        // Helper: Unwrap an element (replace with its children)
+        function unwrapElement(element) {
+            const parent = element.parentNode;
+            if (!parent) {
+                return;
+            }
+
+            while (element.firstChild) {
+                parent.insertBefore(element.firstChild, element);
+            }
+            parent.removeChild(element);
+        }
+
+        // Process all children of root
+        Array.from(root.children).forEach(child => processNode(child));
+
+        return root.innerHTML;
     }
 
     // --- Function to Extract Main Content HTML ---

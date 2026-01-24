@@ -221,7 +221,7 @@ const DEFAULT_TRANSLATION_INSTRUCTIONS =
 
 const DEFAULT_SYSTEM_PROMPT =
     "You are a professional translator. Translate the provided text accurately. " +
-    "Preserve any HTML structure and formatting in your translation.";
+    "Preserve the provided HTML tags and their structure; do not add new wrapper tags or attributes.";
 
 const INSTRUCT_SYSTEM_PROMPT =
     "You are a professional translator. Output only the translated text with no " +
@@ -239,7 +239,7 @@ function isInstructModelName(modelName) {
 function buildStandardPrompt(userInstructions, textToTranslate) {
     return `${userInstructions}
 
-If this contains HTML, preserve the HTML structure and formatting.
+If this contains HTML, preserve the provided HTML tags and their structure; do not add new wrapper tags or attributes.
 If this is already in the target language, do not translate it, instead repeat it back verbatim.
 
 Text to translate: ${textToTranslate}`;
@@ -248,7 +248,7 @@ Text to translate: ${textToTranslate}`;
 function buildInstructPrompt(userInstructions, textToTranslate) {
     return `${userInstructions}
 
-If this contains HTML, preserve the HTML structure and formatting.
+If this contains HTML, preserve the provided HTML tags and their structure; do not add new wrapper tags or attributes.
 If this is already in the target language, repeat it back verbatim.
 
 Text to translate:
