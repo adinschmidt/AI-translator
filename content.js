@@ -727,10 +727,9 @@ if (window.hasRun) {
                 if (seg.type === "text") {
                     // Assign to next available text node at this level
                     if (textNodeIdx >= textNodes.length) {
-                        console.warn(
-                            "applySegmentsToDOM: no text node for segment",
-                            { length: seg.content.length },
-                        );
+                        console.warn("applySegmentsToDOM: no text node for segment", {
+                            length: seg.content.length,
+                        });
                         return false;
                     }
                     textNodes[textNodeIdx].textContent = seg.content;
@@ -1179,6 +1178,170 @@ if (window.hasRun) {
     }
 
     // --- Apply Translation to DOM (v2) ---
+
+    /**
+     * Check if an element is safe for HTML fallback
+     * Must be inline-only with no interactive descendants
+     * @param {Element} element
+     * @returns {boolean}
+     */
+    function isSafeForHtmlFallback(element) {
+        if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+            return false;
+        }
+
+        const tagName = element.tagName;
+
+        // Must be an inline-safe tag (no block-level elements)
+        if (!INLINE_SAFE_TAGS.has(tagName)) {
+            return false;
+        }
+
+        // Must not be hidden
+        if (isHiddenElement(element)) {
+            return false;
+        }
+
+        // Must not be in extension UI
+        if (isExtensionUI(element)) {
+            return false;
+        }
+
+        // Must not be interactive itself
+        if (INTERACTIVE_TAGS.has(tagName)) {
+            return false;
+        }
+
+        if (
+            element.getAttribute("role") === "button" ||
+            element.getAttribute("contenteditable") === "true" ||
+            element.isContentEditable
+        ) {
+            return false;
+        }
+
+        // Must not have interactive descendants
+        const interactiveDescendant = element.querySelector(
+            'button, input, textarea, select, [role="button"], [contenteditable="true"]',
+        );
+        if (interactiveDescendant !== null) {
+            return false;
+        }
+
+        // Must not have block-level descendants
+        const blockDescendant = element.querySelector(
+            Array.from(BLOCK_LEVEL_TAGS).join(",") + ", div",
+        );
+        if (blockDescendant !== null) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * DOMPurify configuration for safe HTML fallback
+     * Only allows inline-safe tags and attributes, with safe URI policy
+     */
+    const HTML_FALLBACK_DOMPURIFY_CONFIG = {
+        ALLOWED_TAGS: [
+            "A",
+            "ABBR",
+            "ACRONYM",
+            "B",
+            "BDI",
+            "BDO",
+            "BIG",
+            "CITE",
+            "CODE",
+            "DEL",
+            "DFN",
+            "EM",
+            "I",
+            "INS",
+            "KBD",
+            "MARK",
+            "Q",
+            "S",
+            "SAMP",
+            "SMALL",
+            "SPAN",
+            "STRONG",
+            "SUB",
+            "SUP",
+            "TIME",
+            "U",
+            "VAR",
+            "WBR",
+            "BR",
+        ],
+        ALLOWED_ATTR: ["href", "title", "lang", "datetime", "cite", "dir"],
+        ALLOW_DATA_ATTR: false,
+        FORCE_BODY: false,
+        SAFE_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|\/|\/[^/].*|[^:/]*)(?:\/[^\s]*)?)$/,
+        ADD_ATTR: [],
+    };
+
+    /**
+     * Apply HTML fallback with DOMPurify sanitization
+     * Translates innerHTML as-is and sanitizes the result
+     * @param {Element} element
+     * @param {string} translatedText - Translated text with placeholders
+     * @returns {boolean}
+     */
+    function applyHtmlFallback(element, translatedText) {
+        try {
+            if (typeof DOMPurify === "undefined") {
+                console.warn("DOMPurify not available, falling back to plain text");
+                return applyPlainTextFallback(element, translatedText);
+            }
+
+            console.log(
+                `applyHtmlFallback: applying to ${element.tagName}`,
+                `(${translatedText.length} chars)`,
+            );
+
+            // Remove placeholder markers to get the translated HTML
+            const cleanText = translatedText.replace(/⟦\/?P\d+⟧/g, "").trim();
+
+            // Get the current innerHTML structure
+            const originalHtml = element.innerHTML;
+
+            if (!originalHtml || originalHtml.trim().length === 0) {
+                console.warn("applyHtmlFallback: element has no innerHTML");
+                return applyPlainTextFallback(element, translatedText);
+            }
+
+            // Replace text content in the HTML structure with translated text
+            // This is a simplified approach - we're using the translated text
+            // but keeping the original structure where possible
+            // For now, we'll just use the translated text and sanitize it
+            // A more sophisticated approach would map the translated text
+            // back into the HTML structure
+
+            // Sanitize the translated text as if it's HTML
+            const sanitizedHtml = DOMPurify.sanitize(
+                `<span>${cleanText}</span>`,
+                HTML_FALLBACK_DOMPURIFY_CONFIG,
+            );
+
+            if (!sanitizedHtml || sanitizedHtml.trim().length === 0) {
+                console.warn("applyHtmlFallback: sanitization produced empty result");
+                return applyPlainTextFallback(element, translatedText);
+            }
+
+            // Update element with sanitized HTML
+            element.innerHTML = sanitizedHtml;
+
+            console.log(
+                `applyHtmlFallback: successfully applied sanitized HTML fallback`,
+            );
+            return true;
+        } catch (error) {
+            console.error("applyHtmlFallback error:", error);
+            return applyPlainTextFallback(element, translatedText);
+        }
+    }
 
     /**
      * Apply translated text with placeholders to an element by updating text nodes
@@ -2440,13 +2603,37 @@ if (window.hasRun) {
                     unit.placeholders || new Map(),
                 );
                 if (!applied) {
-                    // Fallback to plain text
-                    applyPlainTextFallback(unit.element, unit.result);
+                    // Try HTML fallback if safe, otherwise plain text
+                    if (isSafeForHtmlFallback(unit.element)) {
+                        const htmlFallbackSuccess = applyHtmlFallback(
+                            unit.element,
+                            unit.result,
+                        );
+                        if (!htmlFallbackSuccess) {
+                            console.warn(
+                                "HTML fallback failed, falling back to plain text",
+                            );
+                            applyPlainTextFallback(unit.element, unit.result);
+                        }
+                    } else {
+                        applyPlainTextFallback(unit.element, unit.result);
+                    }
                 }
             } else if (!result.success && result.validationFailed && unit.result) {
-                // Validation/truncation failed - apply plain text fallback
-                console.warn("Applying plain text fallback due to validation failure");
-                applyPlainTextFallback(unit.element, unit.result);
+                // Validation/truncation failed - try HTML fallback if safe, otherwise plain text
+                console.warn("Validation failed, attempting fallback strategy");
+                if (isSafeForHtmlFallback(unit.element)) {
+                    const htmlFallbackSuccess = applyHtmlFallback(
+                        unit.element,
+                        unit.result,
+                    );
+                    if (!htmlFallbackSuccess) {
+                        console.warn("HTML fallback failed, falling back to plain text");
+                        applyPlainTextFallback(unit.element, unit.result);
+                    }
+                } else {
+                    applyPlainTextFallback(unit.element, unit.result);
+                }
             } else if (!result.success) {
                 // Complete failure - mark error on element
                 markElementTranslationError(
