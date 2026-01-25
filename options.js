@@ -83,15 +83,15 @@ const PROVIDER_DEFAULTS = {
     },
     google: {
         apiEndpoint: "https://generativelanguage.googleapis.com/v1beta",
-        modelName: "gemini-3-flash-preview",
+        modelName: "gemini-flash-lite-latest",
     },
     groq: {
         apiEndpoint: "https://api.groq.com/openai/v1/chat/completions",
-        modelName: "llama-3.3-70b-versatile",
+        modelName: "kimi-k2-instruct",
     },
     grok: {
         apiEndpoint: "https://api.x.ai/v1/chat/completions",
-        modelName: "grok-3-mini",
+        modelName: "grok-4-1-fast-non-reasoning",
     },
     openrouter: {
         apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
