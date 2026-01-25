@@ -7,6 +7,7 @@
     "build:zip": "bun run build.ts --zip"
   },
   "devDependencies": {
+    "@types/chrome": "^0.1.36",
     "bun-types": "latest"
   },
   "dependencies": {

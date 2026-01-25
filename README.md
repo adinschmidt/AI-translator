@@ -64,12 +64,49 @@ AI-powered translation provides more natural and contextually accurate results c
 
 ## Roadmap & Current State
 
+## Development
+
+### Prerequisites
+
+- Install [Bun](https://bun.sh) for building the extension
+
+### Build
+
+- Build Chrome + Firefox extensions to `dist/`:
+  ```bash
+  bun run build
+  ```
+- Build and create zip artifacts:
+  ```bash
+  bun run build:zip
+  ```
+
+### Project Structure
+
+```
+src/
+├── extension/     # Extension-specific code
+│   ├── background.ts   # Background service worker
+│   ├── content.ts      # Content script (page injection)
+│   └── options.ts      # Options page logic
+└── shared/        # Shared utilities
+    ├── constants/      # Shared constants
+    ├── messaging.ts    # Message passing between contexts
+    └── storage.ts      # Chrome storage abstraction
+dist/               # Build output (generated, gitignored)
+build.ts            # Build script (TypeScript, runs on Bun)
+```
+
+The build process compiles TypeScript files and copies necessary assets (manifests, HTML, CSS, images) to `dist/` for both Chrome and Firefox.
+
 ## Tech Stack
 
+- TypeScript (compiled for browser runtime)
 - Manifest V3
 - Content scripts for page interaction
 - Service worker for background API calls
 - Tailwind CSS for styling
+- Bun for build tooling
 
 ## Privacy
 
