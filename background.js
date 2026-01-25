@@ -939,6 +939,9 @@ async function translateUnitText(content, targetLanguage = null, isRetry = false
                               perProvider.modelName ||
                               PROVIDER_DEFAULTS[activeProvider]?.modelName ||
                               "",
+                          translationInstructions:
+                              perProvider.translationInstructions ||
+                              DEFAULT_TRANSLATION_INSTRUCTIONS,
                           apiType: activeProvider,
                       }
                     : {
@@ -951,15 +954,21 @@ async function translateUnitText(content, targetLanguage = null, isRetry = false
                               modelName ||
                               PROVIDER_DEFAULTS[activeProvider]?.modelName ||
                               "",
+                          translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
                           apiType: activeProvider,
                       };
 
-                // In Basic mode, use fixed endpoint/model
+                // In Basic mode, use fixed endpoint/model and auto-generated instructions
                 if (mode === SETTINGS_MODE_BASIC) {
+                    const languageValue =
+                        basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
+                    const languageLabel = getBasicTargetLanguageLabel(languageValue);
                     effective.apiEndpoint =
                         PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
                         effective.apiEndpoint;
                     effective.modelName = PROVIDER_DEFAULTS[activeProvider]?.modelName;
+                    effective.translationInstructions =
+                        buildBasicTranslationInstructions(languageLabel);
                 }
 
                 const {
@@ -967,6 +976,7 @@ async function translateUnitText(content, targetLanguage = null, isRetry = false
                     apiEndpoint: finalEndpoint,
                     apiType: finalType,
                     modelName: finalModel,
+                    translationInstructions: finalInstructions,
                 } = effective;
 
                 if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
@@ -978,7 +988,7 @@ async function translateUnitText(content, targetLanguage = null, isRetry = false
                     return;
                 }
 
-                // Determine target language label
+                // Determine target language label (for fallback if instructions don't specify)
                 const languageValue =
                     targetLanguage ||
                     (mode === SETTINGS_MODE_BASIC
@@ -991,8 +1001,8 @@ async function translateUnitText(content, targetLanguage = null, isRetry = false
                     ? PLACEHOLDER_STRICT_SYSTEM_PROMPT
                     : PLACEHOLDER_SAFE_SYSTEM_PROMPT;
 
-                // Build user prompt
-                const userPrompt = `Translate the following text to ${languageLabel}. Preserve all placeholder tokens exactly.\n\n${content}`;
+                // Build user prompt with translation instructions and placeholder-preservation requirement
+                const userPrompt = `${finalInstructions}\n\nPreserve all placeholder tokens (like ⟦P0⟧, ⟦/P0⟧, ⟦P1⟧) exactly as they appear.\n\nText to translate:\n${content}`;
 
                 try {
                     const model = resolveProviderModel(
