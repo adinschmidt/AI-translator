@@ -2,6 +2,7 @@
     "name": "ai-translator-docs",
     "private": true,
     "type": "module",
+    "license": "AGPL-3.0",
     "scripts": {
         "docs:dev": "vitepress dev --host",
         "docs:build": "vitepress build",
