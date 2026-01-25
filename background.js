@@ -254,6 +254,9 @@ const CHARS_PER_TOKEN_ESTIMATE = 4;
 // Max input tokens budget for a batch (leave room for system prompt overhead)
 const MAX_BATCH_INPUT_TOKENS = 3000;
 
+// Cap number of units per batch to keep updates frequent
+const MAX_BATCH_UNITS = 25;
+
 // Max characters for batch input (derived from token estimate)
 const MAX_BATCH_INPUT_CHARS = MAX_BATCH_INPUT_TOKENS * CHARS_PER_TOKEN_ESTIMATE;
 
@@ -267,6 +270,7 @@ const HTML_UNIT_SEPARATOR = "\n〈UNIT〉\n";
 const MAX_UNIT_TOKENS = 1024;
 
 const STREAM_PORT_NAME = "translationStream";
+const HTML_TRANSLATION_PORT_NAME = "htmlTranslation";
 const STREAM_UPDATE_THROTTLE_MS = 120;
 const STREAM_KEEP_ALIVE_INTERVAL_MS = 20000;
 const activeStreams = new Map();
@@ -683,6 +687,77 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     // Handle other messages if necessary in the future
 });
 
+chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== HTML_TRANSLATION_PORT_NAME) {
+        return;
+    }
+
+    port.onMessage.addListener((message) => {
+        if (message?.action !== "startHTMLTranslation") {
+            return;
+        }
+
+        const { units, targetLanguage, requestId } = message;
+
+        if (!requestId) {
+            port.postMessage({
+                action: "htmlTranslationResult",
+                error: "Missing request ID",
+                done: true,
+            });
+            return;
+        }
+
+        if (!Array.isArray(units) || units.length === 0) {
+            port.postMessage({
+                action: "htmlTranslationResult",
+                requestId,
+                error: "No units provided",
+                done: true,
+            });
+            return;
+        }
+
+        const postResult = (payload) => {
+            try {
+                port.postMessage(payload);
+            } catch (error) {
+                console.warn("Failed to post HTML translation update:", error);
+            }
+        };
+
+        translateHTMLUnits(units, targetLanguage, (batchResults, meta) => {
+            postResult({
+                action: "htmlTranslationResult",
+                requestId,
+                results: batchResults,
+                batchIndex: meta?.batchIndex,
+                batchCount: meta?.batchCount,
+                batchSize: meta?.batchSize,
+                subBatchIndex: meta?.subBatchIndex,
+                subBatchCount: meta?.subBatchCount,
+                subBatchSize: meta?.subBatchSize,
+                done: false,
+            });
+        })
+            .then(() => {
+                postResult({
+                    action: "htmlTranslationResult",
+                    requestId,
+                    done: true,
+                });
+            })
+            .catch((error) => {
+                postResult({
+                    action: "htmlTranslationResult",
+                    requestId,
+                    error: error?.message || "Translation failed",
+                    done: true,
+                });
+            });
+    });
+});
+
 // --- Helper Function to Ensure Content Script is Injected ---
 async function ensureContentScriptInjected(tabId) {
     try {
@@ -950,7 +1025,11 @@ function batchHTMLUnits(units) {
         const additionalTokens =
             currentBatch.length > 0 ? unitTokens + separatorTokens : unitTokens;
 
-        if (currentTokens + additionalTokens > MAX_BATCH_INPUT_TOKENS) {
+        if (
+            currentBatch.length > 0 &&
+            (currentTokens + additionalTokens > MAX_BATCH_INPUT_TOKENS ||
+                currentBatch.length >= MAX_BATCH_UNITS)
+        ) {
             // Start new batch
             batches.push(currentBatch);
             currentBatch = [unit];
@@ -1023,10 +1102,37 @@ async function translateHTMLBatch(batch, settings, isRetry = false) {
     // Parse output back into individual units
     const outputParts = outputText.split(HTML_UNIT_SEPARATOR.trim());
 
+    if (outputParts.length !== batch.length) {
+        const error = new Error(
+            `translateHTMLBatch: output parts (${outputParts.length}) != batch size (${batch.length})`,
+        );
+        error.code = "OUTPUT_PARTS_MISMATCH";
+        throw error;
+    }
+
     // Map back to unit IDs
     const results = [];
     for (let i = 0; i < batch.length; i++) {
-        const translatedHtml = outputParts[i]?.trim() || "";
+        const rawPart = outputParts[i];
+        if (typeof rawPart !== "string") {
+            results.push({
+                id: batch[i].id,
+                translatedHtml: "",
+                error: "Missing translation output",
+            });
+            continue;
+        }
+
+        const translatedHtml = rawPart.trim();
+        if (!translatedHtml) {
+            results.push({
+                id: batch[i].id,
+                translatedHtml: "",
+                error: "Empty translation output",
+            });
+            continue;
+        }
+
         results.push({
             id: batch[i].id,
             translatedHtml,
@@ -1040,9 +1146,10 @@ async function translateHTMLBatch(batch, settings, isRetry = false) {
  * Translate HTML units with automatic batching based on token budget
  * @param {Array<{id: string|number, html: string}>} units - Units to translate
  * @param {string|null} targetLanguage - Optional target language override
+ * @param {(results: Array<{id: string|number, translatedHtml: string, error?: string}>, meta?: {batchIndex: number, batchCount: number, batchSize: number, subBatchIndex?: number, subBatchCount?: number, subBatchSize?: number}) => void} [onBatchResults]
  * @returns {Promise<Array<{id: string|number, translatedHtml: string, error?: string}>>}
  */
-async function translateHTMLUnits(units, targetLanguage = null) {
+async function translateHTMLUnits(units, targetLanguage = null, onBatchResults = null) {
     if (!units || units.length === 0) {
         return [];
     }
@@ -1156,31 +1263,136 @@ async function translateHTMLUnits(units, targetLanguage = null) {
 
     // Batch units by token budget
     const batches = batchHTMLUnits(units);
-    console.log(`translateHTMLUnits: created ${batches.length} batches`);
+    const totalBatches = batches.length;
+    console.log(`translateHTMLUnits: created ${totalBatches} batches`);
+
+    const reportBatchResults = (batchResults, meta) => {
+        if (typeof onBatchResults !== "function") {
+            return;
+        }
+        if (!Array.isArray(batchResults) || batchResults.length === 0) {
+            return;
+        }
+        try {
+            onBatchResults(batchResults, meta);
+        } catch (error) {
+            console.warn("translateHTMLUnits: onBatchResults failed:", error);
+        }
+    };
+
+    const buildBatchMeta = (batchIndex, batchCount, batch, subBatchIndex = null) => {
+        const meta = {
+            batchIndex,
+            batchCount,
+            batchSize: batch.length,
+        };
+        if (subBatchIndex !== null) {
+            meta.subBatchIndex = subBatchIndex;
+            meta.subBatchCount = 2;
+            meta.subBatchSize = batch.length;
+        }
+        return meta;
+    };
+
+    const logBatchStart = (meta) => {
+        const subBatchLabel = meta.subBatchIndex
+            ? ` part ${meta.subBatchIndex}/${meta.subBatchCount}`
+            : "";
+        console.log(
+            `translateHTMLUnits: starting batch ${meta.batchIndex}/${meta.batchCount}${subBatchLabel} (${meta.batchSize} units)`,
+        );
+    };
+
+    const logBatchComplete = (meta, batchErrors) => {
+        const subBatchLabel = meta.subBatchIndex
+            ? ` part ${meta.subBatchIndex}/${meta.subBatchCount}`
+            : "";
+        console.log(
+            `translateHTMLUnits: completed batch ${meta.batchIndex}/${meta.batchCount}${subBatchLabel} (${batchErrors} errors)`,
+        );
+    };
+
+    const shouldSplitBatch = (error) => error?.code === "OUTPUT_PARTS_MISMATCH";
+
+    const translateBatchWithFallback = async (
+        batch,
+        batchIndex,
+        batchCount,
+        subBatchIndex = null,
+    ) => {
+        const meta = buildBatchMeta(batchIndex, batchCount, batch, subBatchIndex);
+        logBatchStart(meta);
+        try {
+            const results = await translateHTMLBatch(batch, settings, false);
+            const batchErrors = results.filter((result) => result.error).length;
+            logBatchComplete(meta, batchErrors);
+            reportBatchResults(results, meta);
+            return results;
+        } catch (error) {
+            console.error("translateHTMLBatch error:", error);
+            try {
+                const results = await translateHTMLBatch(batch, settings, true);
+                const batchErrors = results.filter((result) => result.error).length;
+                logBatchComplete(meta, batchErrors);
+                reportBatchResults(results, meta);
+                return results;
+            } catch (retryError) {
+                if (shouldSplitBatch(error) || shouldSplitBatch(retryError)) {
+                    if (batch.length === 1) {
+                        const errorMessage = retryError?.message || error?.message;
+                        const singleResult = {
+                            id: batch[0].id,
+                            translatedHtml: "",
+                            error: errorMessage || "Translation failed",
+                        };
+                        logBatchComplete(meta, 1);
+                        reportBatchResults([singleResult], meta);
+                        return [singleResult];
+                    }
+                    const midpoint = Math.ceil(batch.length / 2);
+                    console.warn(
+                        `translateHTMLUnits: splitting batch ${batchIndex}/${batchCount} due to output mismatch`,
+                    );
+                    const firstHalf = await translateBatchWithFallback(
+                        batch.slice(0, midpoint),
+                        batchIndex,
+                        batchCount,
+                        1,
+                    );
+                    const secondHalf = await translateBatchWithFallback(
+                        batch.slice(midpoint),
+                        batchIndex,
+                        batchCount,
+                        2,
+                    );
+                    return [...firstHalf, ...secondHalf];
+                }
+
+                // Mark all units in this batch as failed
+                const errorMessage = retryError?.message || error?.message || "Translation failed";
+                const fallbackResults = batch.map((unit) => ({
+                    id: unit.id,
+                    translatedHtml: "",
+                    error: errorMessage,
+                }));
+                logBatchComplete(meta, fallbackResults.length);
+                reportBatchResults(fallbackResults, meta);
+                return fallbackResults;
+            }
+        }
+    };
 
     // Process all batches
     const allResults = [];
-    for (const batch of batches) {
-        try {
-            const batchResults = await translateHTMLBatch(batch, settings, false);
-            allResults.push(...batchResults);
-        } catch (error) {
-            console.error("translateHTMLBatch error:", error);
-            // On error, retry with stricter prompt
-            try {
-                const retryResults = await translateHTMLBatch(batch, settings, true);
-                allResults.push(...retryResults);
-            } catch (retryError) {
-                // Mark all units in this batch as failed
-                for (const unit of batch) {
-                    allResults.push({
-                        id: unit.id,
-                        translatedHtml: "",
-                        error: retryError.message,
-                    });
-                }
-            }
-        }
+    for (let index = 0; index < batches.length; index++) {
+        const batch = batches[index];
+        const batchIndex = index + 1;
+        const batchResults = await translateBatchWithFallback(
+            batch,
+            batchIndex,
+            totalBatches,
+        );
+        allResults.push(...batchResults);
     }
 
     return allResults;
