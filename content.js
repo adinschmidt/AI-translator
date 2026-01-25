@@ -605,6 +605,189 @@ if (window.hasRun) {
     }
 
     /**
+     * Build a tree structure from parsed segments that maps text to placeholder contexts.
+     * Returns { rootText: string, children: Map<number, {text: string, children: ...}> }
+     * The tree represents the nested placeholder structure with text assigned to each level.
+     * @param {Array<{type: string, content: string, index?: number, isClose?: boolean}>} segments
+     * @returns {{rootText: string, children: Map<number, object>} | null}
+     */
+    function buildPlaceholderTree(segments) {
+        // Root level (text outside any placeholder)
+        const root = { text: "", children: new Map() };
+        const stack = [root]; // Stack of current context: root or placeholder nodes
+
+        for (const seg of segments) {
+            const current = stack[stack.length - 1];
+
+            if (seg.type === "text") {
+                current.text += seg.content;
+            } else if (seg.type === "placeholder") {
+                if (!seg.isClose) {
+                    // Opening placeholder: push new context
+                    const child = { text: "", children: new Map() };
+                    current.children.set(seg.index, child);
+                    stack.push(child);
+                } else {
+                    // Closing placeholder: pop context
+                    if (stack.length <= 1) {
+                        // Mismatched close tag - more closes than opens
+                        console.warn(
+                            "buildPlaceholderTree: mismatched close tag at root level",
+                            seg.index,
+                        );
+                        return null;
+                    }
+                    // Verify we're closing the right placeholder
+                    const closingNode = stack[stack.length - 1];
+                    const parentNode = stack[stack.length - 2];
+                    // Find which index we're closing (should be the last opened)
+                    let expectedIndex = null;
+                    for (const [idx, child] of parentNode.children) {
+                        if (child === closingNode) {
+                            expectedIndex = idx;
+                            break;
+                        }
+                    }
+                    if (expectedIndex !== seg.index) {
+                        console.warn("buildPlaceholderTree: mismatched close tag", {
+                            expected: expectedIndex,
+                            got: seg.index,
+                        });
+                        return null;
+                    }
+                    stack.pop();
+                }
+            }
+        }
+
+        // If stack still has items beyond root, we have unclosed placeholders
+        if (stack.length !== 1) {
+            console.warn("buildPlaceholderTree: unclosed placeholders", stack.length - 1);
+            return null;
+        }
+
+        return root;
+    }
+
+    /**
+     * Apply segments directly to DOM by walking segments and DOM children in parallel.
+     * This approach preserves the order of text segments relative to placeholder boundaries.
+     * @param {Element} element - The element to update
+     * @param {Array<{type: string, content: string, index?: number, isClose?: boolean}>} segments - Parsed segments
+     * @param {Map<number, {tag: string, node: Node}>} placeholders - Placeholder to node mapping
+     * @returns {boolean} - True if successful
+     */
+    function applySegmentsToDOM(element, segments, placeholders) {
+        let segIdx = 0;
+
+        /**
+         * Process segments for a DOM node level, assigning text to text nodes
+         * and recursing into placeholder elements.
+         * @param {Node} domNode
+         * @returns {boolean}
+         */
+        function processLevel(domNode) {
+            // Collect all text nodes reachable from this level (not inside placeholder elements)
+            // and placeholder elements in DOM order
+            const textNodes = [];
+            const placeholderElems = []; // [{idx, elem}] in DOM order
+
+            function collectNodes(node) {
+                for (const child of node.childNodes) {
+                    if (child.nodeType === Node.TEXT_NODE) {
+                        textNodes.push(child);
+                    } else if (child.nodeType === Node.ELEMENT_NODE) {
+                        // Check if this element is a tracked placeholder
+                        let placeholderIdx = null;
+                        for (const [idx, ph] of placeholders) {
+                            if (ph.node === child) {
+                                placeholderIdx = idx;
+                                break;
+                            }
+                        }
+                        if (placeholderIdx !== null) {
+                            placeholderElems.push({ idx: placeholderIdx, elem: child });
+                            // Don't recurse into placeholder - it's handled separately
+                        } else {
+                            // Non-placeholder element - recurse to get its text nodes
+                            collectNodes(child);
+                        }
+                    }
+                }
+            }
+            collectNodes(domNode);
+
+            // Now process segments at this level
+            let textNodeIdx = 0;
+            let placeholderElemIdx = 0;
+
+            while (segIdx < segments.length) {
+                const seg = segments[segIdx];
+
+                if (seg.type === "text") {
+                    // Assign to next available text node at this level
+                    if (textNodeIdx >= textNodes.length) {
+                        console.warn(
+                            "applySegmentsToDOM: no text node for segment",
+                            { length: seg.content.length },
+                        );
+                        return false;
+                    }
+                    textNodes[textNodeIdx].textContent = seg.content;
+                    textNodeIdx++;
+                    segIdx++;
+                } else if (seg.type === "placeholder") {
+                    if (!seg.isClose) {
+                        // Opening a placeholder - match the next placeholder element in order
+                        if (placeholderElemIdx >= placeholderElems.length) {
+                            console.warn(
+                                "applySegmentsToDOM: placeholder element not found",
+                                seg.index,
+                            );
+                            return false;
+                        }
+                        const expectedIdx = placeholderElems[placeholderElemIdx].idx;
+                        if (expectedIdx !== seg.index) {
+                            console.warn(
+                                "applySegmentsToDOM: placeholder order mismatch",
+                                { expected: expectedIdx, got: seg.index },
+                            );
+                            return false;
+                        }
+                        const elem = placeholderElems[placeholderElemIdx].elem;
+                        placeholderElemIdx++;
+                        segIdx++; // consume the open placeholder
+
+                        // Recursively process placeholder content
+                        const success = processLevel(elem);
+                        if (!success) {
+                            return false;
+                        }
+                    } else {
+                        // Closing placeholder - clear remaining text nodes at this level and return
+                        while (textNodeIdx < textNodes.length) {
+                            textNodes[textNodeIdx].textContent = "";
+                            textNodeIdx++;
+                        }
+                        segIdx++; // consume the close placeholder
+                        return true;
+                    }
+                }
+            }
+
+            // End of segments - clear any remaining text nodes
+            while (textNodeIdx < textNodes.length) {
+                textNodes[textNodeIdx].textContent = "";
+                textNodeIdx++;
+            }
+
+            return true;
+        }
+
+        return processLevel(element);
+    }
+
+    /**
      * Check if translated output appears truncated
      * @param {string} inputText
      * @param {string} outputText
@@ -831,10 +1014,10 @@ if (window.hasRun) {
                     );
 
                     if (!validation.valid || truncated) {
-                        console.warn(
-                            "TranslationQueue: output invalid or truncated",
-                            { validation, truncated },
-                        );
+                        console.warn("TranslationQueue: output invalid or truncated", {
+                            validation,
+                            truncated,
+                        });
                         if (unit.retryCount < QUEUE_MAX_RETRIES) {
                             unit.retryCount++;
                             continue; // Retry with stricter prompt
@@ -1015,73 +1198,27 @@ if (window.hasRun) {
             // Parse the translated output into segments
             const segments = parsePlaceholderOutput(translatedText);
 
-            // Collect all text nodes in the element
-            const textNodes = [];
-            const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
-            let node;
-            while ((node = walker.nextNode())) {
-                textNodes.push(node);
-            }
-
-            if (textNodes.length === 0) {
-                console.warn("applyTranslationToUnit: no text nodes found");
+            // Validate placeholder structure using the tree builder
+            const tree = buildPlaceholderTree(segments);
+            if (!tree) {
+                console.warn(
+                    "applyTranslationToUnit: invalid placeholder structure, triggering fallback",
+                );
                 return false;
             }
 
-            // Build a mapping from placeholder index to inline element
-            // The strategy: walk through segments and associate text with correct nodes
-            // For simplicity in v1, we'll use a simpler approach:
-            // Extract just the text portions and update text nodes sequentially
-
-            // Extract translated text only (ignore placeholder structure for now)
-            const translatedTextParts = [];
-            for (const seg of segments) {
-                if (seg.type === "text") {
-                    translatedTextParts.push(seg.content);
-                }
-            }
-            const fullTranslatedText = translatedTextParts.join("");
-
-            // Simple approach: if single text node, replace its content
-            if (textNodes.length === 1) {
-                textNodes[0].textContent = fullTranslatedText;
-                console.log("applyTranslationToUnit: updated single text node");
-                return true;
+            // Apply segments directly to DOM (preserves text order between placeholders)
+            const success = applySegmentsToDOM(element, segments, placeholders);
+            if (!success) {
+                console.warn(
+                    "applyTranslationToUnit: failed to apply segments to DOM, triggering fallback",
+                );
+                return false;
             }
 
-            // For multiple text nodes, we need to be smarter
-            // Strategy: distribute translated text proportionally based on original lengths
-            const originalLengths = textNodes.map((n) => (n.textContent || "").length);
-            const totalOriginalLength = originalLengths.reduce(
-                (sum, len) => sum + len,
-                0,
+            console.log(
+                `applyTranslationToUnit: successfully applied placeholder-aware mapping`,
             );
-
-            if (totalOriginalLength === 0) {
-                console.warn("applyTranslationToUnit: total original length is 0");
-                return false;
-            }
-
-            // Distribute new text proportionally
-            let offset = 0;
-            for (let i = 0; i < textNodes.length; i++) {
-                const proportion = originalLengths[i] / totalOriginalLength;
-                const charCount = Math.round(proportion * fullTranslatedText.length);
-
-                // For all but the last node, use proportional amount
-                // Last node gets the remainder to avoid rounding issues
-                if (i === textNodes.length - 1) {
-                    textNodes[i].textContent = fullTranslatedText.slice(offset);
-                } else {
-                    textNodes[i].textContent = fullTranslatedText.slice(
-                        offset,
-                        offset + charCount,
-                    );
-                    offset += charCount;
-                }
-            }
-
-            console.log(`applyTranslationToUnit: updated ${textNodes.length} text nodes`);
             return true;
         } catch (error) {
             console.error("applyTranslationToUnit error:", error);
