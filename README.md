@@ -24,12 +24,12 @@ AI-powered translation provides more natural and contextually accurate results c
 
 | Traditional (DeepL) | AI Translator |
 | :--- | :--- |
-| ![DeepL Translation](images/screenshot_deepl.png) | ![AI Selection Translation](images/screenshot_selection.png) |
+| ![DeepL Translation](assets/images/screenshot_deepl.png) | ![AI Selection Translation](assets/images/screenshot_selection.png) |
 
 
 ### Additional Previews
-![Full Page Translation](images/screenshot_fullpage.png)
-![Settings Page](images/screenshot_settings.png)
+![Full Page Translation](assets/images/screenshot_fullpage.png)
+![Settings Page](assets/images/screenshot_settings.png)
 
 ## Installation
 
