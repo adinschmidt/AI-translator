@@ -829,6 +829,8 @@ if (window.hasRun) {
     const QUEUE_TIMEOUT_MS = 15000;
     const QUEUE_MAX_RETRIES = 3;
     const QUEUE_BASE_BACKOFF_MS = 1000;
+    const MAX_LOGGED_ERRORS = 3;
+    const ERROR_RATE_THRESHOLD = 0.2;
 
     /**
      * TranslationQueue - manages concurrent translation of units
@@ -853,12 +855,10 @@ if (window.hasRun) {
                 cached: 0,
                 total: 0,
             };
-            this.onProgress = null; // callback(stats)
-            this.onUnitComplete = null; // callback(unit, result)
+            this.onProgress = null;
+            this.onUnitComplete = null;
 
-            // Store translation context for cache key generation
             this.context = context;
-            // Pre-compute context hash for efficiency
             this.contextHash = this.hashString(
                 JSON.stringify({
                     provider: context.provider || "",
@@ -868,6 +868,9 @@ if (window.hasRun) {
                     translationInstructions: context.translationInstructions || "",
                 }),
             );
+
+            this.errorCountLogged = 0;
+            this.summaryWarningShown = false;
         }
 
         /**
@@ -1013,19 +1016,25 @@ if (window.hasRun) {
                     );
 
                     if (!validation.valid || truncated) {
-                        console.warn("TranslationQueue: output invalid or truncated", {
-                            validation,
-                            truncated,
-                        });
+                        if (this.errorCountLogged < MAX_LOGGED_ERRORS) {
+                            console.warn(
+                                "TranslationQueue: output invalid or truncated",
+                                {
+                                    validation,
+                                    truncated,
+                                },
+                            );
+                            this.errorCountLogged++;
+                        }
                         if (unit.retryCount < QUEUE_MAX_RETRIES) {
                             unit.retryCount++;
-                            continue; // Retry with stricter prompt
+                            continue;
                         }
-                        // Final attempt still invalid/truncated - trigger fallback
                         unit.result = result;
                         unit.placeholders = placeholders;
                         unit.status = "failed";
                         this.stats.failed++;
+                        this.checkAndShowErrorRateSummary();
                         this.notifyProgress();
                         if (this.onUnitComplete) {
                             this.onUnitComplete(unit, {
@@ -1039,7 +1048,6 @@ if (window.hasRun) {
                         return;
                     }
 
-                    // Success - valid output
                     unit.result = result;
                     unit.placeholders = placeholders;
                     unit.status = "completed";
@@ -1051,9 +1059,11 @@ if (window.hasRun) {
                     }
                     return;
                 } catch (error) {
-                    console.error("TranslationQueue: unit error", error);
+                    if (this.errorCountLogged < MAX_LOGGED_ERRORS) {
+                        console.error("TranslationQueue: unit error", error);
+                        this.errorCountLogged++;
+                    }
 
-                    // Check if retryable error
                     if (
                         this.isRetryableError(error) &&
                         unit.retryCount < QUEUE_MAX_RETRIES
@@ -1067,10 +1077,10 @@ if (window.hasRun) {
                         continue;
                     }
 
-                    // Non-retryable or max retries exceeded
                     unit.error = error.message;
                     unit.status = "failed";
                     this.stats.failed++;
+                    this.checkAndShowErrorRateSummary();
                     this.notifyProgress();
                     if (this.onUnitComplete) {
                         this.onUnitComplete(unit, {
@@ -1174,6 +1184,27 @@ if (window.hasRun) {
          */
         getStats() {
             return { ...this.stats };
+        }
+
+        checkAndShowErrorRateSummary() {
+            if (this.summaryWarningShown) {
+                return;
+            }
+
+            const processed = this.stats.completed + this.stats.failed;
+            if (processed < 5) {
+                return;
+            }
+
+            const errorRate = this.stats.failed / processed;
+            if (errorRate > ERROR_RATE_THRESHOLD) {
+                console.warn(
+                    `TranslationQueue: High error rate detected: ${Math.round(
+                        errorRate * 100,
+                    )}% (${this.stats.failed}/${processed} units failed)`,
+                );
+                this.summaryWarningShown = true;
+            }
         }
     }
 
@@ -2508,7 +2539,33 @@ if (window.hasRun) {
 
                 console.log(`Completed batch ${batchIndex + 1}/${batches.length}`);
             } catch (error) {
-                console.error("Batch processing error:", error);
+                if (this.errorCountLogged < MAX_LOGGED_ERRORS) {
+                    console.error("TranslationQueue: unit error", error);
+                    this.errorCountLogged++;
+                }
+
+                if (this.isRetryableError(error) && unit.retryCount < QUEUE_MAX_RETRIES) {
+                    unit.retryCount++;
+                    const backoff = this.calculateBackoff(unit.retryCount);
+                    console.log(
+                        `TranslationQueue: retrying in ${backoff}ms (attempt ${unit.retryCount})`,
+                    );
+                    await this.sleep(backoff);
+                    continue;
+                }
+
+                unit.error = error.message;
+                unit.status = "failed";
+                this.stats.failed++;
+                this.checkAndShowErrorRateSummary();
+                this.notifyProgress();
+                if (this.onUnitComplete) {
+                    this.onUnitComplete(unit, {
+                        success: false,
+                        error: error.message,
+                    });
+                }
+                return;
             }
         }
 
