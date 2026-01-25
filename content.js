@@ -8,6 +8,1041 @@ if (window.hasRun) {
 
     // content.js - Handles displaying popups, extracting page text, replacing content, and manual translation.
 
+    // --- Safe Translation Unit Selection (v2) ---
+    // Tags to completely skip during traversal (never translate content within)
+    const SKIP_TAGS = new Set([
+        "SCRIPT",
+        "STYLE",
+        "NOSCRIPT",
+        "TEMPLATE",
+        "SVG",
+        "MATH",
+        "CANVAS",
+        "VIDEO",
+        "AUDIO",
+        "IFRAME",
+        "OBJECT",
+        "EMBED",
+    ]);
+
+    // Interactive/form elements that should never be translated
+    const INTERACTIVE_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT", "OPTION", "BUTTON"]);
+
+    // Block-level tags that are candidates for translation units
+    const BLOCK_LEVEL_TAGS = new Set([
+        "P",
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "LI",
+        "TD",
+        "TH",
+        "DT",
+        "DD",
+        "BLOCKQUOTE",
+        "FIGCAPTION",
+        "CAPTION",
+        "SUMMARY",
+        "LABEL",
+        "LEGEND",
+    ]);
+
+    // Inline tags that are safe to keep within translation units
+    const INLINE_SAFE_TAGS = new Set([
+        "A",
+        "ABBR",
+        "ACRONYM",
+        "B",
+        "BDI",
+        "BDO",
+        "BIG",
+        "CITE",
+        "CODE",
+        "DEL",
+        "DFN",
+        "EM",
+        "I",
+        "INS",
+        "KBD",
+        "MARK",
+        "Q",
+        "S",
+        "SAMP",
+        "SMALL",
+        "SPAN",
+        "STRONG",
+        "SUB",
+        "SUP",
+        "TIME",
+        "U",
+        "VAR",
+        "WBR",
+        "BR",
+    ]);
+
+    // Extension UI selectors to exclude from translation
+    const EXTENSION_UI_SELECTORS = [
+        "#translation-popup-extension",
+        "#translation-loading-indicator",
+        "#ai-translator-selection-translate-button",
+    ];
+
+    // Unit size constraints
+    const MAX_UNIT_CHARS = 800; // Preferred max size for a single translation unit
+    const HARD_MAX_UNIT_CHARS = 2000; // Never exceed this (will force split)
+
+    /**
+     * Split text into sentences using common sentence-ending punctuation
+     * @param {string} text
+     * @returns {string[]}
+     */
+    function splitIntoSentences(text) {
+        // Split on sentence-ending punctuation followed by whitespace
+        // Handles: . ! ? and their Unicode equivalents
+        const sentenceRegex = /(?<=[.!?。！？])\s+/;
+        const sentences = text.split(sentenceRegex).filter((s) => s.trim().length > 0);
+        return sentences;
+    }
+
+    /**
+     * Split an oversized text into chunks that fit within size limits
+     * Prefers sentence boundaries, falls back to word boundaries
+     * @param {string} text
+     * @param {number} maxChars
+     * @returns {string[]}
+     */
+    function splitTextIntoChunks(text, maxChars = MAX_UNIT_CHARS) {
+        if (text.length <= maxChars) {
+            return [text];
+        }
+
+        const chunks = [];
+        const sentences = splitIntoSentences(text);
+
+        // If we got sentences, try to group them into chunks
+        if (sentences.length > 1) {
+            let currentChunk = "";
+            for (const sentence of sentences) {
+                if (sentence.length > maxChars) {
+                    // This single sentence is too long, need to split it further
+                    if (currentChunk.length > 0) {
+                        chunks.push(currentChunk.trim());
+                        currentChunk = "";
+                    }
+                    // Split the long sentence by words
+                    const wordChunks = splitByWords(sentence, maxChars);
+                    chunks.push(...wordChunks);
+                } else if (currentChunk.length + sentence.length + 1 <= maxChars) {
+                    // Add to current chunk
+                    currentChunk += (currentChunk.length > 0 ? " " : "") + sentence;
+                } else {
+                    // Current chunk is full, start a new one
+                    if (currentChunk.length > 0) {
+                        chunks.push(currentChunk.trim());
+                    }
+                    currentChunk = sentence;
+                }
+            }
+            if (currentChunk.length > 0) {
+                chunks.push(currentChunk.trim());
+            }
+            return chunks;
+        }
+
+        // No sentence boundaries found, fall back to word splitting
+        return splitByWords(text, maxChars);
+    }
+
+    /**
+     * Split text by word boundaries when sentence splitting fails
+     * @param {string} text
+     * @param {number} maxChars
+     * @returns {string[]}
+     */
+    function splitByWords(text, maxChars) {
+        const chunks = [];
+        const words = text.split(/\s+/);
+        let currentChunk = "";
+
+        for (const word of words) {
+            if (word.length > maxChars) {
+                // Single word is too long - just add it as its own chunk
+                if (currentChunk.length > 0) {
+                    chunks.push(currentChunk.trim());
+                    currentChunk = "";
+                }
+                chunks.push(word);
+            } else if (currentChunk.length + word.length + 1 <= maxChars) {
+                currentChunk += (currentChunk.length > 0 ? " " : "") + word;
+            } else {
+                if (currentChunk.length > 0) {
+                    chunks.push(currentChunk.trim());
+                }
+                currentChunk = word;
+            }
+        }
+        if (currentChunk.length > 0) {
+            chunks.push(currentChunk.trim());
+        }
+        return chunks;
+    }
+
+    /**
+     * Check if a unit needs splitting based on size constraints
+     * @param {string} text
+     * @returns {boolean}
+     */
+    function unitNeedsSplitting(text) {
+        return text.length > MAX_UNIT_CHARS;
+    }
+
+    /**
+     * Check if an element is hidden from rendering
+     * @param {Element} el
+     * @returns {boolean}
+     */
+    function isHiddenElement(el) {
+        if (!el || el.nodeType !== Node.ELEMENT_NODE) {
+            return false;
+        }
+        // Check explicit hidden attribute
+        if (el.hidden || el.getAttribute("hidden") !== null) {
+            return true;
+        }
+        // Check aria-hidden="true"
+        if (el.getAttribute("aria-hidden") === "true") {
+            return true;
+        }
+        // Skip computed style check for performance (optional enhancement later)
+        return false;
+    }
+
+    /**
+     * Check if element is part of extension UI
+     * @param {Element} el
+     * @returns {boolean}
+     */
+    function isExtensionUI(el) {
+        if (!el || el.nodeType !== Node.ELEMENT_NODE) {
+            return false;
+        }
+        for (const selector of EXTENSION_UI_SELECTORS) {
+            if (el.closest(selector)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if element contains interactive controls that should prevent translation
+     * @param {Element} el
+     * @returns {boolean}
+     */
+    function containsInteractiveControls(el) {
+        if (INTERACTIVE_TAGS.has(el.tagName)) {
+            return true;
+        }
+        // Check for role="button" or contenteditable
+        if (
+            el.getAttribute("role") === "button" ||
+            el.getAttribute("contenteditable") === "true" ||
+            el.isContentEditable
+        ) {
+            return true;
+        }
+        // Check for interactive descendants
+        const interactiveDescendant = el.querySelector(
+            'button, input, textarea, select, [role="button"], [contenteditable="true"]',
+        );
+        return interactiveDescendant !== null;
+    }
+
+    /**
+     * Check if element contains nested block-level descendants
+     * (which would make it not a "leaf-ish" block)
+     * @param {Element} el
+     * @returns {boolean}
+     */
+    function containsNestedBlocks(el) {
+        for (const child of el.children) {
+            if (BLOCK_LEVEL_TAGS.has(child.tagName)) {
+                return true;
+            }
+            // Also check for DIV (common block container)
+            if (child.tagName === "DIV" && child.textContent.trim().length > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if an element is a safe translation unit
+     * A safe unit is a block-level element that:
+     * - Has non-trivial text content
+     * - Does not contain nested block-level descendants
+     * - Does not contain interactive controls
+     * - Is not hidden
+     * @param {Element} el
+     * @returns {boolean}
+     */
+    function isSafeTranslationUnit(el) {
+        if (!el || el.nodeType !== Node.ELEMENT_NODE) {
+            return false;
+        }
+
+        // Must be a block-level candidate
+        if (!BLOCK_LEVEL_TAGS.has(el.tagName)) {
+            return false;
+        }
+
+        // Must have non-trivial text
+        const textContent = el.textContent?.trim() || "";
+        if (textContent.length < 2) {
+            return false;
+        }
+
+        // Must not be hidden
+        if (isHiddenElement(el)) {
+            return false;
+        }
+
+        // Must not be in extension UI
+        if (isExtensionUI(el)) {
+            return false;
+        }
+
+        // Must not contain interactive controls
+        if (containsInteractiveControls(el)) {
+            return false;
+        }
+
+        // Must not contain nested blocks (leaf-ish constraint)
+        if (containsNestedBlocks(el)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Collect safe translation units from the page
+     * Returns an array of { element, serializedText, chunkIndex?, totalChunks? } objects
+     * Oversized units are split into multiple chunks
+     * @returns {Array<{element: Element, serializedText: string, chunkIndex?: number, totalChunks?: number}>}
+     */
+    function collectSafeTranslationUnits() {
+        const units = [];
+        const seenElements = new WeakSet();
+
+        /**
+         * Recursively traverse the DOM and collect safe units
+         * @param {Element} root
+         */
+        function traverse(root) {
+            if (!root || root.nodeType !== Node.ELEMENT_NODE) {
+                return;
+            }
+
+            // Skip if in skip tags
+            if (SKIP_TAGS.has(root.tagName)) {
+                return;
+            }
+
+            // Skip hidden elements and their descendants
+            if (isHiddenElement(root)) {
+                return;
+            }
+
+            // Skip extension UI
+            if (isExtensionUI(root)) {
+                return;
+            }
+
+            // Check if this element is a safe translation unit
+            if (isSafeTranslationUnit(root) && !seenElements.has(root)) {
+                seenElements.add(root);
+                const text = root.textContent.trim();
+
+                // Check if unit needs splitting
+                if (unitNeedsSplitting(text)) {
+                    const chunks = splitTextIntoChunks(text, MAX_UNIT_CHARS);
+                    console.log(
+                        `Unit split into ${chunks.length} chunks (original: ${text.length} chars)`,
+                    );
+                    for (let i = 0; i < chunks.length; i++) {
+                        units.push({
+                            element: root,
+                            serializedText: chunks[i],
+                            chunkIndex: i,
+                            totalChunks: chunks.length,
+                        });
+                    }
+                } else {
+                    units.push({
+                        element: root,
+                        serializedText: text,
+                    });
+                }
+                // Don't traverse children - we've captured this unit
+                return;
+            }
+
+            // Otherwise, traverse children
+            for (const child of root.children) {
+                traverse(child);
+            }
+        }
+
+        // Start traversal from body
+        traverse(document.body);
+
+        console.log(`collectSafeTranslationUnits: found ${units.length} units`);
+        return units;
+    }
+
+    // --- Placeholder Serialization (v2) ---
+    // Uses paired markers like ⟦P0⟧ and ⟦/P0⟧ to mark inline element boundaries
+
+    const PLACEHOLDER_OPEN = "⟦";
+    const PLACEHOLDER_CLOSE = "⟧";
+
+    /**
+     * Serialize an element's content into text with placeholder markers for inline elements
+     * @param {Element} element - The element to serialize
+     * @returns {{text: string, placeholders: Map<number, {tag: string, node: Node}>}}
+     */
+    function serializeUnitWithPlaceholders(element) {
+        const placeholders = new Map();
+        let placeholderIndex = 0;
+        let result = "";
+
+        /**
+         * Walk the DOM tree and emit text with placeholders
+         * @param {Node} node
+         */
+        function walkNode(node) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                result += node.textContent;
+                return;
+            }
+
+            if (node.nodeType !== Node.ELEMENT_NODE) {
+                return;
+            }
+
+            const el = node;
+            const tagName = el.tagName;
+
+            // Check if this is an inline element we should wrap with placeholders
+            if (INLINE_SAFE_TAGS.has(tagName)) {
+                const idx = placeholderIndex++;
+                placeholders.set(idx, { tag: tagName.toLowerCase(), node: el });
+
+                // Emit opening placeholder
+                result += `${PLACEHOLDER_OPEN}P${idx}${PLACEHOLDER_CLOSE}`;
+
+                // Process children
+                for (const child of el.childNodes) {
+                    walkNode(child);
+                }
+
+                // Emit closing placeholder
+                result += `${PLACEHOLDER_OPEN}/P${idx}${PLACEHOLDER_CLOSE}`;
+            } else {
+                // Not an inline tag we track - just process children
+                for (const child of el.childNodes) {
+                    walkNode(child);
+                }
+            }
+        }
+
+        // Walk all child nodes of the element
+        for (const child of element.childNodes) {
+            walkNode(child);
+        }
+
+        return { text: result.trim(), placeholders };
+    }
+
+    /**
+     * Extract all placeholder tokens from a string
+     * @param {string} text
+     * @returns {Set<string>}
+     */
+    function extractPlaceholderTokens(text) {
+        const tokens = new Set();
+        const regex = new RegExp(
+            `${escapeRegex(PLACEHOLDER_OPEN)}/?P\\d+${escapeRegex(PLACEHOLDER_CLOSE)}`,
+            "g",
+        );
+        let match;
+        while ((match = regex.exec(text)) !== null) {
+            tokens.add(match[0]);
+        }
+        return tokens;
+    }
+
+    /**
+     * Escape special regex characters in a string
+     * @param {string} str
+     * @returns {string}
+     */
+    function escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    }
+
+    /**
+     * Validate that all placeholders from input appear unchanged in output
+     * @param {string} inputText - The original serialized text with placeholders
+     * @param {string} outputText - The translated text
+     * @returns {{valid: boolean, missing: string[], extra: string[]}}
+     */
+    function validatePlaceholders(inputText, outputText) {
+        const inputTokens = extractPlaceholderTokens(inputText);
+        const outputTokens = extractPlaceholderTokens(outputText);
+
+        const missing = [];
+        const extra = [];
+
+        // Check for missing placeholders
+        for (const token of inputTokens) {
+            if (!outputTokens.has(token)) {
+                missing.push(token);
+            }
+        }
+
+        // Check for extra/unexpected placeholders
+        for (const token of outputTokens) {
+            if (!inputTokens.has(token)) {
+                extra.push(token);
+            }
+        }
+
+        return {
+            valid: missing.length === 0 && extra.length === 0,
+            missing,
+            extra,
+        };
+    }
+
+    /**
+     * Parse translated output with placeholders into segments
+     * Returns array of {type: 'text' | 'placeholder', content: string, index?: number, isClose?: boolean}
+     * @param {string} text
+     * @returns {Array<{type: string, content: string, index?: number, isClose?: boolean}>}
+     */
+    function parsePlaceholderOutput(text) {
+        const segments = [];
+        const regex = new RegExp(
+            `(${escapeRegex(PLACEHOLDER_OPEN)}(/?P)(\\d+)${escapeRegex(PLACEHOLDER_CLOSE)})`,
+            "g",
+        );
+
+        let lastIndex = 0;
+        let match;
+
+        while ((match = regex.exec(text)) !== null) {
+            // Add text before this placeholder
+            if (match.index > lastIndex) {
+                segments.push({
+                    type: "text",
+                    content: text.slice(lastIndex, match.index),
+                });
+            }
+
+            // Add the placeholder
+            const fullMatch = match[1];
+            const prefix = match[2]; // "P" or "/P"
+            const index = parseInt(match[3], 10);
+            const isClose = prefix.startsWith("/");
+
+            segments.push({
+                type: "placeholder",
+                content: fullMatch,
+                index,
+                isClose,
+            });
+
+            lastIndex = regex.lastIndex;
+        }
+
+        // Add remaining text after last placeholder
+        if (lastIndex < text.length) {
+            segments.push({
+                type: "text",
+                content: text.slice(lastIndex),
+            });
+        }
+
+        return segments;
+    }
+
+    /**
+     * Check if translated output appears truncated
+     * @param {string} inputText
+     * @param {string} outputText
+     * @returns {boolean}
+     */
+    function isOutputTruncated(inputText, outputText) {
+        const inputTokens = extractPlaceholderTokens(inputText);
+        const outputTokens = extractPlaceholderTokens(outputText);
+
+        // If we have fewer placeholders in output than input, likely truncated
+        if (outputTokens.size < inputTokens.size) {
+            return true;
+        }
+
+        // Check for unmatched opening placeholders in output
+        const segments = parsePlaceholderOutput(outputText);
+        const openStack = [];
+        for (const seg of segments) {
+            if (seg.type === "placeholder") {
+                if (!seg.isClose) {
+                    openStack.push(seg.index);
+                } else {
+                    const lastOpen = openStack.pop();
+                    if (lastOpen !== seg.index) {
+                        // Mismatched close tag
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // If there are unclosed placeholders, likely truncated
+        return openStack.length > 0;
+    }
+
+    // --- TranslationQueue (v2) ---
+    // Manages concurrent translation of units with retry/backoff and caching
+
+    const QUEUE_CONCURRENCY = 3;
+    const QUEUE_TIMEOUT_MS = 15000;
+    const QUEUE_MAX_RETRIES = 3;
+    const QUEUE_BASE_BACKOFF_MS = 1000;
+
+    /**
+     * TranslationQueue - manages concurrent translation of units
+     */
+    class TranslationQueue {
+        constructor() {
+            this.queue = [];
+            this.activeCount = 0;
+            this.stopped = false;
+            this.cache = new Map();
+            this.stats = {
+                completed: 0,
+                failed: 0,
+                cached: 0,
+                total: 0,
+            };
+            this.onProgress = null; // callback(stats)
+            this.onUnitComplete = null; // callback(unit, result)
+        }
+
+        /**
+         * Generate a cache key for a unit
+         * @param {string} serializedText
+         * @returns {string}
+         */
+        getCacheKey(serializedText) {
+            // Simple hash based on content
+            // In production, could include provider/model/instructions
+            return serializedText;
+        }
+
+        /**
+         * Add units to the queue
+         * @param {Array<{element: Element, serializedText: string}>} units
+         */
+        addUnits(units) {
+            this.stats.total += units.length;
+            for (const unit of units) {
+                this.queue.push({
+                    ...unit,
+                    retryCount: 0,
+                    status: "pending",
+                });
+            }
+        }
+
+        /**
+         * Start processing the queue
+         * @returns {Promise<void>}
+         */
+        async start() {
+            this.stopped = false;
+            console.log(`TranslationQueue: starting with ${this.queue.length} units`);
+
+            // Process queue with concurrency control
+            const processNext = async () => {
+                while (!this.stopped && this.queue.length > 0) {
+                    // Wait if we're at concurrency limit
+                    while (this.activeCount >= QUEUE_CONCURRENCY && !this.stopped) {
+                        await this.sleep(50);
+                    }
+
+                    if (this.stopped) break;
+
+                    // Get next pending unit
+                    const unitIndex = this.queue.findIndex((u) => u.status === "pending");
+                    if (unitIndex === -1) break;
+
+                    const unit = this.queue[unitIndex];
+                    unit.status = "processing";
+                    this.activeCount++;
+
+                    // Process in background
+                    this.processUnit(unit).finally(() => {
+                        this.activeCount--;
+                    });
+                }
+            };
+
+            // Start multiple workers up to concurrency limit
+            const workers = [];
+            for (let i = 0; i < QUEUE_CONCURRENCY; i++) {
+                workers.push(processNext());
+            }
+
+            await Promise.all(workers);
+
+            // Wait for all active work to complete
+            while (this.activeCount > 0 && !this.stopped) {
+                await this.sleep(50);
+            }
+
+            console.log("TranslationQueue: finished", this.stats);
+        }
+
+        /**
+         * Stop processing (cancel remaining work)
+         */
+        stop() {
+            this.stopped = true;
+            console.log("TranslationQueue: stopped");
+        }
+
+        /**
+         * Process a single unit with retry logic
+         * @param {Object} unit
+         */
+        async processUnit(unit) {
+            const cacheKey = this.getCacheKey(unit.serializedText);
+
+            // Check cache first
+            if (this.cache.has(cacheKey)) {
+                console.log("TranslationQueue: cache hit");
+                unit.result = this.cache.get(cacheKey);
+                unit.status = "completed";
+                this.stats.completed++;
+                this.stats.cached++;
+                this.notifyProgress();
+                if (this.onUnitComplete) {
+                    this.onUnitComplete(unit, { success: true, cached: true });
+                }
+                return;
+            }
+
+            // Serialize with placeholders
+            const { text: serializedWithPlaceholders, placeholders } =
+                serializeUnitWithPlaceholders(unit.element);
+
+            while (unit.retryCount <= QUEUE_MAX_RETRIES && !this.stopped) {
+                try {
+                    const result = await this.translateWithTimeout(
+                        serializedWithPlaceholders,
+                        unit.retryCount > 0, // isRetry
+                    );
+
+                    // Validate placeholders
+                    const validation = validatePlaceholders(
+                        serializedWithPlaceholders,
+                        result,
+                    );
+
+                    if (!validation.valid) {
+                        console.warn(
+                            "TranslationQueue: placeholder validation failed",
+                            validation,
+                        );
+                        if (unit.retryCount < QUEUE_MAX_RETRIES) {
+                            unit.retryCount++;
+                            continue; // Retry with stricter prompt
+                        }
+                        // Final attempt failed - use result anyway or fallback
+                    }
+
+                    // Success
+                    unit.result = result;
+                    unit.placeholders = placeholders;
+                    unit.status = "completed";
+                    this.cache.set(cacheKey, result);
+                    this.stats.completed++;
+                    this.notifyProgress();
+                    if (this.onUnitComplete) {
+                        this.onUnitComplete(unit, { success: true });
+                    }
+                    return;
+                } catch (error) {
+                    console.error("TranslationQueue: unit error", error);
+
+                    // Check if retryable error
+                    if (
+                        this.isRetryableError(error) &&
+                        unit.retryCount < QUEUE_MAX_RETRIES
+                    ) {
+                        unit.retryCount++;
+                        const backoff = this.calculateBackoff(unit.retryCount);
+                        console.log(
+                            `TranslationQueue: retrying in ${backoff}ms (attempt ${unit.retryCount})`,
+                        );
+                        await this.sleep(backoff);
+                        continue;
+                    }
+
+                    // Non-retryable or max retries exceeded
+                    unit.error = error.message;
+                    unit.status = "failed";
+                    this.stats.failed++;
+                    this.notifyProgress();
+                    if (this.onUnitComplete) {
+                        this.onUnitComplete(unit, {
+                            success: false,
+                            error: error.message,
+                        });
+                    }
+                    return;
+                }
+            }
+        }
+
+        /**
+         * Translate with timeout
+         * @param {string} content
+         * @param {boolean} isRetry
+         * @returns {Promise<string>}
+         */
+        translateWithTimeout(content, isRetry) {
+            return new Promise((resolve, reject) => {
+                const timeoutId = setTimeout(() => {
+                    reject(new Error("Translation timeout"));
+                }, QUEUE_TIMEOUT_MS);
+
+                chrome.runtime.sendMessage(
+                    {
+                        action: "translateUnit",
+                        content,
+                        meta: { isPlaceholderFormat: true, isRetry },
+                    },
+                    (response) => {
+                        clearTimeout(timeoutId);
+                        if (chrome.runtime.lastError) {
+                            reject(new Error(chrome.runtime.lastError.message));
+                            return;
+                        }
+                        if (response?.error) {
+                            reject(new Error(response.error));
+                            return;
+                        }
+                        if (response?.translatedText) {
+                            resolve(response.translatedText);
+                        } else {
+                            reject(new Error("No translation received"));
+                        }
+                    },
+                );
+            });
+        }
+
+        /**
+         * Check if an error is retryable (429, 503, network)
+         * @param {Error} error
+         * @returns {boolean}
+         */
+        isRetryableError(error) {
+            const message = error.message?.toLowerCase() || "";
+            return (
+                message.includes("429") ||
+                message.includes("503") ||
+                message.includes("rate limit") ||
+                message.includes("timeout") ||
+                message.includes("network") ||
+                message.includes("fetch failed")
+            );
+        }
+
+        /**
+         * Calculate exponential backoff delay
+         * @param {number} retryCount
+         * @returns {number}
+         */
+        calculateBackoff(retryCount) {
+            // Exponential backoff with jitter
+            const base = QUEUE_BASE_BACKOFF_MS * Math.pow(2, retryCount - 1);
+            const jitter = Math.random() * 500;
+            return Math.min(base + jitter, 30000); // Cap at 30s
+        }
+
+        /**
+         * Notify progress callback
+         */
+        notifyProgress() {
+            if (this.onProgress) {
+                this.onProgress({ ...this.stats });
+            }
+        }
+
+        /**
+         * Sleep helper
+         * @param {number} ms
+         * @returns {Promise<void>}
+         */
+        sleep(ms) {
+            return new Promise((resolve) => setTimeout(resolve, ms));
+        }
+
+        /**
+         * Get current stats
+         * @returns {Object}
+         */
+        getStats() {
+            return { ...this.stats };
+        }
+    }
+
+    // --- Apply Translation to DOM (v2) ---
+
+    /**
+     * Apply translated text with placeholders to an element by updating text nodes
+     * This preserves the DOM structure and only modifies text content
+     * @param {Element} element - The element to update
+     * @param {string} translatedText - The translated text with placeholders
+     * @param {Map<number, {tag: string, node: Node}>} placeholders - Placeholder to node mapping
+     * @returns {boolean} - True if successful
+     */
+    function applyTranslationToUnit(element, translatedText, placeholders) {
+        try {
+            console.log(
+                `applyTranslationToUnit: applying to ${element.tagName}`,
+                `(${translatedText.length} chars, ${placeholders.size} placeholders)`,
+            );
+
+            // Parse the translated output into segments
+            const segments = parsePlaceholderOutput(translatedText);
+
+            // Collect all text nodes in the element
+            const textNodes = [];
+            const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
+            let node;
+            while ((node = walker.nextNode())) {
+                textNodes.push(node);
+            }
+
+            if (textNodes.length === 0) {
+                console.warn("applyTranslationToUnit: no text nodes found");
+                return false;
+            }
+
+            // Build a mapping from placeholder index to inline element
+            // The strategy: walk through segments and associate text with correct nodes
+            // For simplicity in v1, we'll use a simpler approach:
+            // Extract just the text portions and update text nodes sequentially
+
+            // Extract translated text only (ignore placeholder structure for now)
+            const translatedTextParts = [];
+            for (const seg of segments) {
+                if (seg.type === "text") {
+                    translatedTextParts.push(seg.content);
+                }
+            }
+            const fullTranslatedText = translatedTextParts.join("");
+
+            // Simple approach: if single text node, replace its content
+            if (textNodes.length === 1) {
+                textNodes[0].textContent = fullTranslatedText;
+                console.log("applyTranslationToUnit: updated single text node");
+                return true;
+            }
+
+            // For multiple text nodes, we need to be smarter
+            // Strategy: distribute translated text proportionally based on original lengths
+            const originalLengths = textNodes.map((n) => (n.textContent || "").length);
+            const totalOriginalLength = originalLengths.reduce(
+                (sum, len) => sum + len,
+                0,
+            );
+
+            if (totalOriginalLength === 0) {
+                console.warn("applyTranslationToUnit: total original length is 0");
+                return false;
+            }
+
+            // Distribute new text proportionally
+            let offset = 0;
+            for (let i = 0; i < textNodes.length; i++) {
+                const proportion = originalLengths[i] / totalOriginalLength;
+                const charCount = Math.round(proportion * fullTranslatedText.length);
+
+                // For all but the last node, use proportional amount
+                // Last node gets the remainder to avoid rounding issues
+                if (i === textNodes.length - 1) {
+                    textNodes[i].textContent = fullTranslatedText.slice(offset);
+                } else {
+                    textNodes[i].textContent = fullTranslatedText.slice(
+                        offset,
+                        offset + charCount,
+                    );
+                    offset += charCount;
+                }
+            }
+
+            console.log(`applyTranslationToUnit: updated ${textNodes.length} text nodes`);
+            return true;
+        } catch (error) {
+            console.error("applyTranslationToUnit error:", error);
+            return false;
+        }
+    }
+
+    /**
+     * Simple fallback: just replace textContent (loses inline formatting)
+     * @param {Element} element
+     * @param {string} translatedText
+     * @returns {boolean}
+     */
+    function applyPlainTextFallback(element, translatedText) {
+        try {
+            // Remove placeholder markers for plain text fallback
+            const cleanText = translatedText.replace(/⟦\/?P\d+⟧/g, "").trim();
+
+            // Find all text nodes and update the first one, clear others
+            const textNodes = [];
+            const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
+            let node;
+            while ((node = walker.nextNode())) {
+                textNodes.push(node);
+            }
+
+            if (textNodes.length > 0) {
+                textNodes[0].textContent = cleanText;
+                for (let i = 1; i < textNodes.length; i++) {
+                    textNodes[i].textContent = "";
+                }
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error("applyPlainTextFallback error:", error);
+            return false;
+        }
+    }
+
     // --- ELD Language Detection (runs in content script) ---
     const MAX_TEXT_SAMPLE_FOR_DETECTION = 512;
 
@@ -245,9 +1280,9 @@ if (window.hasRun) {
                     displayPopup(`Translation Error: ${request.text}`, true);
                     console.error("Element translation failed:", request.text);
                 } else if (!isTranslated) {
-                    console.log("Starting element-by-element page translation.");
-                    translatePageElements();
-                    isTranslated = true; // Mark page as translated
+                    console.log("Starting page translation v2 (placeholder-based).");
+                    translatePageV2(); // Use new v2 translation
+                    // Note: isTranslated is set by translatePageV2 on completion
                 } else {
                     console.log("Page already translated, skipping translation.");
                 }
@@ -707,28 +1742,76 @@ if (window.hasRun) {
 
         // Tags to keep (preserve element; strip attributes except href on <a>)
         const KEEP_TAGS = new Set([
-            "b", "strong", "i", "em", "u", "s", "strike", "mark", "sub", "sup",
-            "p", "br", "h1", "h2", "h3", "h4", "h5", "h6",
-            "ul", "ol", "li",
+            "b",
+            "strong",
+            "i",
+            "em",
+            "u",
+            "s",
+            "strike",
+            "mark",
+            "sub",
+            "sup",
+            "p",
+            "br",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "ul",
+            "ol",
+            "li",
             "a",
-            "pre", "code",
+            "pre",
+            "code",
             "blockquote",
-            "table", "thead", "tbody", "tfoot", "tr", "td", "th"
+            "table",
+            "thead",
+            "tbody",
+            "tfoot",
+            "tr",
+            "td",
+            "th",
         ]);
 
         // Tags to unwrap (remove tag but keep contents)
         const UNWRAP_TAGS = new Set([
             "span",
-            "section", "article", "aside", "main", "nav", "header", "footer",
-            "figure", "figcaption", "details", "summary"
+            "section",
+            "article",
+            "aside",
+            "main",
+            "nav",
+            "header",
+            "footer",
+            "figure",
+            "figcaption",
+            "details",
+            "summary",
         ]);
 
         // Tags to remove entirely (drop element + content)
         const REMOVE_TAGS = new Set([
-            "img", "video", "audio", "iframe", "canvas", "svg", "object", "embed",
-            "button", "input", "select", "textarea", "form",
-            "link", "meta",
-            "script", "style", "noscript"
+            "img",
+            "video",
+            "audio",
+            "iframe",
+            "canvas",
+            "svg",
+            "object",
+            "embed",
+            "button",
+            "input",
+            "select",
+            "textarea",
+            "form",
+            "link",
+            "meta",
+            "script",
+            "style",
+            "noscript",
         ]);
 
         // Allowed URL schemes for href
@@ -739,8 +1822,8 @@ if (window.hasRun) {
         root.innerHTML = html;
 
         // Step 1: Pre-remove all REMOVE tags
-        REMOVE_TAGS.forEach(tag => {
-            root.querySelectorAll(tag).forEach(el => el.remove());
+        REMOVE_TAGS.forEach((tag) => {
+            root.querySelectorAll(tag).forEach((el) => el.remove());
         });
 
         // Step 2: Transform div blocks - convert to p if they have text content
@@ -767,7 +1850,7 @@ if (window.hasRun) {
             }
 
             // Process children first (bottom-up)
-            Array.from(node.children).forEach(child => processNode(child));
+            Array.from(node.children).forEach((child) => processNode(child));
 
             const tagName = node.tagName.toLowerCase();
 
@@ -807,7 +1890,7 @@ if (window.hasRun) {
             // Check for allowed schemes
             try {
                 const url = new URL(trimmed, window.location.href);
-                if (ALLOWED_SCHEMES.some(scheme => url.protocol === scheme)) {
+                if (ALLOWED_SCHEMES.some((scheme) => url.protocol === scheme)) {
                     return trimmed;
                 }
                 return null;
@@ -834,7 +1917,7 @@ if (window.hasRun) {
         }
 
         // Process all children of root
-        Array.from(root.children).forEach(child => processNode(child));
+        Array.from(root.children).forEach((child) => processNode(child));
 
         return root.innerHTML;
     }
@@ -1056,6 +2139,202 @@ if (window.hasRun) {
 
         // Remove loading indicator when done
         setTimeout(() => removeLoadingIndicator(), 1000);
+    }
+
+    // --- Full-Page Translation V2 (placeholder-based) ---
+    let activeTranslationQueue = null;
+
+    /**
+     * Translate page using v2 safe units + placeholder system
+     * This is the new approach that preserves DOM structure better
+     */
+    async function translatePageV2() {
+        console.log("Starting translatePageV2...");
+
+        // Reset any previous translation state
+        if (activeTranslationQueue) {
+            activeTranslationQueue.stop();
+            activeTranslationQueue = null;
+        }
+        stopTranslationFlag = false;
+
+        // Phase 1: Preparing - collect safe units
+        displayLoadingIndicatorV2("Preparing...", "preparing");
+        const units = collectSafeTranslationUnits();
+
+        if (units.length === 0) {
+            console.log("No safe translation units found");
+            displayLoadingIndicatorV2("No translatable content found", "done");
+            setTimeout(() => removeLoadingIndicator(), 2000);
+            return;
+        }
+
+        console.log(`Found ${units.length} safe translation units`);
+
+        // Phase 2: Translating
+        const queue = new TranslationQueue();
+        activeTranslationQueue = queue;
+
+        queue.addUnits(units);
+
+        // Progress callback
+        queue.onProgress = (stats) => {
+            const errorText = stats.failed > 0 ? ` (${stats.failed} errors)` : "";
+            const cachedText = stats.cached > 0 ? ` [${stats.cached} cached]` : "";
+            displayLoadingIndicatorV2(
+                `Translating ${stats.completed}/${stats.total}${errorText}${cachedText}`,
+                "translating",
+            );
+        };
+
+        // Unit completion callback - apply translation to DOM
+        queue.onUnitComplete = (unit, result) => {
+            if (result.success && unit.result) {
+                // Apply the translation
+                const applied = applyTranslationToUnit(
+                    unit.element,
+                    unit.result,
+                    unit.placeholders || new Map(),
+                );
+                if (!applied) {
+                    // Fallback to plain text
+                    applyPlainTextFallback(unit.element, unit.result);
+                }
+            } else if (!result.success) {
+                // Mark error on element
+                markElementTranslationError(
+                    unit.element,
+                    new Error(result.error || "Translation failed"),
+                );
+            }
+        };
+
+        displayLoadingIndicatorV2(`Translating 0/${units.length}`, "translating");
+
+        try {
+            await queue.start();
+
+            // Phase 3: Done
+            const stats = queue.getStats();
+            if (queue.stopped) {
+                displayLoadingIndicatorV2(
+                    `Stopped. Translated ${stats.completed}/${stats.total}`,
+                    "stopped",
+                );
+            } else {
+                const summary =
+                    stats.failed > 0
+                        ? `Done. ${stats.completed} translated, ${stats.failed} errors`
+                        : `Done. ${stats.completed} translated`;
+                displayLoadingIndicatorV2(summary, "done");
+            }
+
+            isTranslated = true;
+            setTimeout(() => removeLoadingIndicator(), 3000);
+        } catch (error) {
+            console.error("translatePageV2 error:", error);
+            displayLoadingIndicatorV2(`Error: ${error.message}`, "error");
+            setTimeout(() => removeLoadingIndicator(), 5000);
+        }
+
+        activeTranslationQueue = null;
+    }
+
+    /**
+     * Stop the v2 translation
+     */
+    function stopTranslationV2() {
+        stopTranslationFlag = true;
+        if (activeTranslationQueue) {
+            activeTranslationQueue.stop();
+        }
+        console.log("Translation V2 stopped");
+    }
+
+    /**
+     * Display loading indicator with state-aware styling
+     * @param {string} message
+     * @param {string} state - preparing | translating | done | stopped | error
+     */
+    function displayLoadingIndicatorV2(message, state = "translating") {
+        removeLoadingIndicator();
+
+        loadingIndicator = document.createElement("div");
+        loadingIndicator.id = "translation-loading-indicator";
+
+        // Build UI
+        const stateIcon = document.createElement("span");
+        stateIcon.className = "state-icon";
+
+        const progressText = document.createElement("span");
+        progressText.className = "progress-text";
+        progressText.textContent = message;
+
+        const stopButtonEl = document.createElement("button");
+        stopButtonEl.className = "stop-button";
+        stopButtonEl.textContent = "Stop";
+        stopButtonEl.style.display = state === "translating" ? "inline-block" : "none";
+
+        loadingIndicator.appendChild(stateIcon);
+        loadingIndicator.appendChild(progressText);
+        loadingIndicator.appendChild(stopButtonEl);
+
+        // State-specific styling
+        const stateColors = {
+            preparing: { bg: "rgba(59, 130, 246, 0.9)", icon: "..." },
+            translating: { bg: "rgba(16, 185, 129, 0.9)", icon: "..." },
+            done: { bg: "rgba(34, 197, 94, 0.9)", icon: "check" },
+            stopped: { bg: "rgba(251, 191, 36, 0.9)", icon: "pause" },
+            error: { bg: "rgba(239, 68, 68, 0.9)", icon: "x" },
+        };
+
+        const stateConfig = stateColors[state] || stateColors.translating;
+
+        // Basic Styling
+        loadingIndicator.style.position = "fixed";
+        loadingIndicator.style.bottom = "20px";
+        loadingIndicator.style.left = "20px";
+        loadingIndicator.style.backgroundColor = stateConfig.bg;
+        loadingIndicator.style.color = "white";
+        loadingIndicator.style.padding = "10px 15px";
+        loadingIndicator.style.borderRadius = "8px";
+        loadingIndicator.style.zIndex = "2147483647";
+        loadingIndicator.style.fontSize = "14px";
+        loadingIndicator.style.fontFamily = "system-ui, -apple-system, sans-serif";
+        loadingIndicator.style.display = "flex";
+        loadingIndicator.style.alignItems = "center";
+        loadingIndicator.style.gap = "10px";
+        loadingIndicator.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
+
+        // State icon styling
+        stateIcon.textContent =
+            stateConfig.icon === "..."
+                ? ""
+                : stateConfig.icon === "check"
+                  ? "✓"
+                  : stateConfig.icon === "pause"
+                    ? "⏸"
+                    : "✗";
+        stateIcon.style.fontSize = "16px";
+
+        // Stop button styling
+        stopButtonEl.style.backgroundColor = "rgba(255,255,255,0.2)";
+        stopButtonEl.style.color = "white";
+        stopButtonEl.style.border = "1px solid rgba(255,255,255,0.4)";
+        stopButtonEl.style.padding = "4px 12px";
+        stopButtonEl.style.borderRadius = "4px";
+        stopButtonEl.style.cursor = "pointer";
+        stopButtonEl.style.fontSize = "12px";
+        stopButtonEl.style.fontWeight = "500";
+        stopButtonEl.onmouseover = () => {
+            stopButtonEl.style.backgroundColor = "rgba(255,255,255,0.3)";
+        };
+        stopButtonEl.onmouseout = () => {
+            stopButtonEl.style.backgroundColor = "rgba(255,255,255,0.2)";
+        };
+        stopButtonEl.onclick = stopTranslationV2;
+
+        document.body.appendChild(loadingIndicator);
     }
 
     /**
@@ -1426,7 +2705,7 @@ if (window.hasRun) {
         // If popup doesn't exist, create it
         if (!existingPopup) {
             console.log("Creating new popup.");
-            removePopup(false);  // Don't reset selectionTranslateInProgress
+            removePopup(false); // Don't reset selectionTranslateInProgress
 
             // Calculate position and width based on selection
             let top = 0;
