@@ -5,3 +5,26 @@ docs/node_modules/
 docs/.vitepress/cache/
 docs/.vitepress/dist/
 node_modules/
+
+# Beads (track JSONL; ignore local SQLite/runtime files)
+.beads/*.db
+.beads/*.db?*
+.beads/*.db-journal
+.beads/*.db-wal
+.beads/*.db-shm
+.beads/bd.sock
+.beads/daemon.lock
+.beads/daemon.log
+.beads/daemon.pid
+.beads/last-touched
+.beads/.local_version
+.beads/sync-state.json
+.beads/.sync.lock
+.beads/sync_base.jsonl
+.beads/beads.base.jsonl
+.beads/beads.base.meta.json
+.beads/beads.left.jsonl
+.beads/beads.left.meta.json
+.beads/beads.right.jsonl
+.beads/beads.right.meta.json
+.beads/redirect

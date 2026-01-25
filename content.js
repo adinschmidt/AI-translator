@@ -8,6 +8,770 @@ if (window.hasRun) {
 
     // content.js - Handles displaying popups, extracting page text, replacing content, and manual translation.
 
+    // --- Safe Translation Unit Selection ---
+    // Tags to completely skip during traversal (never translate content within)
+    const SKIP_TAGS = new Set([
+        "SCRIPT",
+        "STYLE",
+        "NOSCRIPT",
+        "TEMPLATE",
+        "SVG",
+        "MATH",
+        "CANVAS",
+        "VIDEO",
+        "AUDIO",
+        "IFRAME",
+        "OBJECT",
+        "EMBED",
+    ]);
+
+    // Interactive/form elements that should never be translated
+    const INTERACTIVE_TAGS = new Set(["INPUT", "TEXTAREA", "SELECT", "OPTION", "BUTTON"]);
+
+    // Block-level tags that are candidates for translation units
+    const BLOCK_LEVEL_TAGS = new Set([
+        "P",
+        "H1",
+        "H2",
+        "H3",
+        "H4",
+        "H5",
+        "H6",
+        "LI",
+        "TD",
+        "TH",
+        "DT",
+        "DD",
+        "BLOCKQUOTE",
+        "FIGCAPTION",
+        "CAPTION",
+        "SUMMARY",
+        "LABEL",
+        "LEGEND",
+    ]);
+
+    // Inline tags that are safe to keep within translation units
+    const INLINE_SAFE_TAGS = new Set([
+        "A",
+        "ABBR",
+        "ACRONYM",
+        "B",
+        "BDI",
+        "BDO",
+        "BIG",
+        "CITE",
+        "CODE",
+        "DEL",
+        "DFN",
+        "EM",
+        "I",
+        "INS",
+        "KBD",
+        "MARK",
+        "Q",
+        "S",
+        "SAMP",
+        "SMALL",
+        "SPAN",
+        "STRONG",
+        "SUB",
+        "SUP",
+        "TIME",
+        "U",
+        "VAR",
+        "WBR",
+        "BR",
+    ]);
+
+    // Extension UI selectors to exclude from translation
+    const EXTENSION_UI_SELECTORS = [
+        "#translation-popup-extension",
+        "#translation-loading-indicator",
+        "#ai-translator-selection-translate-button",
+    ];
+
+    // HTML unit size constraints (for v3 HTML-preserving translation)
+    // Matches background.js: MAX_BATCH_INPUT_TOKENS (3000) * CHARS_PER_TOKEN_ESTIMATE (4)
+    const MAX_HTML_UNIT_CHARS = 12000;
+    const CHARS_PER_TOKEN_ESTIMATE = 4;
+
+    /**
+     * Tags allowed in extracted HTML for translation
+     * Preserves inline formatting while stripping layout wrappers
+     */
+    const HTML_UNIT_ALLOWED_TAGS = new Set([
+        "a",
+        "abbr",
+        "b",
+        "bdi",
+        "bdo",
+        "br",
+        "cite",
+        "code",
+        "del",
+        "dfn",
+        "em",
+        "i",
+        "ins",
+        "kbd",
+        "mark",
+        "q",
+        "s",
+        "samp",
+        "small",
+        "span",
+        "strong",
+        "sub",
+        "sup",
+        "time",
+        "u",
+        "var",
+        "wbr",
+    ]);
+
+    /**
+     * Attributes to preserve on allowed tags
+     */
+    const HTML_UNIT_ALLOWED_ATTRS = new Set(["href", "title", "lang", "dir", "datetime", "cite"]);
+
+    /**
+     * Check if an HTML unit needs splitting based on token budget
+     * @param {string} html
+     * @returns {boolean}
+     */
+    function htmlUnitNeedsSplitting(html) {
+        return html.length > MAX_HTML_UNIT_CHARS;
+    }
+
+    /**
+     * Estimate token count for HTML content (matches background.js)
+     * @param {string} html
+     * @returns {number}
+     */
+    function estimateHTMLTokens(html) {
+        if (!html) return 0;
+        return Math.ceil(html.length / CHARS_PER_TOKEN_ESTIMATE);
+    }
+
+    /**
+     * Get simplified HTML for a single DOM node (for splitting purposes)
+     * @param {Node} node
+     * @returns {string}
+     */
+    function getNodeSimplifiedHTML(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            return node.textContent || "";
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            return "";
+        }
+
+        const el = node;
+        const tagName = el.tagName.toLowerCase();
+
+        // Skip non-translatable tags
+        if (SKIP_TAGS.has(el.tagName)) {
+            return "";
+        }
+
+        // Process children
+        let childContent = "";
+        for (const child of el.childNodes) {
+            childContent += getNodeSimplifiedHTML(child);
+        }
+
+        // If tag is in allowed set, preserve it
+        if (HTML_UNIT_ALLOWED_TAGS.has(tagName)) {
+            const attrs = [];
+            for (const attr of el.attributes) {
+                if (HTML_UNIT_ALLOWED_ATTRS.has(attr.name)) {
+                    if (attr.name === "href") {
+                        const sanitized = sanitizeUnitHref(attr.value);
+                        if (sanitized) {
+                            attrs.push(`href="${escapeHtmlAttr(sanitized)}"`);
+                        }
+                    } else {
+                        attrs.push(`${attr.name}="${escapeHtmlAttr(attr.value)}"`);
+                    }
+                }
+            }
+
+            if (tagName === "br" || tagName === "wbr") {
+                return `<${tagName}${attrs.length ? " " + attrs.join(" ") : ""}>`;
+            }
+
+            const attrStr = attrs.length ? " " + attrs.join(" ") : "";
+            return `<${tagName}${attrStr}>${childContent}</${tagName}>`;
+        }
+
+        return childContent;
+    }
+
+    /**
+     * Split an oversized text node into chunks at sentence/word boundaries
+     * @param {string} text
+     * @param {number} maxChars
+     * @returns {string[]}
+     */
+    function splitTextNodeContent(text, maxChars) {
+        if (text.length <= maxChars) {
+            return [text];
+        }
+
+        const chunks = [];
+        const sentences = splitIntoSentences(text);
+
+        if (sentences.length > 1) {
+            let currentChunk = "";
+            for (const sentence of sentences) {
+                if (sentence.length > maxChars) {
+                    if (currentChunk.length > 0) {
+                        chunks.push(currentChunk);
+                        currentChunk = "";
+                    }
+                    const wordChunks = splitByWords(sentence, maxChars);
+                    chunks.push(...wordChunks);
+                } else if (currentChunk.length + sentence.length + 1 <= maxChars) {
+                    currentChunk += (currentChunk.length > 0 ? " " : "") + sentence;
+                } else {
+                    if (currentChunk.length > 0) {
+                        chunks.push(currentChunk);
+                    }
+                    currentChunk = sentence;
+                }
+            }
+            if (currentChunk.length > 0) {
+                chunks.push(currentChunk);
+            }
+            return chunks;
+        }
+
+        return splitByWords(text, maxChars);
+    }
+
+    /**
+     * Split an oversized HTML unit into chunks based on DOM structure
+     * Groups child nodes to respect token budget, splitting text nodes if needed
+     * @param {Element} element - The DOM element to split
+     * @param {number} maxChars - Max characters per chunk
+     * @returns {Array<{html: string, nodeIndices: number[]}>} Array of chunks with node tracking
+     */
+    function splitHTMLUnitByChildNodes(element, maxChars = MAX_HTML_UNIT_CHARS) {
+        const childNodes = Array.from(element.childNodes);
+
+        if (childNodes.length === 0) {
+            return [{ html: element.textContent || "", nodeIndices: [] }];
+        }
+
+        const chunks = [];
+        let currentChunk = { parts: [], nodeIndices: [], length: 0 };
+
+        for (let i = 0; i < childNodes.length; i++) {
+            const child = childNodes[i];
+            const childHTML = getNodeSimplifiedHTML(child);
+            const childLength = childHTML.length;
+
+            // Skip empty nodes
+            if (childLength === 0 && child.nodeType !== Node.ELEMENT_NODE) {
+                continue;
+            }
+
+            // If single child exceeds budget
+            if (childLength > maxChars) {
+                // Flush current chunk first
+                if (currentChunk.parts.length > 0) {
+                    chunks.push({
+                        html: currentChunk.parts.join(""),
+                        nodeIndices: currentChunk.nodeIndices,
+                    });
+                    currentChunk = { parts: [], nodeIndices: [], length: 0 };
+                }
+
+                // If it's a text node, split it
+                if (child.nodeType === Node.TEXT_NODE) {
+                    const textChunks = splitTextNodeContent(child.textContent || "", maxChars);
+                    for (const textChunk of textChunks) {
+                        chunks.push({
+                            html: textChunk,
+                            nodeIndices: [i],
+                        });
+                    }
+                } else {
+                    // Element node - try to split its children recursively
+                    const subChunks = splitHTMLUnitByChildNodes(child, maxChars);
+                    for (const subChunk of subChunks) {
+                        chunks.push({
+                            html: subChunk.html,
+                            nodeIndices: [i],
+                        });
+                    }
+                }
+                continue;
+            }
+
+            // Check if adding this child would exceed budget
+            if (currentChunk.length + childLength > maxChars && currentChunk.parts.length > 0) {
+                // Flush current chunk
+                chunks.push({
+                    html: currentChunk.parts.join(""),
+                    nodeIndices: currentChunk.nodeIndices,
+                });
+                currentChunk = { parts: [], nodeIndices: [], length: 0 };
+            }
+
+            // Add to current chunk
+            currentChunk.parts.push(childHTML);
+            currentChunk.nodeIndices.push(i);
+            currentChunk.length += childLength;
+        }
+
+        // Don't forget the last chunk
+        if (currentChunk.parts.length > 0) {
+            chunks.push({
+                html: currentChunk.parts.join(""),
+                nodeIndices: currentChunk.nodeIndices,
+            });
+        }
+
+        // Normalize whitespace in each chunk
+        return chunks.map((chunk) => ({
+            html: chunk.html.replace(/\s+/g, " ").trim(),
+            nodeIndices: chunk.nodeIndices,
+        }));
+    }
+
+    /**
+     * Check if an element is hidden from rendering
+     * @param {Element} el
+     * @returns {boolean}
+     */
+    function isHiddenElement(el) {
+        if (!el || el.nodeType !== Node.ELEMENT_NODE) {
+            return false;
+        }
+        // Check explicit hidden attribute
+        if (el.hidden || el.getAttribute("hidden") !== null) {
+            return true;
+        }
+        // Check aria-hidden="true"
+        if (el.getAttribute("aria-hidden") === "true") {
+            return true;
+        }
+        // Skip computed style check for performance (optional enhancement later)
+        return false;
+    }
+
+    /**
+     * Check if element is part of extension UI
+     * @param {Element} el
+     * @returns {boolean}
+     */
+    function isExtensionUI(el) {
+        if (!el || el.nodeType !== Node.ELEMENT_NODE) {
+            return false;
+        }
+        for (const selector of EXTENSION_UI_SELECTORS) {
+            if (el.closest(selector)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if element contains interactive controls that should prevent translation
+     * @param {Element} el
+     * @returns {boolean}
+     */
+    function containsInteractiveControls(el) {
+        if (INTERACTIVE_TAGS.has(el.tagName)) {
+            return true;
+        }
+        // Check for role="button" or contenteditable
+        if (
+            el.getAttribute("role") === "button" ||
+            el.getAttribute("contenteditable") === "true" ||
+            el.isContentEditable
+        ) {
+            return true;
+        }
+        // Check for interactive descendants
+        const interactiveDescendant = el.querySelector(
+            'button, input, textarea, select, [role="button"], [contenteditable="true"]',
+        );
+        return interactiveDescendant !== null;
+    }
+
+    /**
+     * Check if element contains nested block-level descendants
+     * (which would make it not a "leaf-ish" block)
+     * @param {Element} el
+     * @returns {boolean}
+     */
+    function containsNestedBlocks(el) {
+        for (const child of el.children) {
+            if (BLOCK_LEVEL_TAGS.has(child.tagName)) {
+                return true;
+            }
+            // Also check for DIV (common block container)
+            if (child.tagName === "DIV" && child.textContent.trim().length > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Check if an element is a safe translation unit
+     * A safe unit is a block-level element that:
+     * - Has non-trivial text content
+     * - Does not contain nested block-level descendants
+     * - Does not contain interactive controls
+     * - Is not hidden
+     * @param {Element} el
+     * @returns {boolean}
+     */
+    function isSafeTranslationUnit(el) {
+        if (!el || el.nodeType !== Node.ELEMENT_NODE) {
+            return false;
+        }
+
+        // Must be a block-level candidate
+        if (!BLOCK_LEVEL_TAGS.has(el.tagName)) {
+            return false;
+        }
+
+        // Must have non-trivial text
+        const textContent = el.textContent?.trim() || "";
+        if (textContent.length < 2) {
+            return false;
+        }
+
+        // Must not be hidden
+        if (isHiddenElement(el)) {
+            return false;
+        }
+
+        // Must not be in extension UI
+        if (isExtensionUI(el)) {
+            return false;
+        }
+
+        // Must not contain interactive controls
+        if (containsInteractiveControls(el)) {
+            return false;
+        }
+
+        // Must not contain nested blocks (leaf-ish constraint)
+        if (containsNestedBlocks(el)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // --- HTML-Preserving Unit Selection (v3) ---
+    // Collects DOM units and extracts their HTML for direct HTML translation
+
+    /**
+     * Extract simplified HTML from a translation unit element
+     * Preserves inline formatting and links while stripping layout/style elements
+     * @param {Element} element - The element to extract HTML from
+     * @returns {string} Simplified HTML string
+     */
+    function extractUnitHTML(element) {
+        if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+            return "";
+        }
+
+        // Clone to avoid modifying original
+        const clone = element.cloneNode(true);
+
+        /**
+         * Process node recursively - simplify and clean HTML
+         * @param {Node} node
+         * @returns {string}
+         */
+        function processNode(node) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                return node.textContent || "";
+            }
+
+            if (node.nodeType !== Node.ELEMENT_NODE) {
+                return "";
+            }
+
+            const el = node;
+            const tagName = el.tagName.toLowerCase();
+
+            // Skip script, style, and other non-translatable tags
+            if (SKIP_TAGS.has(el.tagName)) {
+                return "";
+            }
+
+            // Process children first
+            let childContent = "";
+            for (const child of el.childNodes) {
+                childContent += processNode(child);
+            }
+
+            // If tag is allowed, preserve it with allowed attributes only
+            if (HTML_UNIT_ALLOWED_TAGS.has(tagName)) {
+                const attrs = [];
+                for (const attr of el.attributes) {
+                    if (HTML_UNIT_ALLOWED_ATTRS.has(attr.name)) {
+                        // Sanitize href values
+                        if (attr.name === "href") {
+                            const sanitized = sanitizeUnitHref(attr.value);
+                            if (sanitized) {
+                                attrs.push(`href="${escapeHtmlAttr(sanitized)}"`);
+                            }
+                        } else {
+                            attrs.push(`${attr.name}="${escapeHtmlAttr(attr.value)}"`);
+                        }
+                    }
+                }
+
+                // Self-closing tags
+                if (tagName === "br" || tagName === "wbr") {
+                    return `<${tagName}${attrs.length ? " " + attrs.join(" ") : ""}>`;
+                }
+
+                // Regular tags with content
+                const attrStr = attrs.length ? " " + attrs.join(" ") : "";
+                return `<${tagName}${attrStr}>${childContent}</${tagName}>`;
+            }
+
+            // Otherwise, unwrap - just return child content
+            return childContent;
+        }
+
+        // Process all children and combine
+        let result = "";
+        for (const child of clone.childNodes) {
+            result += processNode(child);
+        }
+
+        // Normalize whitespace: collapse multiple spaces/newlines
+        result = result.replace(/\s+/g, " ").trim();
+
+        return result;
+    }
+
+    /**
+     * Sanitize href value for HTML unit extraction
+     * @param {string} href
+     * @returns {string|null}
+     */
+    function sanitizeUnitHref(href) {
+        if (!href || typeof href !== "string") {
+            return null;
+        }
+
+        const trimmed = href.trim();
+        if (trimmed === "") {
+            return null;
+        }
+
+        // Allow http, https, mailto, and relative URLs
+        const ALLOWED_SCHEMES = ["http:", "https:", "mailto:"];
+
+        try {
+            const url = new URL(trimmed, window.location.href);
+            if (ALLOWED_SCHEMES.some((scheme) => url.protocol === scheme)) {
+                return trimmed;
+            }
+            return null;
+        } catch {
+            // Relative URLs or malformed - allow if no dangerous scheme
+            if (!trimmed.includes(":") || trimmed.startsWith("/")) {
+                return trimmed;
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Escape HTML attribute value
+     * @param {string} value
+     * @returns {string}
+     */
+    function escapeHtmlAttr(value) {
+        return value
+            .replace(/&/g, "&amp;")
+            .replace(/"/g, "&quot;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+    }
+
+    /**
+     * Collect translation units with their extracted HTML for HTML-preserving translation
+     * Oversized units are split into chunks based on DOM structure
+     * @returns {Array<{element: Element, html: string, chunkIndex?: number, totalChunks?: number}>}
+     */
+    function collectHTMLTranslationUnits() {
+        const units = [];
+        const seenElements = new WeakSet();
+
+        /**
+         * Recursively traverse the DOM and collect units
+         * @param {Element} root
+         */
+        function traverse(root) {
+            if (!root || root.nodeType !== Node.ELEMENT_NODE) {
+                return;
+            }
+
+            // Skip if in skip tags
+            if (SKIP_TAGS.has(root.tagName)) {
+                return;
+            }
+
+            // Skip hidden elements
+            if (isHiddenElement(root)) {
+                return;
+            }
+
+            // Skip extension UI
+            if (isExtensionUI(root)) {
+                return;
+            }
+
+            // Check if this element is a safe translation unit
+            if (isSafeTranslationUnit(root) && !seenElements.has(root)) {
+                seenElements.add(root);
+
+                const html = extractUnitHTML(root);
+
+                // Only include units with actual content
+                if (html.length > 0) {
+                    // Check if unit needs splitting
+                    if (htmlUnitNeedsSplitting(html)) {
+                        const chunks = splitHTMLUnitByChildNodes(root, MAX_HTML_UNIT_CHARS);
+                        console.log(
+                            `HTML unit split into ${chunks.length} chunks (original: ${html.length} chars)`,
+                        );
+                        for (let i = 0; i < chunks.length; i++) {
+                            if (chunks[i].html.length > 0) {
+                                units.push({
+                                    element: root,
+                                    html: chunks[i].html,
+                                    chunkIndex: i,
+                                    totalChunks: chunks.length,
+                                });
+                            }
+                        }
+                    } else {
+                        units.push({
+                            element: root,
+                            html: html,
+                        });
+                    }
+                }
+
+                // Don't traverse children - we've captured this unit
+                return;
+            }
+
+            // Otherwise, traverse children
+            for (const child of root.children) {
+                traverse(child);
+            }
+        }
+
+        // Start traversal from body
+        traverse(document.body);
+
+        console.log(`collectHTMLTranslationUnits: found ${units.length} units`);
+        return units;
+    }
+
+    /**
+     * DOMPurify configuration for HTML-preserving translation (v3)
+     * Uses the same allowed tags/attrs as extractUnitHTML for round-trip consistency
+     */
+    const HTML_UNIT_DOMPURIFY_CONFIG = {
+        ALLOWED_TAGS: Array.from(HTML_UNIT_ALLOWED_TAGS).map((t) => t.toUpperCase()),
+        ALLOWED_ATTR: Array.from(HTML_UNIT_ALLOWED_ATTRS),
+        ALLOW_DATA_ATTR: false,
+        FORCE_BODY: false,
+        RETURN_DOM_FRAGMENT: false,
+        SAFE_FOR_TEMPLATES: false,
+    };
+
+    /**
+     * Sanitize translated HTML using DOMPurify
+     * Preserves allowed inline tags and attributes while stripping dangerous content
+     * @param {string} html - The translated HTML to sanitize
+     * @returns {string} Sanitized HTML string
+     */
+    function sanitizeTranslatedHTML(html) {
+        if (!html || typeof html !== "string") {
+            return "";
+        }
+
+        if (typeof DOMPurify === "undefined") {
+            console.warn("sanitizeTranslatedHTML: DOMPurify not available, stripping all HTML");
+            // Fallback: strip all HTML tags
+            const temp = document.createElement("div");
+            temp.innerHTML = html;
+            return temp.textContent || "";
+        }
+
+        const sanitized = DOMPurify.sanitize(html, HTML_UNIT_DOMPURIFY_CONFIG);
+        return sanitized;
+    }
+
+    /**
+     * Apply sanitized translated HTML to a DOM element
+     * Replaces the element's content with the translated HTML while preserving href
+     * @param {Element} element - The original DOM element to update
+     * @param {string} translatedHtml - The translated HTML (will be sanitized)
+     * @returns {boolean} True if successfully applied
+     */
+    function applyTranslatedHTML(element, translatedHtml) {
+        if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+            console.warn("applyTranslatedHTML: invalid element");
+            return false;
+        }
+
+        if (!translatedHtml || typeof translatedHtml !== "string") {
+            console.warn("applyTranslatedHTML: empty or invalid translatedHtml");
+            return false;
+        }
+
+        try {
+            // Sanitize the translated HTML
+            const sanitized = sanitizeTranslatedHTML(translatedHtml);
+
+            if (!sanitized || sanitized.trim().length === 0) {
+                console.warn("applyTranslatedHTML: sanitization produced empty result");
+                return false;
+            }
+
+            // Parse the sanitized HTML into a document fragment
+            const temp = document.createElement("template");
+            temp.innerHTML = sanitized;
+            const fragment = temp.content;
+
+            // Clear the element and append the new content
+            while (element.firstChild) {
+                element.removeChild(element.firstChild);
+            }
+
+            // Clone the fragment content into the element
+            element.appendChild(fragment.cloneNode(true));
+
+            console.log(
+                `applyTranslatedHTML: applied ${sanitized.length} chars to ${element.tagName}`,
+            );
+            return true;
+        } catch (error) {
+            console.error("applyTranslatedHTML error:", error);
+            return false;
+        }
+    }
+
     // --- ELD Language Detection (runs in content script) ---
     const MAX_TEXT_SAMPLE_FOR_DETECTION = 512;
 
@@ -134,9 +898,11 @@ if (window.hasRun) {
     let stopTranslationFlag = false; // Flag to stop translation process
 
     const STREAM_PORT_NAME = "translationStream";
+    const HTML_TRANSLATION_PORT_NAME = "htmlTranslation";
     let activeStreamPort = null;
     let activeStreamRequestId = null;
     let completedStreamRequestId = null;
+    let activeHtmlTranslation = null;
 
     const SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY = "showTranslateButtonOnSelection";
     let showTranslateButtonOnSelectionEnabled = true;
@@ -245,9 +1011,8 @@ if (window.hasRun) {
                     displayPopup(`Translation Error: ${request.text}`, true);
                     console.error("Element translation failed:", request.text);
                 } else if (!isTranslated) {
-                    console.log("Starting element-by-element page translation.");
-                    translatePageElements();
-                    isTranslated = true; // Mark page as translated
+                    console.log("Starting page translation (HTML-preserving).");
+                    translatePageV3();
                 } else {
                     console.log("Page already translated, skipping translation.");
                 }
@@ -306,6 +1071,113 @@ if (window.hasRun) {
             }
         });
     });
+
+    function startHtmlTranslation(units, targetLanguage = null, onUpdate = null) {
+        return new Promise((resolve, reject) => {
+            if (activeHtmlTranslation?.port) {
+                try {
+                    activeHtmlTranslation.port.disconnect();
+                } catch (error) {
+                    console.warn("Failed to close previous HTML translation port:", error);
+                }
+            }
+
+            const requestId = `html-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            const port = chrome.runtime.connect({ name: HTML_TRANSLATION_PORT_NAME });
+            let settled = false;
+            const collectedResults = [];
+
+            const handleResults = (results, batchInfo = null) => {
+                if (!Array.isArray(results) || results.length === 0) {
+                    return;
+                }
+                collectedResults.push(...results);
+                if (typeof onUpdate === "function") {
+                    try {
+                        onUpdate(results, batchInfo);
+                    } catch (error) {
+                        console.error("HTML translation update handler failed:", error);
+                    }
+                }
+            };
+
+            const finalize = (error, results) => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                activeHtmlTranslation = null;
+                if (error) {
+                    reject(error);
+                } else {
+                    resolve(results || []);
+                }
+                try {
+                    port.disconnect();
+                } catch (disconnectError) {
+                    console.warn(
+                        "Failed to disconnect HTML translation port:",
+                        disconnectError,
+                    );
+                }
+            };
+
+            port.onMessage.addListener((message) => {
+                if (message?.action !== "htmlTranslationResult") {
+                    return;
+                }
+                if (message.requestId !== requestId) {
+                    return;
+                }
+                if (message.error) {
+                    finalize(new Error(message.error));
+                    return;
+                }
+                if (message.results) {
+                    const batchInfo =
+                        typeof message.batchIndex === "number" &&
+                        typeof message.batchCount === "number"
+                            ? {
+                                  batchIndex: message.batchIndex,
+                                  batchCount: message.batchCount,
+                                  batchSize: message.batchSize,
+                              }
+                            : null;
+                    if (
+                        batchInfo &&
+                        typeof message.subBatchIndex === "number" &&
+                        typeof message.subBatchCount === "number"
+                    ) {
+                        batchInfo.subBatchIndex = message.subBatchIndex;
+                        batchInfo.subBatchCount = message.subBatchCount;
+                        batchInfo.subBatchSize = message.subBatchSize;
+                    }
+                    handleResults(message.results, batchInfo);
+                }
+                if (message.done) {
+                    finalize(null, collectedResults);
+                }
+            });
+
+            port.onDisconnect.addListener(() => {
+                if (!settled) {
+                    finalize(new Error("Translation connection closed unexpectedly."));
+                }
+            });
+
+            activeHtmlTranslation = { requestId, port };
+            console.log("startHtmlTranslation: sending request", {
+                requestId,
+                unitCount: units.length,
+            });
+            port.postMessage({
+                action: "startHTMLTranslation",
+                requestId,
+                units,
+                targetLanguage,
+            });
+        });
+    }
 
     chrome.storage.sync.get([SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY], (result) => {
         if (chrome.runtime.lastError) {
@@ -707,28 +1579,76 @@ if (window.hasRun) {
 
         // Tags to keep (preserve element; strip attributes except href on <a>)
         const KEEP_TAGS = new Set([
-            "b", "strong", "i", "em", "u", "s", "strike", "mark", "sub", "sup",
-            "p", "br", "h1", "h2", "h3", "h4", "h5", "h6",
-            "ul", "ol", "li",
+            "b",
+            "strong",
+            "i",
+            "em",
+            "u",
+            "s",
+            "strike",
+            "mark",
+            "sub",
+            "sup",
+            "p",
+            "br",
+            "h1",
+            "h2",
+            "h3",
+            "h4",
+            "h5",
+            "h6",
+            "ul",
+            "ol",
+            "li",
             "a",
-            "pre", "code",
+            "pre",
+            "code",
             "blockquote",
-            "table", "thead", "tbody", "tfoot", "tr", "td", "th"
+            "table",
+            "thead",
+            "tbody",
+            "tfoot",
+            "tr",
+            "td",
+            "th",
         ]);
 
         // Tags to unwrap (remove tag but keep contents)
         const UNWRAP_TAGS = new Set([
             "span",
-            "section", "article", "aside", "main", "nav", "header", "footer",
-            "figure", "figcaption", "details", "summary"
+            "section",
+            "article",
+            "aside",
+            "main",
+            "nav",
+            "header",
+            "footer",
+            "figure",
+            "figcaption",
+            "details",
+            "summary",
         ]);
 
         // Tags to remove entirely (drop element + content)
         const REMOVE_TAGS = new Set([
-            "img", "video", "audio", "iframe", "canvas", "svg", "object", "embed",
-            "button", "input", "select", "textarea", "form",
-            "link", "meta",
-            "script", "style", "noscript"
+            "img",
+            "video",
+            "audio",
+            "iframe",
+            "canvas",
+            "svg",
+            "object",
+            "embed",
+            "button",
+            "input",
+            "select",
+            "textarea",
+            "form",
+            "link",
+            "meta",
+            "script",
+            "style",
+            "noscript",
         ]);
 
         // Allowed URL schemes for href
@@ -739,8 +1659,8 @@ if (window.hasRun) {
         root.innerHTML = html;
 
         // Step 1: Pre-remove all REMOVE tags
-        REMOVE_TAGS.forEach(tag => {
-            root.querySelectorAll(tag).forEach(el => el.remove());
+        REMOVE_TAGS.forEach((tag) => {
+            root.querySelectorAll(tag).forEach((el) => el.remove());
         });
 
         // Step 2: Transform div blocks - convert to p if they have text content
@@ -767,7 +1687,7 @@ if (window.hasRun) {
             }
 
             // Process children first (bottom-up)
-            Array.from(node.children).forEach(child => processNode(child));
+            Array.from(node.children).forEach((child) => processNode(child));
 
             const tagName = node.tagName.toLowerCase();
 
@@ -807,7 +1727,7 @@ if (window.hasRun) {
             // Check for allowed schemes
             try {
                 const url = new URL(trimmed, window.location.href);
-                if (ALLOWED_SCHEMES.some(scheme => url.protocol === scheme)) {
+                if (ALLOWED_SCHEMES.some((scheme) => url.protocol === scheme)) {
                     return trimmed;
                 }
                 return null;
@@ -834,7 +1754,7 @@ if (window.hasRun) {
         }
 
         // Process all children of root
-        Array.from(root.children).forEach(child => processNode(child));
+        Array.from(root.children).forEach((child) => processNode(child));
 
         return root.innerHTML;
     }
@@ -1022,32 +1942,28 @@ if (window.hasRun) {
 
             const batch = batches[batchIndex];
 
-            try {
-                await Promise.all(
-                    batch.map(async (item) => {
-                        if (stopTranslationFlag) {
-                            return;
-                        }
+            await Promise.all(
+                batch.map(async (item) => {
+                    if (stopTranslationFlag) {
+                        return;
+                    }
 
-                        try {
-                            await translateElement(item);
-                            completed++;
-                        } catch (error) {
-                            console.error("Element translation error:", error);
-                            errorCount++;
-                            // Mark the individual element so failures are visible in-page
-                            markElementTranslationError(item.element, error);
-                        }
+                    try {
+                        await translateElement(item);
+                        completed++;
+                    } catch (error) {
+                        console.error("Element translation error:", error);
+                        errorCount++;
+                        // Mark the individual element so failures are visible in-page
+                        markElementTranslationError(item.element, error);
+                    }
 
-                        // Update progress indicator
-                        updateLoadingProgress(completed, elements.length, errorCount);
-                    }),
-                );
+                    // Update progress indicator
+                    updateLoadingProgress(completed, elements.length, errorCount);
+                }),
+            );
 
-                console.log(`Completed batch ${batchIndex + 1}/${batches.length}`);
-            } catch (error) {
-                console.error("Batch processing error:", error);
-            }
+            console.log(`Completed batch ${batchIndex + 1}/${batches.length}`);
         }
 
         console.log(
@@ -1056,6 +1972,433 @@ if (window.hasRun) {
 
         // Remove loading indicator when done
         setTimeout(() => removeLoadingIndicator(), 1000);
+    }
+
+    // --- Full-Page Translation V3 (HTML-preserving, no placeholders) ---
+
+    function getChunkProgressMessage(
+        translatedChunks,
+        totalChunks,
+        errorCount,
+        batchInfo = null,
+    ) {
+        const errorSuffix = errorCount > 0 ? ` (${errorCount} errors)` : "";
+        let batchPrefix = "";
+        if (
+            batchInfo &&
+            typeof batchInfo.batchIndex === "number" &&
+            typeof batchInfo.batchCount === "number"
+        ) {
+            batchPrefix = `Batch ${batchInfo.batchIndex}/${batchInfo.batchCount}`;
+            if (
+                typeof batchInfo.subBatchIndex === "number" &&
+                typeof batchInfo.subBatchCount === "number"
+            ) {
+                batchPrefix += ` part ${batchInfo.subBatchIndex}/${batchInfo.subBatchCount}`;
+            }
+            batchPrefix += " - ";
+        }
+        return `${batchPrefix}Translated ${translatedChunks}/${totalChunks} chunks${errorSuffix}`;
+    }
+
+    /**
+     * Translate page using v3 HTML-preserving approach
+     * Collects HTML units, sends to background for batch translation, applies results
+     */
+    async function translatePageV3() {
+        console.log("Starting translatePageV3 (HTML-preserving)...");
+
+        // Reset translation state
+        stopTranslationFlag = false;
+
+        // Phase 1: Collect HTML units
+        displayLoadingIndicatorState("Preparing...", "preparing");
+        const units = collectHTMLTranslationUnits();
+        const totalChunks = units.length;
+
+        if (units.length === 0) {
+            console.log("No HTML translation units found");
+            displayLoadingIndicatorState("No translatable content found", "done");
+            setTimeout(() => removeLoadingIndicator(), 60000);
+            return;
+        }
+
+        console.log(`Found ${units.length} HTML translation units`);
+
+        // Build unit array for background script with IDs
+        const unitsForTranslation = units.map((unit, index) => ({
+            id: index,
+            html: unit.html,
+        }));
+
+        // Phase 2: Send to background for translation
+        displayLoadingIndicatorState(
+            `Translating ${totalChunks} chunks...`,
+            "translating",
+            {
+                current: 0,
+                total: totalChunks,
+            },
+        );
+
+        const elementChunks = new Map();
+        for (const unit of units) {
+            const total = unit.totalChunks || 1;
+            let entry = elementChunks.get(unit.element);
+            if (!entry) {
+                entry = {
+                    chunks: new Map(),
+                    totalChunks: total,
+                    translatedChunkIndices: new Set(),
+                    applied: false,
+                    hasError: false,
+                };
+                elementChunks.set(unit.element, entry);
+            } else {
+                entry.totalChunks = Math.max(entry.totalChunks, total);
+            }
+        }
+
+        let successCount = 0;
+        let errorCount = 0;
+        let translatedChunks = 0;
+        let receivedResults = 0;
+        let latestBatchInfo = null;
+
+        const updateChunkProgress = () => {
+            displayLoadingIndicatorState(
+                getChunkProgressMessage(
+                    translatedChunks,
+                    totalChunks,
+                    errorCount,
+                    latestBatchInfo,
+                ),
+                "translating",
+                {
+                    current: translatedChunks,
+                    total: totalChunks,
+                },
+            );
+        };
+
+        const markElementError = (element, entry, message, logMessage = null) => {
+            if (entry.hasError) {
+                return;
+            }
+            entry.hasError = true;
+            errorCount++;
+            if (logMessage) {
+                console.warn(logMessage);
+            }
+            markElementTranslationError(element, new Error(message));
+        };
+
+        const applyElementIfReady = (element, entry) => {
+            if (entry.applied || entry.hasError) {
+                return;
+            }
+            if (entry.chunks.size < entry.totalChunks) {
+                return;
+            }
+
+            const orderedChunks = Array.from(entry.chunks.entries())
+                .sort((a, b) => a[0] - b[0])
+                .map(([, chunk]) => chunk);
+            const errorChunk = orderedChunks.find((chunk) => chunk.error);
+            if (errorChunk) {
+                markElementError(
+                    element,
+                    entry,
+                    errorChunk.error || "Chunk translation error",
+                    `translatePageV3: element has chunk error: ${errorChunk.error}`,
+                );
+                return;
+            }
+
+            const missingChunk = orderedChunks.find(
+                (chunk) => !chunk.translatedHtml || !chunk.translatedHtml.trim(),
+            );
+            if (missingChunk) {
+                markElementError(
+                    element,
+                    entry,
+                    "Missing chunk translation",
+                    "translatePageV3: element has missing chunk translation",
+                );
+                return;
+            }
+
+            const combinedHtml = orderedChunks
+                .map((chunk) => chunk.translatedHtml)
+                .join(" ");
+
+            if (!combinedHtml.trim()) {
+                markElementError(
+                    element,
+                    entry,
+                    "Empty combined translation",
+                    "translatePageV3: element has empty combined translation",
+                );
+                return;
+            }
+
+            const applied = applyTranslatedHTML(element, combinedHtml);
+            if (applied) {
+                successCount++;
+                entry.applied = true;
+                return;
+            }
+
+            const plainText = combinedHtml.replace(/<[^>]*>/g, "");
+            if (plainText.trim()) {
+                element.textContent = plainText.trim();
+                successCount++;
+                entry.applied = true;
+                return;
+            }
+
+            markElementError(element, entry, "Empty translated content");
+        };
+
+        const handleTranslationResults = (results, batchInfo = null) => {
+            if (!Array.isArray(results) || results.length === 0) {
+                return;
+            }
+
+            if (batchInfo?.batchIndex && batchInfo?.batchCount) {
+                latestBatchInfo = batchInfo;
+                const batchSizeLabel =
+                    typeof batchInfo.batchSize === "number"
+                        ? `, ${batchInfo.batchSize} units`
+                        : "";
+                const subBatchLabel =
+                    typeof batchInfo.subBatchIndex === "number" &&
+                    typeof batchInfo.subBatchCount === "number"
+                        ? ` part ${batchInfo.subBatchIndex}/${batchInfo.subBatchCount}`
+                        : "";
+                console.log(
+                    `translatePageV3: received batch ${batchInfo.batchIndex}/${batchInfo.batchCount}${subBatchLabel} (${results.length} results${batchSizeLabel})`,
+                );
+            } else {
+                console.log(
+                    `translatePageV3: received ${results.length} translation results`,
+                );
+            }
+
+            receivedResults += results.length;
+
+            for (const result of results) {
+                const unit = units[result.id];
+                if (!unit) {
+                    console.warn(`translatePageV3: no unit found for id ${result.id}`);
+                    continue;
+                }
+
+                const entry = elementChunks.get(unit.element);
+                if (!entry) {
+                    continue;
+                }
+
+                const chunkIndex = unit.chunkIndex ?? 0;
+                const translatedHtml =
+                    typeof result.translatedHtml === "string" ? result.translatedHtml : "";
+                const hasTranslation = translatedHtml.trim().length > 0;
+
+                if (hasTranslation && !entry.translatedChunkIndices.has(chunkIndex)) {
+                    entry.translatedChunkIndices.add(chunkIndex);
+                    translatedChunks++;
+                }
+
+                entry.chunks.set(chunkIndex, {
+                    translatedHtml,
+                    error: result.error,
+                });
+
+                if (result.error) {
+                    markElementError(
+                        unit.element,
+                        entry,
+                        result.error || "Chunk translation error",
+                        `translatePageV3: element has chunk error: ${result.error}`,
+                    );
+                }
+
+                if (!entry.hasError) {
+                    applyElementIfReady(unit.element, entry);
+                }
+            }
+
+            updateChunkProgress();
+        };
+
+        const finalizeTranslation = () => {
+            for (const [element, entry] of elementChunks) {
+                if (entry.applied || entry.hasError) {
+                    continue;
+                }
+                if (entry.chunks.size < entry.totalChunks) {
+                    markElementError(
+                        element,
+                        entry,
+                        "Missing chunk translation",
+                        "translatePageV3: element missing chunk results",
+                    );
+                    continue;
+                }
+                applyElementIfReady(element, entry);
+            }
+
+            const summary =
+                errorCount > 0
+                    ? `Done. ${successCount} translated, ${errorCount} errors`
+                    : `Done. ${successCount} translated`;
+            const summaryState = errorCount > 0 ? "error" : "done";
+            displayLoadingIndicatorState(summary, summaryState, {
+                current: translatedChunks,
+                total: totalChunks,
+            });
+
+            isTranslated = true;
+            setTimeout(() => removeLoadingIndicator(), 60000);
+        };
+
+        try {
+            await startHtmlTranslation(unitsForTranslation, null, handleTranslationResults);
+            console.log(
+                `translatePageV3: received ${receivedResults} translation results`,
+            );
+            finalizeTranslation();
+        } catch (error) {
+            console.error("translatePageV3 error:", error);
+            displayLoadingIndicatorState(`Error: ${error.message}`, "error", {
+                current: 0,
+                total: totalChunks,
+            });
+            setTimeout(() => removeLoadingIndicator(), 60000);
+        }
+    }
+
+    /**
+     * Stop the translation
+     */
+    function stopTranslation() {
+        stopTranslationFlag = true;
+        console.log("Translation stopped");
+    }
+
+    /**
+     * Display loading indicator with state-aware styling
+     * @param {string} message
+     * @param {string} state - preparing | translating | done | stopped | error
+     */
+    function displayLoadingIndicatorState(message, state = "translating", progress = null) {
+        removeLoadingIndicator();
+
+        loadingIndicator = document.createElement("div");
+        loadingIndicator.id = "translation-loading-indicator";
+
+        // Build UI
+        const stateIcon = document.createElement("span");
+        stateIcon.className = "state-icon";
+
+        const progressText = document.createElement("span");
+        progressText.className = "progress-text";
+        progressText.textContent = message;
+
+        const stopButtonEl = document.createElement("button");
+        stopButtonEl.className = "stop-button";
+        stopButtonEl.textContent = "Stop";
+        stopButtonEl.style.display = state === "translating" ? "inline-block" : "none";
+
+        const textWrapper = document.createElement("div");
+        textWrapper.style.display = "flex";
+        textWrapper.style.flexDirection = "column";
+        textWrapper.style.gap = "6px";
+        textWrapper.style.alignItems = "flex-start";
+        textWrapper.appendChild(progressText);
+
+        if (
+            progress &&
+            typeof progress.current === "number" &&
+            typeof progress.total === "number"
+        ) {
+            const progressBar = document.createElement("div");
+            const progressFill = document.createElement("div");
+            const ratio = progress.total > 0 ? progress.current / progress.total : 0;
+            const clamped = Math.max(0, Math.min(1, ratio));
+            progressBar.style.width = "160px";
+            progressBar.style.height = "6px";
+            progressBar.style.backgroundColor = "rgba(255,255,255,0.3)";
+            progressBar.style.borderRadius = "999px";
+            progressBar.style.overflow = "hidden";
+            progressFill.style.width = `${Math.round(clamped * 100)}%`;
+            progressFill.style.height = "100%";
+            progressFill.style.backgroundColor = "rgba(255,255,255,0.9)";
+            progressFill.style.transition = "width 0.2s ease";
+            progressBar.appendChild(progressFill);
+            textWrapper.appendChild(progressBar);
+        }
+
+        loadingIndicator.appendChild(stateIcon);
+        loadingIndicator.appendChild(textWrapper);
+        loadingIndicator.appendChild(stopButtonEl);
+
+        // State-specific styling
+        const stateColors = {
+            preparing: { bg: "rgba(59, 130, 246, 0.9)", icon: "..." },
+            translating: { bg: "rgba(16, 185, 129, 0.9)", icon: "..." },
+            done: { bg: "rgba(34, 197, 94, 0.9)", icon: "check" },
+            stopped: { bg: "rgba(251, 191, 36, 0.9)", icon: "pause" },
+            error: { bg: "rgba(239, 68, 68, 0.9)", icon: "x" },
+        };
+
+        const stateConfig = stateColors[state] || stateColors.translating;
+
+        // Basic Styling
+        loadingIndicator.style.position = "fixed";
+        loadingIndicator.style.bottom = "20px";
+        loadingIndicator.style.left = "20px";
+        loadingIndicator.style.backgroundColor = stateConfig.bg;
+        loadingIndicator.style.color = "white";
+        loadingIndicator.style.padding = "10px 15px";
+        loadingIndicator.style.borderRadius = "8px";
+        loadingIndicator.style.zIndex = "2147483647";
+        loadingIndicator.style.fontSize = "14px";
+        loadingIndicator.style.fontFamily = "system-ui, -apple-system, sans-serif";
+        loadingIndicator.style.display = "flex";
+        loadingIndicator.style.alignItems = "center";
+        loadingIndicator.style.gap = "12px";
+        loadingIndicator.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
+
+        // State icon styling
+        stateIcon.textContent =
+            stateConfig.icon === "..."
+                ? ""
+                : stateConfig.icon === "check"
+                  ? "✓"
+                  : stateConfig.icon === "pause"
+                    ? "⏸"
+                    : "✗";
+        stateIcon.style.fontSize = "16px";
+
+        // Stop button styling
+        stopButtonEl.style.backgroundColor = "rgba(255,255,255,0.2)";
+        stopButtonEl.style.color = "white";
+        stopButtonEl.style.border = "1px solid rgba(255,255,255,0.4)";
+        stopButtonEl.style.padding = "4px 12px";
+        stopButtonEl.style.borderRadius = "4px";
+        stopButtonEl.style.cursor = "pointer";
+        stopButtonEl.style.fontSize = "12px";
+        stopButtonEl.style.fontWeight = "500";
+        stopButtonEl.onmouseover = () => {
+            stopButtonEl.style.backgroundColor = "rgba(255,255,255,0.3)";
+        };
+        stopButtonEl.onmouseout = () => {
+            stopButtonEl.style.backgroundColor = "rgba(255,255,255,0.2)";
+        };
+        stopButtonEl.onclick = stopTranslation;
+
+        document.body.appendChild(loadingIndicator);
     }
 
     /**
@@ -1426,7 +2769,7 @@ if (window.hasRun) {
         // If popup doesn't exist, create it
         if (!existingPopup) {
             console.log("Creating new popup.");
-            removePopup(false);  // Don't reset selectionTranslateInProgress
+            removePopup(false); // Don't reset selectionTranslateInProgress
 
             // Calculate position and width based on selection
             let top = 0;

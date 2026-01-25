@@ -12,11 +12,6 @@
 2. Choose **Translate Page**.
 3. The extension replaces the page text with the translated output.
 
-::: warning
-Full-page translation is experimental. Complex layouts may look off after
-translation. If a page breaks, reload it to restore the original content.
-:::
-
 ## Show the inline Translate button
 
 You can optionally show a small **Translate** button when text is selected.

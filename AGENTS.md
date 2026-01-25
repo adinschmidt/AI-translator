@@ -48,6 +48,9 @@ Manual smoke checks:
 - Context menu → “Translate Selected Text” shows popup + result.
 - Context menu → “Translate Entire Page” shows indicator + applies translation.
 - Options page persists provider settings (`chrome.storage.sync`).
+- Full-page translation on a link-heavy page (e.g., Wikipedia) preserves anchor tags and hrefs.
+- Formatting-heavy page (tables, lists, code blocks) keeps structure and inline styling.
+- Regression: no placeholder artifacts or missing HTML after full-page translation.
 
 Single-test guidance:
 - N/A today.
