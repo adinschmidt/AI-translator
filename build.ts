@@ -62,54 +62,36 @@ async function bundleEntrypoint(
     await writeFile(outfile, bundledContent);
 }
 
-async function buildChrome() {
-    const chromeDir = join(DIST, "chrome");
-    await mkdir(join(chromeDir, "images"), { recursive: true });
+async function buildExtension(
+    target: "chrome" | "firefox",
+    manifestSource: string,
+) {
+    const targetDir = join(DIST, target);
+    await mkdir(join(targetDir, "images"), { recursive: true });
 
-    // Copy manifest
-    await cp(join(ROOT, "manifest.json"), join(chromeDir, "manifest.json"));
+    await cp(join(ROOT, manifestSource), join(targetDir, "manifest.json"));
 
-    // Bundle JavaScript entry points
-    await bundleEntrypoint(ENTRYPOINTS.background, join(chromeDir, "background.js"));
-    await bundleEntrypoint(ENTRYPOINTS.content, join(chromeDir, "content.js"));
-    await bundleEntrypoint(ENTRYPOINTS.options, join(chromeDir, "options.js"));
+    await bundleEntrypoint(ENTRYPOINTS.background, join(targetDir, "background.js"));
+    await bundleEntrypoint(ENTRYPOINTS.content, join(targetDir, "content.js"));
+    await bundleEntrypoint(ENTRYPOINTS.options, join(targetDir, "options.js"));
 
-    // Copy static files
     for (const file of STATIC_FILES) {
-        await cp(join(ROOT, file), join(chromeDir, file));
+        await cp(join(ROOT, file), join(targetDir, file));
     }
 
-    // Copy images
     for (const file of IMAGE_FILES) {
-        await cp(join(ROOT, file), join(chromeDir, file));
+        await cp(join(ROOT, file), join(targetDir, file));
     }
 
-    console.log("Built Chrome extension -> dist/chrome/");
+    console.log(`Built ${target} extension -> dist/${target}/`);
+}
+
+async function buildChrome() {
+    await buildExtension("chrome", "manifest.json");
 }
 
 async function buildFirefox() {
-    const firefoxDir = join(DIST, "firefox");
-    await mkdir(join(firefoxDir, "images"), { recursive: true });
-
-    // Copy Firefox manifest (renamed to manifest.json)
-    await cp(join(ROOT, "manifest.firefox.json"), join(firefoxDir, "manifest.json"));
-
-    // Bundle JavaScript entry points
-    await bundleEntrypoint(ENTRYPOINTS.background, join(firefoxDir, "background.js"));
-    await bundleEntrypoint(ENTRYPOINTS.content, join(firefoxDir, "content.js"));
-    await bundleEntrypoint(ENTRYPOINTS.options, join(firefoxDir, "options.js"));
-
-    // Copy static files
-    for (const file of STATIC_FILES) {
-        await cp(join(ROOT, file), join(firefoxDir, file));
-    }
-
-    // Copy images
-    for (const file of IMAGE_FILES) {
-        await cp(join(ROOT, file), join(firefoxDir, file));
-    }
-
-    console.log("Built Firefox extension -> dist/firefox/");
+    await buildExtension("firefox", "manifest.firefox.json");
 }
 
 async function cleanupTemp() {
