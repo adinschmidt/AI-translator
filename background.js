@@ -242,6 +242,42 @@ const PLACEHOLDER_STRICT_SYSTEM_PROMPT =
     "4. Return ONLY the translated text with all original placeholders intact.\n" +
     "5. No quotes, no markdown, no explanations.";
 
+// --- HTML-Preserving Translation Prompts (v3) ---
+// For direct HTML translation without placeholder conversion
+
+const HTML_PRESERVING_SYSTEM_PROMPT =
+    "You are a professional translator. Translate only the human-readable text content. " +
+    "Preserve all HTML tags exactly (like <a>, <b>, <em>, <strong>, <br>, etc.) and their attributes (especially href, title). " +
+    "Do NOT add, remove, or modify any HTML tags or attributes. " +
+    "Do NOT wrap output in markdown code fences or quotes. " +
+    "Return only the translated HTML snippet.";
+
+const HTML_PRESERVING_STRICT_PROMPT =
+    "You are a professional translator. CRITICAL RULES:\n" +
+    "1. Translate ONLY the human-readable text between HTML tags.\n" +
+    "2. Preserve ALL HTML tags exactly as they appear (a, b, em, strong, br, span, etc.).\n" +
+    "3. Preserve ALL attributes exactly (href, title, lang, dir, etc.).\n" +
+    "4. Do NOT add new tags, remove existing tags, or change tag structure.\n" +
+    "5. Do NOT add markdown formatting, code fences, or quotes around output.\n" +
+    "6. Return ONLY the translated HTML snippet, nothing else.";
+
+// --- Token Budgeting Constants for HTML Batching ---
+
+// Rough estimate: ~4 characters per token for English/HTML
+const CHARS_PER_TOKEN_ESTIMATE = 4;
+
+// Max input tokens budget for a batch (leave room for system prompt overhead)
+const MAX_BATCH_INPUT_TOKENS = 3000;
+
+// Max characters for batch input (derived from token estimate)
+const MAX_BATCH_INPUT_CHARS = MAX_BATCH_INPUT_TOKENS * CHARS_PER_TOKEN_ESTIMATE;
+
+// Output can expand ~2x for some language pairs; cap tokens accordingly
+const MAX_BATCH_OUTPUT_TOKENS = 4096;
+
+// Separator between units in batch - must be unique and easily parseable
+const HTML_UNIT_SEPARATOR = "\n〈UNIT〉\n";
+
 // Max tokens for unit translation (sane cap to avoid truncation)
 const MAX_UNIT_TOKENS = 1024;
 
@@ -626,6 +662,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             })
             .catch((error) => {
                 console.error("translateUnit error:", error);
+                sendResponse({ error: error.message });
+            });
+
+        return true; // Async response
+    }
+
+    // Handle translateHTMLUnits for HTML-preserving full-page translation (v3)
+    if (request.action === "translateHTMLUnits") {
+        console.log("Received translateHTMLUnits request:", {
+            unitCount: request.units?.length,
+        });
+
+        if (
+            !request.units ||
+            !Array.isArray(request.units) ||
+            request.units.length === 0
+        ) {
+            sendResponse({ error: "No units provided" });
+            return;
+        }
+
+        translateHTMLUnits(request.units, request.targetLanguage)
+            .then((results) => {
+                console.log("translateHTMLUnits completed, count:", results.length);
+                sendResponse({ results });
+            })
+            .catch((error) => {
+                console.error("translateHTMLUnits error:", error);
                 sendResponse({ error: error.message });
             });
 
@@ -1034,6 +1098,286 @@ async function translateUnitText(content, targetLanguage = null, isRetry = false
             },
         );
     });
+}
+
+// --- HTML-Preserving Translation with Token Budgeting (v3) ---
+
+/**
+ * Estimate token count for a string using character-based heuristic
+ * @param {string} text
+ * @returns {number} Estimated token count
+ */
+function estimateTokens(text) {
+    if (!text) return 0;
+    return Math.ceil(text.length / CHARS_PER_TOKEN_ESTIMATE);
+}
+
+/**
+ * Batch HTML units together respecting token budget
+ * @param {Array<{id: string|number, html: string}>} units - Units with HTML content
+ * @returns {Array<Array<{id: string|number, html: string}>>} Batched units
+ */
+function batchHTMLUnits(units) {
+    const batches = [];
+    let currentBatch = [];
+    let currentTokens = 0;
+    // Account for separator tokens between units
+    const separatorTokens = estimateTokens(HTML_UNIT_SEPARATOR);
+
+    for (const unit of units) {
+        const unitTokens = estimateTokens(unit.html);
+
+        // If single unit exceeds budget, it goes in its own batch
+        if (unitTokens > MAX_BATCH_INPUT_TOKENS) {
+            // Flush current batch first if not empty
+            if (currentBatch.length > 0) {
+                batches.push(currentBatch);
+                currentBatch = [];
+                currentTokens = 0;
+            }
+            // Single oversized unit as its own batch
+            batches.push([unit]);
+            continue;
+        }
+
+        // Check if adding this unit would exceed budget
+        const additionalTokens =
+            currentBatch.length > 0 ? unitTokens + separatorTokens : unitTokens;
+
+        if (currentTokens + additionalTokens > MAX_BATCH_INPUT_TOKENS) {
+            // Start new batch
+            batches.push(currentBatch);
+            currentBatch = [unit];
+            currentTokens = unitTokens;
+        } else {
+            // Add to current batch
+            currentBatch.push(unit);
+            currentTokens += additionalTokens;
+        }
+    }
+
+    // Don't forget the last batch
+    if (currentBatch.length > 0) {
+        batches.push(currentBatch);
+    }
+
+    return batches;
+}
+
+/**
+ * Translate a batch of HTML units in a single API call
+ * @param {Array<{id: string|number, html: string}>} batch - Batch of units
+ * @param {object} settings - Effective provider settings
+ * @param {boolean} isRetry - Whether this is a retry with stricter prompt
+ * @returns {Promise<Array<{id: string|number, translatedHtml: string}>>}
+ */
+async function translateHTMLBatch(batch, settings, isRetry = false) {
+    const { apiKey, apiEndpoint, apiType, modelName, translationInstructions } = settings;
+
+    // Combine all HTML snippets with separator
+    const combinedInput = batch.map((u) => u.html).join(HTML_UNIT_SEPARATOR);
+
+    const systemPrompt = isRetry
+        ? HTML_PRESERVING_STRICT_PROMPT
+        : HTML_PRESERVING_SYSTEM_PROMPT;
+
+    // Build user prompt
+    let userPrompt;
+    if (batch.length === 1) {
+        userPrompt =
+            `${translationInstructions}\n\n` +
+            `Translate the following HTML snippet. Preserve all HTML tags and attributes exactly.\n\n` +
+            combinedInput;
+    } else {
+        userPrompt =
+            `${translationInstructions}\n\n` +
+            `Translate each of the following ${batch.length} HTML snippets. ` +
+            `They are separated by "${HTML_UNIT_SEPARATOR.trim()}". ` +
+            `Preserve all HTML tags and attributes exactly. ` +
+            `Return the translations separated by the same marker.\n\n` +
+            combinedInput;
+    }
+
+    const model = resolveProviderModel(apiType, apiKey, apiEndpoint, modelName);
+
+    const result = await generateText({
+        model,
+        system: systemPrompt,
+        prompt: userPrompt,
+        maxTokens: MAX_BATCH_OUTPUT_TOKENS,
+    });
+
+    let outputText = result.text || "";
+
+    // Strip think blocks if needed
+    if (shouldStripThinkBlocks(apiType)) {
+        outputText = stripThinkBlocks(outputText);
+    }
+
+    // Parse output back into individual units
+    const outputParts = outputText.split(HTML_UNIT_SEPARATOR.trim());
+
+    // Map back to unit IDs
+    const results = [];
+    for (let i = 0; i < batch.length; i++) {
+        const translatedHtml = outputParts[i]?.trim() || "";
+        results.push({
+            id: batch[i].id,
+            translatedHtml,
+        });
+    }
+
+    return results;
+}
+
+/**
+ * Translate HTML units with automatic batching based on token budget
+ * @param {Array<{id: string|number, html: string}>} units - Units to translate
+ * @param {string|null} targetLanguage - Optional target language override
+ * @returns {Promise<Array<{id: string|number, translatedHtml: string, error?: string}>>}
+ */
+async function translateHTMLUnits(units, targetLanguage = null) {
+    if (!units || units.length === 0) {
+        return [];
+    }
+
+    console.log(`translateHTMLUnits: ${units.length} units`);
+
+    // Get settings (promisified wrapper)
+    const settings = await new Promise((resolve, reject) => {
+        chrome.storage.sync.get(
+            [
+                "apiKey",
+                "apiEndpoint",
+                "apiType",
+                "modelName",
+                "providerSettings",
+                SETTINGS_MODE_KEY,
+                BASIC_TARGET_LANGUAGE_KEY,
+                ADVANCED_TARGET_LANGUAGE_KEY,
+            ],
+            (stored) => {
+                if (chrome.runtime.lastError) {
+                    reject(new Error(chrome.runtime.lastError.message));
+                    return;
+                }
+
+                const {
+                    apiKey,
+                    apiEndpoint,
+                    apiType,
+                    modelName,
+                    providerSettings = {},
+                    [SETTINGS_MODE_KEY]: settingsMode,
+                    [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
+                    [ADVANCED_TARGET_LANGUAGE_KEY]: advancedTargetLanguage,
+                } = stored;
+
+                const mode = settingsMode || SETTINGS_MODE_BASIC;
+
+                let activeProvider =
+                    apiType && PROVIDERS.includes(apiType) ? apiType : "openai";
+                if (
+                    mode === SETTINGS_MODE_BASIC &&
+                    !BASIC_PROVIDERS.includes(activeProvider)
+                ) {
+                    activeProvider = "openai";
+                }
+
+                const perProvider = providerSettings[activeProvider];
+
+                const effective = perProvider
+                    ? {
+                          apiKey: perProvider.apiKey || "",
+                          apiEndpoint:
+                              perProvider.apiEndpoint ||
+                              PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                              "",
+                          modelName:
+                              perProvider.modelName ||
+                              PROVIDER_DEFAULTS[activeProvider]?.modelName ||
+                              "",
+                          translationInstructions:
+                              perProvider.translationInstructions ||
+                              DEFAULT_TRANSLATION_INSTRUCTIONS,
+                          apiType: activeProvider,
+                      }
+                    : {
+                          apiKey: apiKey || "",
+                          apiEndpoint:
+                              apiEndpoint ||
+                              PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                              "",
+                          modelName:
+                              modelName ||
+                              PROVIDER_DEFAULTS[activeProvider]?.modelName ||
+                              "",
+                          translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
+                          apiType: activeProvider,
+                      };
+
+                // In Basic mode, use fixed endpoint/model and auto-generated instructions
+                if (mode === SETTINGS_MODE_BASIC) {
+                    const languageValue =
+                        targetLanguage ||
+                        basicTargetLanguage ||
+                        BASIC_TARGET_LANGUAGE_DEFAULT;
+                    const languageLabel = getBasicTargetLanguageLabel(languageValue);
+                    effective.apiEndpoint =
+                        PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                        effective.apiEndpoint;
+                    effective.modelName = PROVIDER_DEFAULTS[activeProvider]?.modelName;
+                    effective.translationInstructions =
+                        buildBasicTranslationInstructions(languageLabel);
+                }
+
+                if (
+                    !effective.apiEndpoint ||
+                    (!effective.apiKey && effective.apiType !== "ollama")
+                ) {
+                    reject(
+                        new Error(
+                            "API Key or Endpoint not set. Please configure in extension settings.",
+                        ),
+                    );
+                    return;
+                }
+
+                resolve(effective);
+            },
+        );
+    });
+
+    // Batch units by token budget
+    const batches = batchHTMLUnits(units);
+    console.log(`translateHTMLUnits: created ${batches.length} batches`);
+
+    // Process all batches
+    const allResults = [];
+    for (const batch of batches) {
+        try {
+            const batchResults = await translateHTMLBatch(batch, settings, false);
+            allResults.push(...batchResults);
+        } catch (error) {
+            console.error("translateHTMLBatch error:", error);
+            // On error, retry with stricter prompt
+            try {
+                const retryResults = await translateHTMLBatch(batch, settings, true);
+                allResults.push(...retryResults);
+            } catch (retryError) {
+                // Mark all units in this batch as failed
+                for (const unit of batch) {
+                    allResults.push({
+                        id: unit.id,
+                        translatedHtml: "",
+                        error: retryError.message,
+                    });
+                }
+            }
+        }
+    }
+
+    return allResults;
 }
 
 // --- Helper Function to Get Settings and Call API ---
