@@ -2291,6 +2291,10 @@ if (window.hasRun) {
 
         // Unit completion callback - apply translation to DOM
         queue.onUnitComplete = (unit, result) => {
+            // Ignore late results after stop was triggered
+            if (stopTranslationFlag) {
+                return;
+            }
             if (result.success && unit.result) {
                 // Apply the translation
                 const applied = applyTranslationToUnit(
