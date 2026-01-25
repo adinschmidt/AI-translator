@@ -93,6 +93,10 @@ export interface StartElementTranslationMessage extends BaseMessage {
     requestId?: string;
 }
 
+export interface ShowLoadingIndicatorMessage extends BaseMessage {
+    action: "showLoadingIndicator";
+}
+
 export interface CancelTranslationMessage extends BaseMessage {
     action: "cancelTranslation";
     requestId: string;
@@ -135,7 +139,8 @@ export type BackgroundToContentMessage =
     | GetPageTextMessage
     | ApplyFullPageTranslationMessage
     | ExtractSelectedHtmlMessage
-    | StartElementTranslationMessage;
+    | StartElementTranslationMessage
+    | ShowLoadingIndicatorMessage;
 
 export type ContentToBackgroundMessage =
     | CancelTranslationMessage
@@ -172,5 +177,7 @@ export interface HtmlTranslationResultPortMessage {
 export type PortMessage =
     | StartHTMLTranslationPortMessage
     | HtmlTranslationResultPortMessage;
+
+export { HTML_TRANSLATION_PORT_NAME, STREAM_PORT_NAME } from "./constants/settings";
 
 export type PortName = typeof HTML_TRANSLATION_PORT_NAME | typeof STREAM_PORT_NAME;
