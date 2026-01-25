@@ -461,6 +461,105 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true; // Async response
     }
 
+    // Handle translation context request (for cache key generation in content script)
+    if (request.action === "getTranslationContext") {
+        chrome.storage.sync.get(
+            [
+                "apiKey",
+                "apiEndpoint",
+                "apiType",
+                "modelName",
+                "providerSettings",
+                SETTINGS_MODE_KEY,
+                BASIC_TARGET_LANGUAGE_KEY,
+                ADVANCED_TARGET_LANGUAGE_KEY,
+            ],
+            (settings) => {
+                const {
+                    apiKey,
+                    apiEndpoint,
+                    apiType,
+                    modelName,
+                    providerSettings = {},
+                    [SETTINGS_MODE_KEY]: settingsMode,
+                    [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
+                    [ADVANCED_TARGET_LANGUAGE_KEY]: advancedTargetLanguage,
+                } = settings;
+
+                const mode = settingsMode || SETTINGS_MODE_BASIC;
+
+                let activeProvider =
+                    apiType && PROVIDERS.includes(apiType) ? apiType : "openai";
+                if (
+                    mode === SETTINGS_MODE_BASIC &&
+                    !BASIC_PROVIDERS.includes(activeProvider)
+                ) {
+                    activeProvider = "openai";
+                }
+
+                const perProvider = providerSettings[activeProvider];
+
+                const effective = perProvider
+                    ? {
+                          apiEndpoint:
+                              perProvider.apiEndpoint ||
+                              PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                              "",
+                          modelName:
+                              perProvider.modelName ||
+                              PROVIDER_DEFAULTS[activeProvider]?.modelName ||
+                              "",
+                          translationInstructions:
+                              perProvider.translationInstructions ||
+                              DEFAULT_TRANSLATION_INSTRUCTIONS,
+                          apiType: activeProvider,
+                      }
+                    : {
+                          apiEndpoint:
+                              apiEndpoint ||
+                              PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                              "",
+                          modelName:
+                              modelName ||
+                              PROVIDER_DEFAULTS[activeProvider]?.modelName ||
+                              "",
+                          translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
+                          apiType: activeProvider,
+                      };
+
+                // In Basic mode, use fixed endpoint/model and auto-generated instructions
+                if (mode === SETTINGS_MODE_BASIC) {
+                    const languageValue =
+                        basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
+                    const languageLabel = getBasicTargetLanguageLabel(languageValue);
+                    effective.apiEndpoint =
+                        PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
+                        effective.apiEndpoint;
+                    effective.modelName = PROVIDER_DEFAULTS[activeProvider]?.modelName;
+                    effective.translationInstructions =
+                        buildBasicTranslationInstructions(languageLabel);
+                }
+
+                // Determine target language
+                const targetLanguage =
+                    mode === SETTINGS_MODE_BASIC
+                        ? basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT
+                        : advancedTargetLanguage || ADVANCED_TARGET_LANGUAGE_DEFAULT;
+
+                // Return context needed for cache key generation
+                // Note: We don't include apiKey for security reasons
+                sendResponse({
+                    provider: effective.apiType,
+                    endpoint: effective.apiEndpoint,
+                    model: effective.modelName,
+                    targetLanguage,
+                    translationInstructions: effective.translationInstructions,
+                });
+            },
+        );
+        return true; // Async response
+    }
+
     // Handle translation with detected language
     if (request.action === "translateSelectedHtmlWithDetection") {
         if (!sender.tab?.id) {

@@ -652,7 +652,15 @@ if (window.hasRun) {
      * TranslationQueue - manages concurrent translation of units
      */
     class TranslationQueue {
-        constructor() {
+        /**
+         * @param {Object} context - Translation context for cache key generation
+         * @param {string} context.provider - API provider (e.g., "openai", "anthropic")
+         * @param {string} context.endpoint - API endpoint URL
+         * @param {string} context.model - Model name
+         * @param {string} context.targetLanguage - Target language code
+         * @param {string} context.translationInstructions - Translation instructions
+         */
+        constructor(context = {}) {
             this.queue = [];
             this.activeCount = 0;
             this.stopped = false;
@@ -665,17 +673,45 @@ if (window.hasRun) {
             };
             this.onProgress = null; // callback(stats)
             this.onUnitComplete = null; // callback(unit, result)
+
+            // Store translation context for cache key generation
+            this.context = context;
+            // Pre-compute context hash for efficiency
+            this.contextHash = this.hashString(
+                JSON.stringify({
+                    provider: context.provider || "",
+                    endpoint: context.endpoint || "",
+                    model: context.model || "",
+                    targetLanguage: context.targetLanguage || "",
+                    translationInstructions: context.translationInstructions || "",
+                }),
+            );
+        }
+
+        /**
+         * Simple string hash function (djb2 algorithm)
+         * @param {string} str
+         * @returns {string}
+         */
+        hashString(str) {
+            let hash = 5381;
+            for (let i = 0; i < str.length; i++) {
+                hash = (hash * 33) ^ str.charCodeAt(i);
+            }
+            return (hash >>> 0).toString(36);
         }
 
         /**
          * Generate a cache key for a unit
-         * @param {string} serializedText
+         * Cache key includes context (provider/model/endpoint/language/instructions)
+         * and the serialized text with placeholders
+         * @param {string} serializedText - Text with placeholder tokens (⟦P0⟧/⟦/P0⟧)
          * @returns {string}
          */
         getCacheKey(serializedText) {
-            // Simple hash based on content
-            // In production, could include provider/model/instructions
-            return serializedText;
+            // Combine context hash with content hash for a unique cache key
+            const contentHash = this.hashString(serializedText);
+            return `${this.contextHash}:${contentHash}`;
         }
 
         /**
@@ -755,12 +791,18 @@ if (window.hasRun) {
          * @param {Object} unit
          */
         async processUnit(unit) {
-            const cacheKey = this.getCacheKey(unit.serializedText);
+            // Serialize with placeholders first - this is used for both cache key and translation
+            const { text: serializedWithPlaceholders, placeholders } =
+                serializeUnitWithPlaceholders(unit.element);
+
+            // Generate cache key using placeholder-serialized text (not plain textContent)
+            const cacheKey = this.getCacheKey(serializedWithPlaceholders);
 
             // Check cache first
             if (this.cache.has(cacheKey)) {
                 console.log("TranslationQueue: cache hit");
                 unit.result = this.cache.get(cacheKey);
+                unit.placeholders = placeholders;
                 unit.status = "completed";
                 this.stats.completed++;
                 this.stats.cached++;
@@ -770,10 +812,6 @@ if (window.hasRun) {
                 }
                 return;
             }
-
-            // Serialize with placeholders
-            const { text: serializedWithPlaceholders, placeholders } =
-                serializeUnitWithPlaceholders(unit.element);
 
             while (unit.retryCount <= QUEUE_MAX_RETRIES && !this.stopped) {
                 try {
@@ -2193,8 +2231,31 @@ if (window.hasRun) {
 
         console.log(`Found ${units.length} safe translation units`);
 
+        // Fetch translation context for cache key generation
+        const context = await new Promise((resolve) => {
+            chrome.runtime.sendMessage(
+                { action: "getTranslationContext" },
+                (response) => {
+                    if (chrome.runtime.lastError) {
+                        console.warn(
+                            "Failed to get translation context:",
+                            chrome.runtime.lastError,
+                        );
+                        resolve({});
+                    } else {
+                        resolve(response || {});
+                    }
+                },
+            );
+        });
+        console.log("Translation context for cache:", {
+            provider: context.provider,
+            model: context.model,
+            targetLanguage: context.targetLanguage,
+        });
+
         // Phase 2: Translating
-        const queue = new TranslationQueue();
+        const queue = new TranslationQueue(context);
         activeTranslationQueue = queue;
 
         queue.addUnits(units);
