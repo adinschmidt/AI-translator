@@ -93,8 +93,17 @@ export interface StartElementTranslationMessage extends BaseMessage {
     requestId?: string;
 }
 
+export interface ElementTranslationResultMessage extends BaseMessage {
+    action: "elementTranslationResult";
+    originalText?: string;
+    translatedText?: string;
+    elementPath?: string;
+    error?: string;
+}
+
 export interface ShowLoadingIndicatorMessage extends BaseMessage {
     action: "showLoadingIndicator";
+    isFullPage?: boolean;
 }
 
 export interface CancelTranslationMessage extends BaseMessage {
@@ -140,6 +149,7 @@ export type BackgroundToContentMessage =
     | ApplyFullPageTranslationMessage
     | ExtractSelectedHtmlMessage
     | StartElementTranslationMessage
+    | ElementTranslationResultMessage
     | ShowLoadingIndicatorMessage;
 
 export type ContentToBackgroundMessage =
