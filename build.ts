@@ -4,13 +4,13 @@ import { join } from "path";
 
 const ROOT = import.meta.dir;
 const DIST = join(ROOT, "dist");
-const SRC = ROOT;
+const SRC_EXTENSION = join(ROOT, "src", "extension");
 
 // Entry points to bundle
 const ENTRYPOINTS = {
-    background: join(SRC, "background.js"),
-    content: join(SRC, "content.js"),
-    options: join(SRC, "options.js"),
+    background: join(SRC_EXTENSION, "background.ts"),
+    content: join(SRC_EXTENSION, "content.ts"),
+    options: join(SRC_EXTENSION, "options.ts"),
 };
 
 // Static files to copy (not bundled)
