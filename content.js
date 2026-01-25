@@ -157,6 +157,20 @@ if (window.hasRun) {
     }
 
     /**
+     * Split text into fixed-size character slices (last resort for oversized words)
+     * @param {string} text
+     * @param {number} maxChars
+     * @returns {string[]}
+     */
+    function splitByCharacters(text, maxChars) {
+        const chunks = [];
+        for (let i = 0; i < text.length; i += maxChars) {
+            chunks.push(text.slice(i, i + maxChars));
+        }
+        return chunks;
+    }
+
+    /**
      * Split text by word boundaries when sentence splitting fails
      * @param {string} text
      * @param {number} maxChars
@@ -168,8 +182,16 @@ if (window.hasRun) {
         let currentChunk = "";
 
         for (const word of words) {
-            if (word.length > maxChars) {
-                // Single word is too long - just add it as its own chunk
+            if (word.length > HARD_MAX_UNIT_CHARS) {
+                // Single word exceeds hard max - must split by characters
+                if (currentChunk.length > 0) {
+                    chunks.push(currentChunk.trim());
+                    currentChunk = "";
+                }
+                const charChunks = splitByCharacters(word, HARD_MAX_UNIT_CHARS);
+                chunks.push(...charChunks);
+            } else if (word.length > maxChars) {
+                // Single word exceeds soft max but fits in hard max - add as its own chunk
                 if (currentChunk.length > 0) {
                     chunks.push(currentChunk.trim());
                     currentChunk = "";
