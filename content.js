@@ -663,6 +663,92 @@ if (window.hasRun) {
         return units;
     }
 
+    /**
+     * DOMPurify configuration for HTML-preserving translation (v3)
+     * Uses the same allowed tags/attrs as extractUnitHTML for round-trip consistency
+     */
+    const HTML_UNIT_DOMPURIFY_CONFIG = {
+        ALLOWED_TAGS: Array.from(HTML_UNIT_ALLOWED_TAGS).map((t) => t.toUpperCase()),
+        ALLOWED_ATTR: Array.from(HTML_UNIT_ALLOWED_ATTRS),
+        ALLOW_DATA_ATTR: false,
+        FORCE_BODY: false,
+        RETURN_DOM_FRAGMENT: false,
+        SAFE_FOR_TEMPLATES: false,
+    };
+
+    /**
+     * Sanitize translated HTML using DOMPurify
+     * Preserves allowed inline tags and attributes while stripping dangerous content
+     * @param {string} html - The translated HTML to sanitize
+     * @returns {string} Sanitized HTML string
+     */
+    function sanitizeTranslatedHTML(html) {
+        if (!html || typeof html !== "string") {
+            return "";
+        }
+
+        if (typeof DOMPurify === "undefined") {
+            console.warn("sanitizeTranslatedHTML: DOMPurify not available, stripping all HTML");
+            // Fallback: strip all HTML tags
+            const temp = document.createElement("div");
+            temp.innerHTML = html;
+            return temp.textContent || "";
+        }
+
+        const sanitized = DOMPurify.sanitize(html, HTML_UNIT_DOMPURIFY_CONFIG);
+        return sanitized;
+    }
+
+    /**
+     * Apply sanitized translated HTML to a DOM element
+     * Replaces the element's content with the translated HTML while preserving href
+     * @param {Element} element - The original DOM element to update
+     * @param {string} translatedHtml - The translated HTML (will be sanitized)
+     * @returns {boolean} True if successfully applied
+     */
+    function applyTranslatedHTML(element, translatedHtml) {
+        if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+            console.warn("applyTranslatedHTML: invalid element");
+            return false;
+        }
+
+        if (!translatedHtml || typeof translatedHtml !== "string") {
+            console.warn("applyTranslatedHTML: empty or invalid translatedHtml");
+            return false;
+        }
+
+        try {
+            // Sanitize the translated HTML
+            const sanitized = sanitizeTranslatedHTML(translatedHtml);
+
+            if (!sanitized || sanitized.trim().length === 0) {
+                console.warn("applyTranslatedHTML: sanitization produced empty result");
+                return false;
+            }
+
+            // Parse the sanitized HTML into a document fragment
+            const temp = document.createElement("template");
+            temp.innerHTML = sanitized;
+            const fragment = temp.content;
+
+            // Clear the element and append the new content
+            while (element.firstChild) {
+                element.removeChild(element.firstChild);
+            }
+
+            // Clone the fragment content into the element
+            element.appendChild(fragment.cloneNode(true));
+
+            console.log(
+                `applyTranslatedHTML: applied ${sanitized.length} chars to ${element.tagName}`,
+            );
+            return true;
+        } catch (error) {
+            console.error("applyTranslatedHTML error:", error);
+            return false;
+        }
+    }
+
     // --- Placeholder Serialization (v2) ---
     // Uses paired markers like ⟦P0⟧ and ⟦/P0⟧ to mark inline element boundaries
 
@@ -2965,6 +3051,132 @@ if (window.hasRun) {
         }
 
         activeTranslationQueue = null;
+    }
+
+    // --- Full-Page Translation V3 (HTML-preserving, no placeholders) ---
+
+    /**
+     * Translate page using v3 HTML-preserving approach
+     * Collects HTML units, sends to background for batch translation, applies results
+     */
+    async function translatePageV3() {
+        console.log("Starting translatePageV3 (HTML-preserving)...");
+
+        // Reset translation state
+        stopTranslationFlag = false;
+
+        // Phase 1: Collect HTML units
+        displayLoadingIndicatorV2("Preparing...", "preparing");
+        const units = collectHTMLTranslationUnits();
+
+        if (units.length === 0) {
+            console.log("No HTML translation units found");
+            displayLoadingIndicatorV2("No translatable content found", "done");
+            setTimeout(() => removeLoadingIndicator(), 2000);
+            return;
+        }
+
+        console.log(`Found ${units.length} HTML translation units`);
+
+        // Build unit array for background script with IDs
+        const unitsForTranslation = units.map((unit, index) => ({
+            id: index,
+            html: unit.html,
+        }));
+
+        // Phase 2: Send to background for translation
+        displayLoadingIndicatorV2(`Translating ${units.length} units...`, "translating");
+
+        try {
+            const results = await new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage(
+                    {
+                        action: "translateHTMLUnits",
+                        units: unitsForTranslation,
+                        targetLanguage: null, // Use default from settings
+                    },
+                    (response) => {
+                        if (chrome.runtime.lastError) {
+                            reject(new Error(chrome.runtime.lastError.message));
+                            return;
+                        }
+                        if (response?.error) {
+                            reject(new Error(response.error));
+                            return;
+                        }
+                        resolve(response?.results || []);
+                    },
+                );
+            });
+
+            console.log(`translatePageV3: received ${results.length} translation results`);
+
+            // Phase 3: Apply translations
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const result of results) {
+                if (stopTranslationFlag) {
+                    console.log("translatePageV3: stopped by user");
+                    break;
+                }
+
+                const unit = units[result.id];
+                if (!unit) {
+                    console.warn(`translatePageV3: no unit found for id ${result.id}`);
+                    errorCount++;
+                    continue;
+                }
+
+                if (result.error) {
+                    console.warn(`translatePageV3: unit ${result.id} error:`, result.error);
+                    markElementTranslationError(unit.element, new Error(result.error));
+                    errorCount++;
+                    continue;
+                }
+
+                if (!result.translatedHtml) {
+                    console.warn(`translatePageV3: unit ${result.id} has no translatedHtml`);
+                    errorCount++;
+                    continue;
+                }
+
+                // Apply the translated HTML
+                const applied = applyTranslatedHTML(unit.element, result.translatedHtml);
+                if (applied) {
+                    successCount++;
+                } else {
+                    // Fallback to plain text if HTML application fails
+                    const plainText = result.translatedHtml.replace(/<[^>]*>/g, "");
+                    if (plainText.trim()) {
+                        unit.element.textContent = plainText.trim();
+                        successCount++;
+                    } else {
+                        errorCount++;
+                    }
+                }
+
+                // Update progress
+                displayLoadingIndicatorV2(
+                    `Applied ${successCount}/${results.length}${errorCount > 0 ? ` (${errorCount} errors)` : ""}`,
+                    "translating",
+                );
+            }
+
+            // Phase 4: Done
+            const summary =
+                errorCount > 0
+                    ? `Done. ${successCount} translated, ${errorCount} errors`
+                    : `Done. ${successCount} translated`;
+            displayLoadingIndicatorV2(summary, "done");
+
+            isTranslated = true;
+            setTimeout(() => removeLoadingIndicator(), 3000);
+        } catch (error) {
+            console.error("translatePageV3 error:", error);
+            displayLoadingIndicatorV2(`Error: ${error.message}`, "error");
+            setTimeout(() => removeLoadingIndicator(), 5000);
+        }
     }
 
     /**
