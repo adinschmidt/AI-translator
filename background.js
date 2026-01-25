@@ -165,15 +165,15 @@ const PROVIDER_DEFAULTS = {
     },
     google: {
         apiEndpoint: "https://generativelanguage.googleapis.com/v1beta",
-        modelName: "gemini-3-flash-preview",
+        modelName: "gemini-flash-lite-latest",
     },
     groq: {
         apiEndpoint: "https://api.groq.com/openai/v1/chat/completions",
-        modelName: "qwen/qwen3-32b",
+        modelName: "kimi-k2-instruct",
     },
     grok: {
         apiEndpoint: "https://api.x.ai/v1/chat/completions",
-        modelName: "grok-3-mini",
+        modelName: "grok-4-1-fast-non-reasoning",
     },
     openrouter: {
         apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
@@ -728,8 +728,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                             PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
                             effective.apiEndpoint;
                         effective.modelName =
-                            PROVIDER_DEFAULTS[activeProvider]?.modelName ||
-                            effective.modelName;
+                            PROVIDER_DEFAULTS[activeProvider]?.modelName;
                         effective.translationInstructions =
                             buildBasicTranslationInstructions(languageLabel);
                     }
@@ -914,8 +913,7 @@ async function translateElementText(textToTranslate, elementPath, tabId) {
                         PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
                         effective.apiEndpoint;
                     effective.modelName =
-                        PROVIDER_DEFAULTS[activeProvider]?.modelName ||
-                        effective.modelName;
+                        PROVIDER_DEFAULTS[activeProvider]?.modelName;
                     effective.translationInstructions =
                         buildBasicTranslationInstructions(languageLabel);
                 }
@@ -1039,7 +1037,7 @@ function getSettingsAndTranslate(textToTranslate, tabId, isFullPage, requestId =
                     PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
                     effective.apiEndpoint;
                 effective.modelName =
-                    PROVIDER_DEFAULTS[activeProvider]?.modelName || effective.modelName;
+                    PROVIDER_DEFAULTS[activeProvider]?.modelName;
                 effective.translationInstructions =
                     buildBasicTranslationInstructions(languageLabel);
             }
@@ -1243,7 +1241,7 @@ function getSettingsAndTranslateWithDetection(
                     PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
                     effective.apiEndpoint;
                 effective.modelName =
-                    PROVIDER_DEFAULTS[activeProvider]?.modelName || effective.modelName;
+                    PROVIDER_DEFAULTS[activeProvider]?.modelName;
                 // Use detected language in the prompt
                 finalInstructions = buildTranslationInstructionsWithDetection(
                     detectedLanguageName,
