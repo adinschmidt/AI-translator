@@ -94,6 +94,50 @@ if (window.hasRun) {
     const MAX_UNIT_CHARS = 800; // Preferred max size for a single translation unit
     const HARD_MAX_UNIT_CHARS = 2000; // Never exceed this (will force split)
 
+    // HTML unit size constraints (for v3 HTML-preserving translation)
+    // Matches background.js: MAX_BATCH_INPUT_TOKENS (3000) * CHARS_PER_TOKEN_ESTIMATE (4)
+    const MAX_HTML_UNIT_CHARS = 12000;
+    const CHARS_PER_TOKEN_ESTIMATE = 4;
+
+    /**
+     * Tags allowed in extracted HTML for translation
+     * Preserves inline formatting while stripping layout wrappers
+     */
+    const HTML_UNIT_ALLOWED_TAGS = new Set([
+        "a",
+        "abbr",
+        "b",
+        "bdi",
+        "bdo",
+        "br",
+        "cite",
+        "code",
+        "del",
+        "dfn",
+        "em",
+        "i",
+        "ins",
+        "kbd",
+        "mark",
+        "q",
+        "s",
+        "samp",
+        "small",
+        "span",
+        "strong",
+        "sub",
+        "sup",
+        "time",
+        "u",
+        "var",
+        "wbr",
+    ]);
+
+    /**
+     * Attributes to preserve on allowed tags
+     */
+    const HTML_UNIT_ALLOWED_ATTRS = new Set(["href", "title", "lang", "dir", "datetime", "cite"]);
+
     /**
      * Split text into sentences using common sentence-ending punctuation
      * @param {string} text
@@ -219,6 +263,212 @@ if (window.hasRun) {
      */
     function unitNeedsSplitting(text) {
         return text.length > MAX_UNIT_CHARS;
+    }
+
+    /**
+     * Check if an HTML unit needs splitting based on token budget
+     * @param {string} html
+     * @returns {boolean}
+     */
+    function htmlUnitNeedsSplitting(html) {
+        return html.length > MAX_HTML_UNIT_CHARS;
+    }
+
+    /**
+     * Estimate token count for HTML content (matches background.js)
+     * @param {string} html
+     * @returns {number}
+     */
+    function estimateHTMLTokens(html) {
+        if (!html) return 0;
+        return Math.ceil(html.length / CHARS_PER_TOKEN_ESTIMATE);
+    }
+
+    /**
+     * Get simplified HTML for a single DOM node (for splitting purposes)
+     * @param {Node} node
+     * @returns {string}
+     */
+    function getNodeSimplifiedHTML(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+            return node.textContent || "";
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            return "";
+        }
+
+        const el = node;
+        const tagName = el.tagName.toLowerCase();
+
+        // Skip non-translatable tags
+        if (SKIP_TAGS.has(el.tagName)) {
+            return "";
+        }
+
+        // Process children
+        let childContent = "";
+        for (const child of el.childNodes) {
+            childContent += getNodeSimplifiedHTML(child);
+        }
+
+        // If tag is in allowed set, preserve it
+        if (HTML_UNIT_ALLOWED_TAGS.has(tagName)) {
+            const attrs = [];
+            for (const attr of el.attributes) {
+                if (HTML_UNIT_ALLOWED_ATTRS.has(attr.name)) {
+                    if (attr.name === "href") {
+                        const sanitized = sanitizeUnitHref(attr.value);
+                        if (sanitized) {
+                            attrs.push(`href="${escapeHtmlAttr(sanitized)}"`);
+                        }
+                    } else {
+                        attrs.push(`${attr.name}="${escapeHtmlAttr(attr.value)}"`);
+                    }
+                }
+            }
+
+            if (tagName === "br" || tagName === "wbr") {
+                return `<${tagName}${attrs.length ? " " + attrs.join(" ") : ""}>`;
+            }
+
+            const attrStr = attrs.length ? " " + attrs.join(" ") : "";
+            return `<${tagName}${attrStr}>${childContent}</${tagName}>`;
+        }
+
+        return childContent;
+    }
+
+    /**
+     * Split an oversized text node into chunks at sentence/word boundaries
+     * @param {string} text
+     * @param {number} maxChars
+     * @returns {string[]}
+     */
+    function splitTextNodeContent(text, maxChars) {
+        if (text.length <= maxChars) {
+            return [text];
+        }
+
+        const chunks = [];
+        const sentences = splitIntoSentences(text);
+
+        if (sentences.length > 1) {
+            let currentChunk = "";
+            for (const sentence of sentences) {
+                if (sentence.length > maxChars) {
+                    if (currentChunk.length > 0) {
+                        chunks.push(currentChunk);
+                        currentChunk = "";
+                    }
+                    const wordChunks = splitByWords(sentence, maxChars);
+                    chunks.push(...wordChunks);
+                } else if (currentChunk.length + sentence.length + 1 <= maxChars) {
+                    currentChunk += (currentChunk.length > 0 ? " " : "") + sentence;
+                } else {
+                    if (currentChunk.length > 0) {
+                        chunks.push(currentChunk);
+                    }
+                    currentChunk = sentence;
+                }
+            }
+            if (currentChunk.length > 0) {
+                chunks.push(currentChunk);
+            }
+            return chunks;
+        }
+
+        return splitByWords(text, maxChars);
+    }
+
+    /**
+     * Split an oversized HTML unit into chunks based on DOM structure
+     * Groups child nodes to respect token budget, splitting text nodes if needed
+     * @param {Element} element - The DOM element to split
+     * @param {number} maxChars - Max characters per chunk
+     * @returns {Array<{html: string, nodeIndices: number[]}>} Array of chunks with node tracking
+     */
+    function splitHTMLUnitByChildNodes(element, maxChars = MAX_HTML_UNIT_CHARS) {
+        const childNodes = Array.from(element.childNodes);
+
+        if (childNodes.length === 0) {
+            return [{ html: element.textContent || "", nodeIndices: [] }];
+        }
+
+        const chunks = [];
+        let currentChunk = { parts: [], nodeIndices: [], length: 0 };
+
+        for (let i = 0; i < childNodes.length; i++) {
+            const child = childNodes[i];
+            const childHTML = getNodeSimplifiedHTML(child);
+            const childLength = childHTML.length;
+
+            // Skip empty nodes
+            if (childLength === 0 && child.nodeType !== Node.ELEMENT_NODE) {
+                continue;
+            }
+
+            // If single child exceeds budget
+            if (childLength > maxChars) {
+                // Flush current chunk first
+                if (currentChunk.parts.length > 0) {
+                    chunks.push({
+                        html: currentChunk.parts.join(""),
+                        nodeIndices: currentChunk.nodeIndices,
+                    });
+                    currentChunk = { parts: [], nodeIndices: [], length: 0 };
+                }
+
+                // If it's a text node, split it
+                if (child.nodeType === Node.TEXT_NODE) {
+                    const textChunks = splitTextNodeContent(child.textContent || "", maxChars);
+                    for (const textChunk of textChunks) {
+                        chunks.push({
+                            html: textChunk,
+                            nodeIndices: [i],
+                        });
+                    }
+                } else {
+                    // Element node - try to split its children recursively
+                    const subChunks = splitHTMLUnitByChildNodes(child, maxChars);
+                    for (const subChunk of subChunks) {
+                        chunks.push({
+                            html: subChunk.html,
+                            nodeIndices: [i],
+                        });
+                    }
+                }
+                continue;
+            }
+
+            // Check if adding this child would exceed budget
+            if (currentChunk.length + childLength > maxChars && currentChunk.parts.length > 0) {
+                // Flush current chunk
+                chunks.push({
+                    html: currentChunk.parts.join(""),
+                    nodeIndices: currentChunk.nodeIndices,
+                });
+                currentChunk = { parts: [], nodeIndices: [], length: 0 };
+            }
+
+            // Add to current chunk
+            currentChunk.parts.push(childHTML);
+            currentChunk.nodeIndices.push(i);
+            currentChunk.length += childLength;
+        }
+
+        // Don't forget the last chunk
+        if (currentChunk.parts.length > 0) {
+            chunks.push({
+                html: currentChunk.parts.join(""),
+                nodeIndices: currentChunk.nodeIndices,
+            });
+        }
+
+        // Normalize whitespace in each chunk
+        return chunks.map((chunk) => ({
+            html: chunk.html.replace(/\s+/g, " ").trim(),
+            nodeIndices: chunk.nodeIndices,
+        }));
     }
 
     /**
@@ -431,45 +681,6 @@ if (window.hasRun) {
     // Collects DOM units and extracts their HTML for direct HTML translation
 
     /**
-     * Tags allowed in extracted HTML for translation
-     * Preserves inline formatting while stripping layout wrappers
-     */
-    const HTML_UNIT_ALLOWED_TAGS = new Set([
-        "a",
-        "abbr",
-        "b",
-        "bdi",
-        "bdo",
-        "br",
-        "cite",
-        "code",
-        "del",
-        "dfn",
-        "em",
-        "i",
-        "ins",
-        "kbd",
-        "mark",
-        "q",
-        "s",
-        "samp",
-        "small",
-        "span",
-        "strong",
-        "sub",
-        "sup",
-        "time",
-        "u",
-        "var",
-        "wbr",
-    ]);
-
-    /**
-     * Attributes to preserve on allowed tags
-     */
-    const HTML_UNIT_ALLOWED_ATTRS = new Set(["href", "title", "lang", "dir", "datetime", "cite"]);
-
-    /**
      * Extract simplified HTML from a translation unit element
      * Preserves inline formatting and links while stripping layout/style elements
      * @param {Element} element - The element to extract HTML from
@@ -602,7 +813,8 @@ if (window.hasRun) {
 
     /**
      * Collect translation units with their extracted HTML for HTML-preserving translation
-     * @returns {Array<{element: Element, html: string}>}
+     * Oversized units are split into chunks based on DOM structure
+     * @returns {Array<{element: Element, html: string, chunkIndex?: number, totalChunks?: number}>}
      */
     function collectHTMLTranslationUnits() {
         const units = [];
@@ -640,10 +852,28 @@ if (window.hasRun) {
 
                 // Only include units with actual content
                 if (html.length > 0) {
-                    units.push({
-                        element: root,
-                        html: html,
-                    });
+                    // Check if unit needs splitting
+                    if (htmlUnitNeedsSplitting(html)) {
+                        const chunks = splitHTMLUnitByChildNodes(root, MAX_HTML_UNIT_CHARS);
+                        console.log(
+                            `HTML unit split into ${chunks.length} chunks (original: ${html.length} chars)`,
+                        );
+                        for (let i = 0; i < chunks.length; i++) {
+                            if (chunks[i].html.length > 0) {
+                                units.push({
+                                    element: root,
+                                    html: chunks[i].html,
+                                    chunkIndex: i,
+                                    totalChunks: chunks.length,
+                                });
+                            }
+                        }
+                    } else {
+                        units.push({
+                            element: root,
+                            html: html,
+                        });
+                    }
                 }
 
                 // Don't traverse children - we've captured this unit
@@ -3112,44 +3342,81 @@ if (window.hasRun) {
             console.log(`translatePageV3: received ${results.length} translation results`);
 
             // Phase 3: Apply translations
-            let successCount = 0;
-            let errorCount = 0;
+            // Group results by element to handle chunked units
+            const elementChunks = new Map(); // element -> { chunks: [], totalChunks: number }
 
             for (const result of results) {
+                const unit = units[result.id];
+                if (!unit) {
+                    console.warn(`translatePageV3: no unit found for id ${result.id}`);
+                    continue;
+                }
+
+                if (!elementChunks.has(unit.element)) {
+                    elementChunks.set(unit.element, {
+                        chunks: [],
+                        totalChunks: unit.totalChunks || 1,
+                    });
+                }
+
+                const entry = elementChunks.get(unit.element);
+                entry.chunks.push({
+                    chunkIndex: unit.chunkIndex ?? 0,
+                    translatedHtml: result.translatedHtml,
+                    error: result.error,
+                });
+            }
+
+            let successCount = 0;
+            let errorCount = 0;
+            let processedElements = 0;
+
+            for (const [element, data] of elementChunks) {
                 if (stopTranslationFlag) {
                     console.log("translatePageV3: stopped by user");
                     break;
                 }
 
-                const unit = units[result.id];
-                if (!unit) {
-                    console.warn(`translatePageV3: no unit found for id ${result.id}`);
+                processedElements++;
+
+                // Sort chunks by index
+                data.chunks.sort((a, b) => a.chunkIndex - b.chunkIndex);
+
+                // Check if any chunk has an error
+                const errorChunk = data.chunks.find((c) => c.error);
+                if (errorChunk) {
+                    console.warn(`translatePageV3: element has chunk error:`, errorChunk.error);
+                    markElementTranslationError(element, new Error(errorChunk.error));
                     errorCount++;
                     continue;
                 }
 
-                if (result.error) {
-                    console.warn(`translatePageV3: unit ${result.id} error:`, result.error);
-                    markElementTranslationError(unit.element, new Error(result.error));
+                // Check if we have all chunks
+                const missingChunk = data.chunks.find((c) => !c.translatedHtml);
+                if (missingChunk !== undefined) {
+                    console.warn(`translatePageV3: element has missing chunk translation`);
                     errorCount++;
                     continue;
                 }
 
-                if (!result.translatedHtml) {
-                    console.warn(`translatePageV3: unit ${result.id} has no translatedHtml`);
+                // Concatenate chunks (with space separator to preserve word boundaries)
+                const combinedHtml = data.chunks.map((c) => c.translatedHtml).join(" ");
+
+                if (!combinedHtml.trim()) {
+                    console.warn(`translatePageV3: element has empty combined translation`);
                     errorCount++;
                     continue;
                 }
 
-                // Apply the translated HTML
-                const applied = applyTranslatedHTML(unit.element, result.translatedHtml);
+                // Apply the combined translated HTML
+                const applied = applyTranslatedHTML(element, combinedHtml);
                 if (applied) {
                     successCount++;
                 } else {
                     // Fallback to plain text if HTML application fails
-                    const plainText = result.translatedHtml.replace(/<[^>]*>/g, "");
+                    const plainText = combinedHtml.replace(/<[^>]*>/g, "");
                     if (plainText.trim()) {
-                        unit.element.textContent = plainText.trim();
+                        element.textContent = plainText.trim();
                         successCount++;
                     } else {
                         errorCount++;
@@ -3158,7 +3425,7 @@ if (window.hasRun) {
 
                 // Update progress
                 displayLoadingIndicatorV2(
-                    `Applied ${successCount}/${results.length}${errorCount > 0 ? ` (${errorCount} errors)` : ""}`,
+                    `Applied ${processedElements}/${elementChunks.size}${errorCount > 0 ? ` (${errorCount} errors)` : ""}`,
                     "translating",
                 );
             }
