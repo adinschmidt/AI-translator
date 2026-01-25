@@ -227,23 +227,8 @@ const INSTRUCT_SYSTEM_PROMPT =
     "You are a professional translator. Output only the translated text with no " +
     "explanations, reasoning, or additional commentary.";
 
-// Placeholder-safe system prompt for unit translation (v2)
-const PLACEHOLDER_SAFE_SYSTEM_PROMPT =
-    "You are a professional translator. Translate only the human-language text. " +
-    "Leave all placeholder tokens (like ⟦P0⟧, ⟦/P0⟧, ⟦P1⟧, etc.) exactly unchanged. " +
-    "Return only the translated text with placeholders preserved. " +
-    "Do not add quotes, markdown fences, explanations, or any formatting.";
-
-const PLACEHOLDER_STRICT_SYSTEM_PROMPT =
-    "You are a professional translator. CRITICAL RULES:\n" +
-    "1. Translate ONLY the human-language text between placeholders.\n" +
-    "2. Do NOT modify, remove, or reorder any placeholder tokens (⟦P0⟧, ⟦/P0⟧, etc.).\n" +
-    "3. Do NOT add any text besides the translation.\n" +
-    "4. Return ONLY the translated text with all original placeholders intact.\n" +
-    "5. No quotes, no markdown, no explanations.";
-
-// --- HTML-Preserving Translation Prompts (v3) ---
-// For direct HTML translation without placeholder conversion
+// --- HTML-Preserving Translation Prompts ---
+// For direct HTML translation
 
 const HTML_PRESERVING_SYSTEM_PROMPT =
     "You are a professional translator. Translate only the human-readable text content. " +
@@ -638,37 +623,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return;
     }
 
-    // Handle translateUnit for placeholder-based full-page translation (v2)
-    if (request.action === "translateUnit") {
-        console.log("Received translateUnit request:", {
-            contentLength: request.content?.length,
-            isPlaceholderFormat: request.meta?.isPlaceholderFormat,
-            isRetry: request.meta?.isRetry,
-        });
-
-        if (!request.content) {
-            sendResponse({ error: "No content provided" });
-            return;
-        }
-
-        translateUnitText(
-            request.content,
-            request.targetLanguage,
-            request.meta?.isRetry || false,
-        )
-            .then((translatedText) => {
-                console.log("translateUnit completed, length:", translatedText.length);
-                sendResponse({ translatedText });
-            })
-            .catch((error) => {
-                console.error("translateUnit error:", error);
-                sendResponse({ error: error.message });
-            });
-
-        return true; // Async response
-    }
-
-    // Handle translateHTMLUnits for HTML-preserving full-page translation (v3)
+    // Handle translateHTMLUnits for HTML-preserving full-page translation
     if (request.action === "translateHTMLUnits") {
         console.log("Received translateHTMLUnits request:", {
             unitCount: request.units?.length,
@@ -804,12 +759,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             }
         });
     }
-    // Handle Full Page Translation (Manual Trigger) - V2: delegate to content script
+    // Handle Full Page Translation (Manual Trigger) - delegate to content script
     else if (info.menuItemId === "translateFullPage") {
-        console.log("Action: Translate Full Page V2 requested for tab:", tabId);
+        console.log("Action: Translate Full Page requested for tab:", tabId);
 
-        // Simply tell the content script to start the v2 translation flow
-        // The content script will handle collecting units, queueing, and applying translations
+        // Tell the content script to start the HTML-preserving translation flow
+        // The content script will handle collecting units, batching, and applying translations
         chrome.tabs.sendMessage(
             tabId,
             { action: "startElementTranslation" },
@@ -821,7 +776,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                     );
                     return;
                 }
-                console.log("Full page translation v2 started:", response);
+                console.log("Full page translation started:", response);
             },
         );
     }
@@ -951,156 +906,7 @@ async function translateElementText(textToTranslate, elementPath, tabId) {
     });
 }
 
-// --- Helper Function to Translate Unit Text with Placeholder-Safe Prompting (v2) ---
-async function translateUnitText(content, targetLanguage = null, isRetry = false) {
-    console.log(`translateUnitText (length: ${content.length}, isRetry: ${isRetry})`);
-
-    return new Promise((resolve, reject) => {
-        chrome.storage.sync.get(
-            [
-                "apiKey",
-                "apiEndpoint",
-                "apiType",
-                "modelName",
-                "providerSettings",
-                SETTINGS_MODE_KEY,
-                BASIC_TARGET_LANGUAGE_KEY,
-                ADVANCED_TARGET_LANGUAGE_KEY,
-            ],
-            async (settings) => {
-                const {
-                    apiKey,
-                    apiEndpoint,
-                    apiType,
-                    modelName,
-                    providerSettings = {},
-                    [SETTINGS_MODE_KEY]: settingsMode,
-                    [BASIC_TARGET_LANGUAGE_KEY]: basicTargetLanguage,
-                    [ADVANCED_TARGET_LANGUAGE_KEY]: advancedTargetLanguage,
-                } = settings;
-
-                const mode = settingsMode || SETTINGS_MODE_BASIC;
-
-                let activeProvider =
-                    apiType && PROVIDERS.includes(apiType) ? apiType : "openai";
-                if (
-                    mode === SETTINGS_MODE_BASIC &&
-                    !BASIC_PROVIDERS.includes(activeProvider)
-                ) {
-                    activeProvider = "openai";
-                }
-
-                const perProvider = providerSettings[activeProvider];
-
-                const effective = perProvider
-                    ? {
-                          apiKey: perProvider.apiKey || "",
-                          apiEndpoint:
-                              perProvider.apiEndpoint ||
-                              PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
-                              "",
-                          modelName:
-                              perProvider.modelName ||
-                              PROVIDER_DEFAULTS[activeProvider]?.modelName ||
-                              "",
-                          translationInstructions:
-                              perProvider.translationInstructions ||
-                              DEFAULT_TRANSLATION_INSTRUCTIONS,
-                          apiType: activeProvider,
-                      }
-                    : {
-                          apiKey: apiKey || "",
-                          apiEndpoint:
-                              apiEndpoint ||
-                              PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
-                              "",
-                          modelName:
-                              modelName ||
-                              PROVIDER_DEFAULTS[activeProvider]?.modelName ||
-                              "",
-                          translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
-                          apiType: activeProvider,
-                      };
-
-                // In Basic mode, use fixed endpoint/model and auto-generated instructions
-                if (mode === SETTINGS_MODE_BASIC) {
-                    const languageValue =
-                        basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
-                    const languageLabel = getBasicTargetLanguageLabel(languageValue);
-                    effective.apiEndpoint =
-                        PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
-                        effective.apiEndpoint;
-                    effective.modelName = PROVIDER_DEFAULTS[activeProvider]?.modelName;
-                    effective.translationInstructions =
-                        buildBasicTranslationInstructions(languageLabel);
-                }
-
-                const {
-                    apiKey: finalKey,
-                    apiEndpoint: finalEndpoint,
-                    apiType: finalType,
-                    modelName: finalModel,
-                    translationInstructions: finalInstructions,
-                } = effective;
-
-                if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
-                    reject(
-                        new Error(
-                            "API Key or Endpoint not set. Please configure in extension settings.",
-                        ),
-                    );
-                    return;
-                }
-
-                // Determine target language label (for fallback if instructions don't specify)
-                const languageValue =
-                    targetLanguage ||
-                    (mode === SETTINGS_MODE_BASIC
-                        ? basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT
-                        : advancedTargetLanguage || ADVANCED_TARGET_LANGUAGE_DEFAULT);
-                const languageLabel = getBasicTargetLanguageLabel(languageValue);
-
-                // Build system prompt - use stricter version on retry
-                const systemPrompt = isRetry
-                    ? PLACEHOLDER_STRICT_SYSTEM_PROMPT
-                    : PLACEHOLDER_SAFE_SYSTEM_PROMPT;
-
-                // Build user prompt with translation instructions and placeholder-preservation requirement
-                const userPrompt = `${finalInstructions}\n\nPreserve all placeholder tokens (like ⟦P0⟧, ⟦/P0⟧, ⟦P1⟧) exactly as they appear.\n\nText to translate:\n${content}`;
-
-                try {
-                    const model = resolveProviderModel(
-                        finalType,
-                        finalKey,
-                        finalEndpoint,
-                        finalModel,
-                    );
-
-                    const result = await generateText({
-                        model,
-                        system: systemPrompt,
-                        prompt: userPrompt,
-                        maxTokens: MAX_UNIT_TOKENS,
-                    });
-
-                    let translatedText = result.text || "";
-
-                    // Strip think blocks if needed
-                    if (shouldStripThinkBlocks(finalType)) {
-                        translatedText = stripThinkBlocks(translatedText);
-                    }
-
-                    resolve(translatedText.trim());
-                } catch (error) {
-                    console.error("translateUnitText API error:", error);
-                    reject(error);
-                }
-            },
-        );
-    });
-}
-
-// --- HTML-Preserving Translation with Token Budgeting (v3) ---
+// --- HTML-Preserving Translation with Token Budgeting ---
 
 /**
  * Estimate token count for a string using character-based heuristic
