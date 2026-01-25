@@ -15,15 +15,19 @@ const ENTRYPOINTS = {
 
 // Static files to copy (not bundled)
 const STATIC_FILES = [
-    "eld-bundle.js",
-    "purify.min.js",
-    "styles.css",
-    "options.html",
-    "options.css",
-    "tailwindcss.min.js",
+    "assets/eld-bundle.js",
+    "assets/purify.min.js",
+    "assets/styles.css",
+    "assets/options.html",
+    "assets/options.css",
+    "assets/tailwindcss.min.js",
 ];
 
-const IMAGE_FILES = ["images/icon16.png", "images/icon48.png", "images/icon128.png"];
+const IMAGE_FILES = [
+    "assets/images/icon16.png",
+    "assets/images/icon48.png",
+    "assets/images/icon128.png",
+];
 
 async function clean() {
     if (existsSync(DIST)) {
@@ -76,11 +80,13 @@ async function buildExtension(
     await bundleEntrypoint(ENTRYPOINTS.options, join(targetDir, "options.js"));
 
     for (const file of STATIC_FILES) {
-        await cp(join(ROOT, file), join(targetDir, file));
+        const destPath = file.replace("assets/", "");
+        await cp(join(ROOT, file), join(targetDir, destPath));
     }
 
     for (const file of IMAGE_FILES) {
-        await cp(join(ROOT, file), join(targetDir, file));
+        const destPath = file.replace("assets/", "");
+        await cp(join(ROOT, file), join(targetDir, destPath));
     }
 
     console.log(`Built ${target} extension -> dist/${target}/`);
