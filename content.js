@@ -427,6 +427,242 @@ if (window.hasRun) {
         return units;
     }
 
+    // --- HTML-Preserving Unit Selection (v3) ---
+    // Collects DOM units and extracts their HTML for direct HTML translation
+
+    /**
+     * Tags allowed in extracted HTML for translation
+     * Preserves inline formatting while stripping layout wrappers
+     */
+    const HTML_UNIT_ALLOWED_TAGS = new Set([
+        "a",
+        "abbr",
+        "b",
+        "bdi",
+        "bdo",
+        "br",
+        "cite",
+        "code",
+        "del",
+        "dfn",
+        "em",
+        "i",
+        "ins",
+        "kbd",
+        "mark",
+        "q",
+        "s",
+        "samp",
+        "small",
+        "span",
+        "strong",
+        "sub",
+        "sup",
+        "time",
+        "u",
+        "var",
+        "wbr",
+    ]);
+
+    /**
+     * Attributes to preserve on allowed tags
+     */
+    const HTML_UNIT_ALLOWED_ATTRS = new Set(["href", "title", "lang", "dir", "datetime", "cite"]);
+
+    /**
+     * Extract simplified HTML from a translation unit element
+     * Preserves inline formatting and links while stripping layout/style elements
+     * @param {Element} element - The element to extract HTML from
+     * @returns {string} Simplified HTML string
+     */
+    function extractUnitHTML(element) {
+        if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+            return "";
+        }
+
+        // Clone to avoid modifying original
+        const clone = element.cloneNode(true);
+
+        /**
+         * Process node recursively - simplify and clean HTML
+         * @param {Node} node
+         * @returns {string}
+         */
+        function processNode(node) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                return node.textContent || "";
+            }
+
+            if (node.nodeType !== Node.ELEMENT_NODE) {
+                return "";
+            }
+
+            const el = node;
+            const tagName = el.tagName.toLowerCase();
+
+            // Skip script, style, and other non-translatable tags
+            if (SKIP_TAGS.has(el.tagName)) {
+                return "";
+            }
+
+            // Process children first
+            let childContent = "";
+            for (const child of el.childNodes) {
+                childContent += processNode(child);
+            }
+
+            // If tag is allowed, preserve it with allowed attributes only
+            if (HTML_UNIT_ALLOWED_TAGS.has(tagName)) {
+                const attrs = [];
+                for (const attr of el.attributes) {
+                    if (HTML_UNIT_ALLOWED_ATTRS.has(attr.name)) {
+                        // Sanitize href values
+                        if (attr.name === "href") {
+                            const sanitized = sanitizeUnitHref(attr.value);
+                            if (sanitized) {
+                                attrs.push(`href="${escapeHtmlAttr(sanitized)}"`);
+                            }
+                        } else {
+                            attrs.push(`${attr.name}="${escapeHtmlAttr(attr.value)}"`);
+                        }
+                    }
+                }
+
+                // Self-closing tags
+                if (tagName === "br" || tagName === "wbr") {
+                    return `<${tagName}${attrs.length ? " " + attrs.join(" ") : ""}>`;
+                }
+
+                // Regular tags with content
+                const attrStr = attrs.length ? " " + attrs.join(" ") : "";
+                return `<${tagName}${attrStr}>${childContent}</${tagName}>`;
+            }
+
+            // Otherwise, unwrap - just return child content
+            return childContent;
+        }
+
+        // Process all children and combine
+        let result = "";
+        for (const child of clone.childNodes) {
+            result += processNode(child);
+        }
+
+        // Normalize whitespace: collapse multiple spaces/newlines
+        result = result.replace(/\s+/g, " ").trim();
+
+        return result;
+    }
+
+    /**
+     * Sanitize href value for HTML unit extraction
+     * @param {string} href
+     * @returns {string|null}
+     */
+    function sanitizeUnitHref(href) {
+        if (!href || typeof href !== "string") {
+            return null;
+        }
+
+        const trimmed = href.trim();
+        if (trimmed === "") {
+            return null;
+        }
+
+        // Allow http, https, mailto, and relative URLs
+        const ALLOWED_SCHEMES = ["http:", "https:", "mailto:"];
+
+        try {
+            const url = new URL(trimmed, window.location.href);
+            if (ALLOWED_SCHEMES.some((scheme) => url.protocol === scheme)) {
+                return trimmed;
+            }
+            return null;
+        } catch {
+            // Relative URLs or malformed - allow if no dangerous scheme
+            if (!trimmed.includes(":") || trimmed.startsWith("/")) {
+                return trimmed;
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Escape HTML attribute value
+     * @param {string} value
+     * @returns {string}
+     */
+    function escapeHtmlAttr(value) {
+        return value
+            .replace(/&/g, "&amp;")
+            .replace(/"/g, "&quot;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+    }
+
+    /**
+     * Collect translation units with their extracted HTML for HTML-preserving translation
+     * @returns {Array<{element: Element, html: string}>}
+     */
+    function collectHTMLTranslationUnits() {
+        const units = [];
+        const seenElements = new WeakSet();
+
+        /**
+         * Recursively traverse the DOM and collect units
+         * @param {Element} root
+         */
+        function traverse(root) {
+            if (!root || root.nodeType !== Node.ELEMENT_NODE) {
+                return;
+            }
+
+            // Skip if in skip tags
+            if (SKIP_TAGS.has(root.tagName)) {
+                return;
+            }
+
+            // Skip hidden elements
+            if (isHiddenElement(root)) {
+                return;
+            }
+
+            // Skip extension UI
+            if (isExtensionUI(root)) {
+                return;
+            }
+
+            // Check if this element is a safe translation unit
+            if (isSafeTranslationUnit(root) && !seenElements.has(root)) {
+                seenElements.add(root);
+
+                const html = extractUnitHTML(root);
+
+                // Only include units with actual content
+                if (html.length > 0) {
+                    units.push({
+                        element: root,
+                        html: html,
+                    });
+                }
+
+                // Don't traverse children - we've captured this unit
+                return;
+            }
+
+            // Otherwise, traverse children
+            for (const child of root.children) {
+                traverse(child);
+            }
+        }
+
+        // Start traversal from body
+        traverse(document.body);
+
+        console.log(`collectHTMLTranslationUnits: found ${units.length} units`);
+        return units;
+    }
+
     // --- Placeholder Serialization (v2) ---
     // Uses paired markers like ⟦P0⟧ and ⟦/P0⟧ to mark inline element boundaries
 
