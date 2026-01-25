@@ -194,6 +194,32 @@
                         </select>
                     </div>
 
+                    <!-- Groq-specific settings -->
+                    <div id="groq-settings" class="mb-4 hidden">
+                        <label
+                            for="groq-model-select"
+                            class="block text-sm font-medium text-gray-700 mb-1"
+                            >Model Name:</label
+                        >
+                        <select
+                            id="groq-model-select"
+                            name="groq-model-select"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                        >
+                            <option value="llama-3.3-70b-versatile">llama-3.3-70b-versatile</option>
+                            <option value="llama-3.1-8b-instant">llama-3.1-8b-instant</option>
+                            <option value="meta-llama/llama-4-maverick-17b-128e-instruct">llama-4-maverick-17b-128e-instruct</option>
+                            <option value="meta-llama/llama-4-scout-17b-16e-instruct">llama-4-scout-17b-16e-instruct</option>
+                            <option value="moonshotai/kimi-k2-instruct">kimi-k2-instruct</option>
+                            <option value="qwen/qwen3-32b">qwen3-32b</option>
+                            <option value="openai/gpt-oss-120b">gpt-oss-120b</option>
+                            <option value="openai/gpt-oss-20b">gpt-oss-20b</option>
+                            <option value="groq/compound">compound</option>
+                            <option value="groq/compound-mini">compound-mini</option>
+                            <option value="allam-2-7b">allam-2-7b</option>
+                        </select>
+                    </div>
+
                     <div class="mb-4">
                         <label
                             for="api-key"

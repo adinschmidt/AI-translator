@@ -34,6 +34,10 @@ const modelNameContainer = document.getElementById("model-name")?.closest(".mb-4
 const cerebrasSettingsDiv = document.getElementById("cerebras-settings");
 const cerebrasModelSelect = document.getElementById("cerebras-model-select");
 
+// Groq-specific elements
+const groqSettingsDiv = document.getElementById("groq-settings");
+const groqModelSelect = document.getElementById("groq-model-select");
+
 // Settings mode keys
 const SETTINGS_MODE_KEY = "settingsMode";
 const BASIC_TARGET_LANGUAGE_KEY = "basicTargetLanguage";
@@ -83,7 +87,7 @@ const PROVIDER_DEFAULTS = {
     },
     groq: {
         apiEndpoint: "https://api.groq.com/openai/v1/chat/completions",
-        modelName: "qwen/qwen3-32b",
+        modelName: "llama-3.3-70b-versatile",
     },
     grok: {
         apiEndpoint: "https://api.x.ai/v1/chat/completions",
@@ -190,6 +194,7 @@ function populateOllamaModelDropdown(models, selectedModel = "") {
 function updateProviderUI(provider) {
     const isOllama = provider === "ollama";
     const isCerebras = provider === "cerebras";
+    const isGroq = provider === "groq";
 
     // Show/hide Ollama-specific settings
     if (ollamaSettingsDiv) {
@@ -201,12 +206,17 @@ function updateProviderUI(provider) {
         cerebrasSettingsDiv.classList.toggle("hidden", !isCerebras);
     }
 
-    // Show/hide standard model name input (hide for Ollama/Cerebras since we use dropdown)
+    // Show/hide Groq-specific settings
+    if (groqSettingsDiv) {
+        groqSettingsDiv.classList.toggle("hidden", !isGroq);
+    }
+
+    // Show/hide standard model name input (hide for Ollama/Cerebras/Groq since we use dropdown)
     // Also hide in Basic mode, since model is fixed.
     if (modelNameContainer) {
         modelNameContainer.classList.toggle(
             "hidden",
-            isOllama || isCerebras || settingsMode === SETTINGS_MODE_BASIC,
+            isOllama || isCerebras || isGroq || settingsMode === SETTINGS_MODE_BASIC,
         );
     }
 
@@ -237,6 +247,12 @@ function updateProviderUI(provider) {
     if (isCerebras && cerebrasModelSelect) {
         const settings = providerSettings["cerebras"] || resolveProviderDefaults("cerebras");
         cerebrasModelSelect.value = settings.modelName || PROVIDER_DEFAULTS.cerebras.modelName;
+    }
+
+    // If switching to Groq, set the dropdown to the current model
+    if (isGroq && groqModelSelect) {
+        const settings = providerSettings["groq"] || resolveProviderDefaults("groq");
+        groqModelSelect.value = settings.modelName || PROVIDER_DEFAULTS.groq.modelName;
     }
 }
 
@@ -935,8 +951,26 @@ document.addEventListener("DOMContentLoaded", () => {
                 autoSaveSetting();
             }
         });
-        console.log("options.js: Change event listener added to Cerebras model select."
-        );
+        console.log("options.js: Change event listener added to Cerebras model select.");
+    }
+
+    // Groq-specific event listeners
+    if (groqModelSelect) {
+        groqModelSelect.addEventListener("change", (event) => {
+            const selectedModel = event.target.value;
+            console.log("options.js: Groq model selected:", selectedModel);
+
+            if (selectedModel) {
+                if (!providerSettings["groq"]) {
+                    providerSettings["groq"] = resolveProviderDefaults("groq");
+                }
+                providerSettings["groq"].modelName = selectedModel;
+                // Also update the hidden modelNameInput so saving works correctly
+                modelNameInput.value = selectedModel;
+                autoSaveSetting();
+            }
+        });
+        console.log("options.js: Change event listener added to Groq model select.");
     }
 });
 
