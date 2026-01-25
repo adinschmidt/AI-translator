@@ -820,25 +820,44 @@ if (window.hasRun) {
                         unit.retryCount > 0, // isRetry
                     );
 
-                    // Validate placeholders
+                    // Validate placeholders and check for truncation
                     const validation = validatePlaceholders(
                         serializedWithPlaceholders,
                         result,
                     );
+                    const truncated = isOutputTruncated(
+                        serializedWithPlaceholders,
+                        result,
+                    );
 
-                    if (!validation.valid) {
+                    if (!validation.valid || truncated) {
                         console.warn(
-                            "TranslationQueue: placeholder validation failed",
-                            validation,
+                            "TranslationQueue: output invalid or truncated",
+                            { validation, truncated },
                         );
                         if (unit.retryCount < QUEUE_MAX_RETRIES) {
                             unit.retryCount++;
                             continue; // Retry with stricter prompt
                         }
-                        // Final attempt failed - use result anyway or fallback
+                        // Final attempt still invalid/truncated - trigger fallback
+                        unit.result = result;
+                        unit.placeholders = placeholders;
+                        unit.status = "failed";
+                        this.stats.failed++;
+                        this.notifyProgress();
+                        if (this.onUnitComplete) {
+                            this.onUnitComplete(unit, {
+                                success: false,
+                                validationFailed: true,
+                                error: truncated
+                                    ? "Output truncated"
+                                    : "Placeholder validation failed",
+                            });
+                        }
+                        return;
                     }
 
-                    // Success
+                    // Success - valid output
                     unit.result = result;
                     unit.placeholders = placeholders;
                     unit.status = "completed";
@@ -2283,8 +2302,12 @@ if (window.hasRun) {
                     // Fallback to plain text
                     applyPlainTextFallback(unit.element, unit.result);
                 }
+            } else if (!result.success && result.validationFailed && unit.result) {
+                // Validation/truncation failed - apply plain text fallback
+                console.warn("Applying plain text fallback due to validation failure");
+                applyPlainTextFallback(unit.element, unit.result);
             } else if (!result.success) {
-                // Mark error on element
+                // Complete failure - mark error on element
                 markElementTranslationError(
                     unit.element,
                     new Error(result.error || "Translation failed"),
