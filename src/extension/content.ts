@@ -58,6 +58,7 @@ if ((window as any).hasRun) {
 
     const BLOCK_LEVEL_TAGS = new Set([
         "P",
+        "DIV",
         "H1",
         "H2",
         "H3",
@@ -369,6 +370,433 @@ if ((window as any).hasRun) {
         }));
     }
 
+    // ========================================================================
+    // Region-Based Translation: Interfaces and Types
+    // ========================================================================
+
+    /**
+     * Represents a contiguous sequence of child nodes within a unit element
+     * that contain translatable text content.
+     */
+    interface Region {
+        startIndex: number; // childNodes index of first node
+        endIndex: number; // childNodes index of last node (inclusive)
+        nodes: Node[]; // actual Node references for serialization
+    }
+
+    /**
+     * A translation unit for a single region within a unit element.
+     * Multiple RegionTranslationUnits may exist for one parent element.
+     */
+    interface RegionTranslationUnit {
+        parentElement: Element; // The unit element containing this region
+        regionId: string; // UUID for marker identification
+        html: string; // Serialized simplified HTML
+        chunkIndex?: number; // For chunked regions
+        totalChunks?: number; // For chunked regions
+    }
+
+    type NodeClassification = "TRANSLATABLE" | "BOUNDARY" | "SKIP";
+
+    // ========================================================================
+    // Region-Based Translation: Helper Functions
+    // ========================================================================
+
+    /**
+     * Checks if HTML contains meaningful (non-whitespace) text content.
+     * Used to filter out regions that contain only whitespace.
+     */
+    function hasNonWhitespaceText(html: string): boolean {
+        const textOnly = html.replace(/<[^>]*>/g, "");
+        return textOnly.trim().length > 0;
+    }
+
+    /**
+     * Classifies a node for region discovery:
+     * - TRANSLATABLE: Node should be part of a translatable region
+     * - BOUNDARY: Node ends the current region and is preserved in place
+     * - SKIP: Node is ignored entirely (doesn't affect region boundaries)
+     */
+    function classifyNode(node: Node): NodeClassification {
+        // Comment nodes are skipped entirely
+        if (node.nodeType === Node.COMMENT_NODE) {
+            return "SKIP";
+        }
+
+        // Text nodes are always translatable
+        if (node.nodeType === Node.TEXT_NODE) {
+            return "TRANSLATABLE";
+        }
+
+        // Element nodes
+        if (node.nodeType === Node.ELEMENT_NODE) {
+            const el = node as Element;
+            const tag = el.tagName.toUpperCase();
+
+            // BR and WBR are always boundaries
+            if (tag === "BR" || tag === "WBR") {
+                return "BOUNDARY";
+            }
+
+            // Check if element has text content via simplified HTML
+            const simplifiedHTML = getNodeSimplifiedHTML(node);
+            if (simplifiedHTML.trim().length === 0) {
+                // No text content (image-only, icon-only, etc.) -> boundary
+                return "BOUNDARY";
+            }
+
+            return "TRANSLATABLE";
+        }
+
+        // Other node types (processing instructions, etc.) are skipped
+        return "SKIP";
+    }
+
+    /**
+     * Serializes a sequence of nodes into simplified HTML string.
+     * Reuses existing allowlist rules from getNodeSimplifiedHTML.
+     */
+    function serializeRegionNodes(nodes: Node[]): string {
+        let html = "";
+        for (const node of nodes) {
+            html += getNodeSimplifiedHTML(node);
+        }
+        return html.replace(/\s+/g, " ").trim();
+    }
+
+    /**
+     * Identifies translatable regions within a unit element by walking its
+     * direct childNodes and grouping contiguous translatable nodes.
+     *
+     * @param unitEl The unit element to scan for regions
+     * @returns Array of Region objects, each representing a contiguous
+     *          sequence of translatable nodes
+     */
+    function identifyRegions(unitEl: Element): Region[] {
+        const regions: Region[] = [];
+        let currentRegion: { startIndex: number; nodes: Node[] } | null = null;
+        const children = Array.from(unitEl.childNodes);
+
+        for (let i = 0; i < children.length; i++) {
+            const child = children[i];
+            const classification = classifyNode(child);
+
+            if (classification === "TRANSLATABLE") {
+                if (!currentRegion) {
+                    currentRegion = { startIndex: i, nodes: [] };
+                }
+                currentRegion.nodes.push(child);
+            } else if (classification === "BOUNDARY") {
+                // Finalize current region if it has meaningful text
+                if (currentRegion && currentRegion.nodes.length > 0) {
+                    const html = serializeRegionNodes(currentRegion.nodes);
+                    if (hasNonWhitespaceText(html)) {
+                        regions.push({
+                            startIndex: currentRegion.startIndex,
+                            endIndex: i - 1,
+                            nodes: currentRegion.nodes,
+                        });
+                    }
+                }
+                currentRegion = null;
+                // BOUNDARY node is preserved (not part of any region)
+            }
+            // SKIP nodes are ignored (don't affect region boundaries)
+        }
+
+        // Finalize last region
+        if (currentRegion && currentRegion.nodes.length > 0) {
+            const html = serializeRegionNodes(currentRegion.nodes);
+            if (hasNonWhitespaceText(html)) {
+                regions.push({
+                    startIndex: currentRegion.startIndex,
+                    endIndex: children.length - 1,
+                    nodes: currentRegion.nodes,
+                });
+            }
+        }
+
+        return regions;
+    }
+
+    /**
+     * Generates a UUID v4 for region identification.
+     * Falls back to a random string if crypto.randomUUID is not available.
+     */
+    function generateRegionId(): string {
+        if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+            return crypto.randomUUID();
+        }
+        // Fallback for environments without crypto.randomUUID
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0;
+            const v = c === "x" ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+        });
+    }
+
+    /**
+     * Inserts marker comments before and after a region's nodes.
+     * These markers are used later to identify which nodes to replace
+     * when applying the translated content.
+     *
+     * @param unitEl The parent element containing the region
+     * @param region The region to mark
+     * @returns The generated region ID (UUID)
+     */
+    function insertRegionMarkers(unitEl: Element, region: Region): string {
+        const regionId = generateRegionId();
+        const startMarker = document.createComment(`TR_REGION_START_${regionId}`);
+        const endMarker = document.createComment(`TR_REGION_END_${regionId}`);
+
+        // Insert start marker before first region node
+        const firstNode = region.nodes[0];
+        unitEl.insertBefore(startMarker, firstNode);
+
+        // Insert end marker after last region node
+        const lastNode = region.nodes[region.nodes.length - 1];
+        if (lastNode.nextSibling) {
+            unitEl.insertBefore(endMarker, lastNode.nextSibling);
+        } else {
+            unitEl.appendChild(endMarker);
+        }
+
+        return regionId;
+    }
+
+    /**
+     * Splits a region into chunks if its serialized HTML exceeds MAX_HTML_UNIT_CHARS.
+     * Reuses the existing chunking logic adapted for region nodes.
+     *
+     * @param region The region to potentially split
+     * @param maxChars Maximum characters per chunk (defaults to MAX_HTML_UNIT_CHARS)
+     * @returns Array of chunks, each with HTML and node indices
+     */
+    function splitRegionByNodes(region: Region, maxChars: number = MAX_HTML_UNIT_CHARS): Chunk[] {
+        const nodes = region.nodes;
+        const chunks: Chunk[] = [];
+        let currentChunk: { parts: string[]; nodeIndices: number[]; length: number } = {
+            parts: [],
+            nodeIndices: [],
+            length: 0,
+        };
+
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i];
+            const nodeHTML = getNodeSimplifiedHTML(node);
+            const nodeLength = nodeHTML.length;
+
+            if (nodeLength === 0) continue;
+
+            // Handle oversized single nodes
+            if (nodeLength > maxChars) {
+                if (currentChunk.parts.length > 0) {
+                    chunks.push({
+                        html: currentChunk.parts.join(""),
+                        nodeIndices: currentChunk.nodeIndices,
+                    });
+                    currentChunk = { parts: [], nodeIndices: [], length: 0 };
+                }
+
+                if (node.nodeType === Node.TEXT_NODE) {
+                    const textChunks = splitTextNodeContent(node.textContent || "", maxChars);
+                    for (const textChunk of textChunks) {
+                        chunks.push({ html: textChunk, nodeIndices: [i] });
+                    }
+                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    const subChunks = splitHTMLUnitByChildNodes(node as Element, maxChars);
+                    for (const subChunk of subChunks) {
+                        chunks.push({ html: subChunk.html, nodeIndices: [i] });
+                    }
+                }
+                continue;
+            }
+
+            // Start new chunk if current would exceed limit
+            if (currentChunk.length + nodeLength > maxChars && currentChunk.parts.length > 0) {
+                chunks.push({
+                    html: currentChunk.parts.join(""),
+                    nodeIndices: currentChunk.nodeIndices,
+                });
+                currentChunk = { parts: [], nodeIndices: [], length: 0 };
+            }
+
+            currentChunk.parts.push(nodeHTML);
+            currentChunk.nodeIndices.push(i);
+            currentChunk.length += nodeLength;
+        }
+
+        // Push final chunk
+        if (currentChunk.parts.length > 0) {
+            chunks.push({
+                html: currentChunk.parts.join(""),
+                nodeIndices: currentChunk.nodeIndices,
+            });
+        }
+
+        return chunks.map((c) => ({
+            html: c.html.replace(/\s+/g, " ").trim(),
+            nodeIndices: c.nodeIndices,
+        }));
+    }
+
+    /**
+     * Collects region-based translation units from a single unit element.
+     * For each region found, inserts markers and generates translation unit(s).
+     * Handles chunking for large regions.
+     *
+     * @param unitEl The unit element to process
+     * @returns Array of RegionTranslationUnits for all regions in the element
+     */
+    function collectRegionUnitsFromElement(unitEl: Element): RegionTranslationUnit[] {
+        const units: RegionTranslationUnit[] = [];
+        const regions = identifyRegions(unitEl);
+
+        for (const region of regions) {
+            const regionId = insertRegionMarkers(unitEl, region);
+            const html = serializeRegionNodes(region.nodes);
+
+            if (html.length === 0) {
+                continue;
+            }
+
+            if (html.length > MAX_HTML_UNIT_CHARS) {
+                const chunks = splitRegionByNodes(region, MAX_HTML_UNIT_CHARS);
+                for (let i = 0; i < chunks.length; i++) {
+                    if (chunks[i].html.length > 0) {
+                        units.push({
+                            parentElement: unitEl,
+                            regionId: regionId,
+                            html: chunks[i].html,
+                            chunkIndex: i,
+                            totalChunks: chunks.length,
+                        });
+                    }
+                }
+            } else {
+                units.push({
+                    parentElement: unitEl,
+                    regionId: regionId,
+                    html: html,
+                });
+            }
+        }
+
+        return units;
+    }
+
+    // ========================================================================
+    // Region-Based Translation: Surgical DOM Apply Functions
+    // ========================================================================
+
+    /**
+     * Finds a marker comment with the specified text within a parent element.
+     * Searches only direct children of the parent element.
+     *
+     * @param parent The element to search within
+     * @param markerText The exact text content to match
+     * @returns The Comment node if found, null otherwise
+     */
+    function findMarkerComment(parent: Element, markerText: string): Comment | null {
+        for (const child of Array.from(parent.childNodes)) {
+            if (child.nodeType === Node.COMMENT_NODE && child.textContent === markerText) {
+                return child as Comment;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Applies a translated result to a specific region by replacing only the
+     * nodes between the region's start and end markers.
+     *
+     * This is the key function for preserving non-text nodes (images, icons, etc.)
+     * during translation. Instead of replacing all children of a unit element,
+     * it surgically replaces only the marked region.
+     *
+     * @param parentElement The element containing the region markers
+     * @param regionId The UUID identifying the region
+     * @param translatedHtml The translated HTML to insert
+     * @returns true if successful, false if markers not found or other error
+     */
+    function applyRegionTranslation(
+        parentElement: Element,
+        regionId: string,
+        translatedHtml: string
+    ): boolean {
+        // 1. Find markers
+        const startMarker = findMarkerComment(parentElement, `TR_REGION_START_${regionId}`);
+        const endMarker = findMarkerComment(parentElement, `TR_REGION_END_${regionId}`);
+
+        if (!startMarker || !endMarker) {
+            console.warn(`applyRegionTranslation: markers not found for region ${regionId}`);
+            return false; // Skip this region, don't modify DOM
+        }
+
+        // 2. Sanitize translated HTML
+        const sanitized = sanitizeTranslatedHTML(translatedHtml);
+        if (!sanitized || sanitized.trim().length === 0) {
+            console.warn(`applyRegionTranslation: empty sanitized result for region ${regionId}`);
+            // Decision: skip entirely to preserve original content
+            return false;
+        }
+
+        try {
+            // 3. Parse translated HTML into fragment
+            const temp = document.createElement("template");
+            temp.innerHTML = sanitized;
+            const fragment = temp.content;
+
+            // 4. Remove nodes between markers (exclusive of markers)
+            let current = startMarker.nextSibling;
+            while (current && current !== endMarker) {
+                const next = current.nextSibling;
+                parentElement.removeChild(current);
+                current = next;
+            }
+
+            // 5. Insert translated content before end marker
+            parentElement.insertBefore(fragment.cloneNode(true), endMarker);
+
+            // 6. Remove markers
+            parentElement.removeChild(startMarker);
+            parentElement.removeChild(endMarker);
+
+            console.log(
+                `applyRegionTranslation: applied ${sanitized.length} chars to region ${regionId} in ${parentElement.tagName}`
+            );
+            return true;
+        } catch (error) {
+            console.error(`applyRegionTranslation error for region ${regionId}:`, error);
+            return false;
+        }
+    }
+
+    /**
+     * Cleans up any orphaned region markers from a unit element.
+     * This should be called after translation is complete to remove markers
+     * from failed regions that were not applied.
+     *
+     * @param unitEl The unit element to clean up
+     */
+    function cleanupOrphanedMarkers(unitEl: Element): void {
+        const markers: Comment[] = [];
+        for (const child of Array.from(unitEl.childNodes)) {
+            if (child.nodeType === Node.COMMENT_NODE) {
+                const text = child.textContent || "";
+                if (text.startsWith("TR_REGION_START_") || text.startsWith("TR_REGION_END_")) {
+                    markers.push(child as Comment);
+                }
+            }
+        }
+        for (const marker of markers) {
+            unitEl.removeChild(marker);
+        }
+        if (markers.length > 0) {
+            console.log(`cleanupOrphanedMarkers: removed ${markers.length} orphaned markers from ${unitEl.tagName}`);
+        }
+    }
+
     function isHiddenElement(el: Element): boolean {
         if (!el || el.nodeType !== Node.ELEMENT_NODE) {
             return false;
@@ -551,6 +979,14 @@ if ((window as any).hasRun) {
         totalChunks?: number;
     }
 
+    // Minimal unit type for translation requests (element not needed for background)
+    interface TranslationRequestUnit {
+        id?: number;
+        html: string;
+        chunkIndex?: number;
+        totalChunks?: number;
+    }
+
     function collectHTMLTranslationUnits(): HTMLTranslationUnit[] {
         const units: HTMLTranslationUnit[] = [];
         const seenElements = new WeakSet<Element>();
@@ -610,6 +1046,60 @@ if ((window as any).hasRun) {
         traverse(document.body);
 
         console.log(`collectHTMLTranslationUnits: found ${units.length} units`);
+        return units;
+    }
+
+    /**
+     * Collects region-based translation units from all safe unit elements on the page.
+     * This is the region-based alternative to collectHTMLTranslationUnits.
+     *
+     * For each "safe" unit element, identifies translatable regions (contiguous text runs)
+     * and generates translation units per region. Non-text nodes (images, icons) are
+     * excluded and will be preserved during apply.
+     *
+     * @returns Array of RegionTranslationUnits for all regions across all unit elements
+     */
+    function collectRegionTranslationUnits(): RegionTranslationUnit[] {
+        const units: RegionTranslationUnit[] = [];
+        const seenElements = new WeakSet<Element>();
+
+        function traverse(root: Element): void {
+            if (!root || root.nodeType !== Node.ELEMENT_NODE) {
+                return;
+            }
+
+            if (SKIP_TAGS.has(root.tagName)) {
+                return;
+            }
+
+            if (isHiddenElement(root)) {
+                return;
+            }
+
+            if (isExtensionUI(root)) {
+                return;
+            }
+
+            if (isSafeTranslationUnit(root) && !seenElements.has(root)) {
+                seenElements.add(root);
+
+                // Use region-based collection instead of whole-element extraction
+                const regionUnits = collectRegionUnitsFromElement(root);
+                for (const regionUnit of regionUnits) {
+                    units.push(regionUnit);
+                }
+
+                return;
+            }
+
+            for (const child of Array.from(root.children)) {
+                traverse(child);
+            }
+        }
+
+        traverse(document.body);
+
+        console.log(`collectRegionTranslationUnits: found ${units.length} region units`);
         return units;
     }
 
@@ -984,7 +1474,7 @@ if ((window as any).hasRun) {
     }
 
     function startHtmlTranslation(
-        units: HTMLTranslationUnit[],
+        units: TranslationRequestUnit[],
         targetLanguage: string | null = null,
         onUpdate: ((results: HtmlTranslationResultItem[], batchInfo: HtmlTranslationOnUpdateMeta | null) => void) | null = null,
     ): Promise<HtmlTranslationResultItem[]> {
@@ -1774,22 +2264,24 @@ if ((window as any).hasRun) {
     }
 
     async function translatePageV3(): Promise<void> {
-        console.log("Starting translatePageV3 (HTML-preserving)...");
+        console.log("Starting translatePageV3 (region-based HTML-preserving)...");
 
         stopTranslationFlag = false;
 
         displayLoadingIndicatorState("Preparing...", "preparing");
-        const units = collectHTMLTranslationUnits();
+
+        // Use region-based collection to preserve images/non-text nodes
+        const units = collectRegionTranslationUnits();
         const totalChunks = units.length;
 
         if (units.length === 0) {
-            console.log("No HTML translation units found");
+            console.log("No region translation units found");
             displayLoadingIndicatorState("No translatable content found", "done");
             setTimeout(() => removeLoadingIndicator(), 60000);
             return;
         }
 
-        console.log(`Found ${units.length} HTML translation units`);
+        console.log(`Found ${units.length} region translation units`);
 
         const unitsForTranslation = units.map((unit, index) => ({
             id: index,
@@ -1801,19 +2293,35 @@ if ((window as any).hasRun) {
             total: totalChunks,
         });
 
-        const elementChunks = new Map<Element, any>();
+        // Track by regionId instead of element (multiple regions per element possible)
+        interface RegionEntry {
+            parentElement: Element;
+            chunks: Map<number, { translatedHtml: string; error?: string }>;
+            totalChunks: number;
+            translatedChunkIndices: Set<number>;
+            applied: boolean;
+            hasError: boolean;
+        }
+        const regionChunks = new Map<string, RegionEntry>();
+
+        // Track which parent elements have regions for cleanup
+        const parentElements = new Set<Element>();
+
         for (const unit of units) {
             const total = unit.totalChunks || 1;
-            let entry = elementChunks.get(unit.element);
+            parentElements.add(unit.parentElement);
+
+            let entry = regionChunks.get(unit.regionId);
             if (!entry) {
                 entry = {
-                    chunks: new Map<number, HtmlTranslationResultItem>(),
+                    parentElement: unit.parentElement,
+                    chunks: new Map(),
                     totalChunks: total,
-                    translatedChunkIndices: new Set<number>(),
+                    translatedChunkIndices: new Set(),
                     applied: false,
                     hasError: false,
                 };
-                elementChunks.set(unit.element, entry);
+                regionChunks.set(unit.regionId, entry);
             } else {
                 entry.totalChunks = Math.max(entry.totalChunks, total);
             }
@@ -1836,7 +2344,7 @@ if ((window as any).hasRun) {
             );
         };
 
-        const markElementError = (element: Element, entry: any, message: string, logMessage?: string) => {
+        const markRegionError = (regionId: string, entry: RegionEntry, message: string, logMessage?: string) => {
             if (entry.hasError) {
                 return;
             }
@@ -1845,10 +2353,11 @@ if ((window as any).hasRun) {
             if (logMessage) {
                 console.warn(logMessage);
             }
-            markElementTranslationError(element, new Error(message));
+            // Note: We don't mark the whole element as error since other regions may succeed
+            console.warn(`Region ${regionId} failed: ${message}`);
         };
 
-        const applyElementIfReady = (element: Element, entry: any) => {
+        const applyRegionIfReady = (regionId: string, entry: RegionEntry) => {
             if (entry.applied || entry.hasError) {
                 return;
             }
@@ -1857,58 +2366,54 @@ if ((window as any).hasRun) {
             }
 
             const orderedChunks = Array.from(entry.chunks.entries())
-                .sort((a: any, b: any) => a[0] - b[0])
-                .map(([, chunk]: any) => chunk);
-            const errorChunk = orderedChunks.find((chunk: any) => chunk.error);
+                .sort((a, b) => a[0] - b[0])
+                .map(([, chunk]) => chunk);
+
+            const errorChunk = orderedChunks.find((chunk) => chunk.error);
             if (errorChunk) {
-                markElementError(
-                    element,
+                markRegionError(
+                    regionId,
                     entry,
                     errorChunk.error || "Chunk translation error",
-                    `translatePageV3: element has chunk error: ${errorChunk.error}`,
+                    `translatePageV3: region ${regionId} has chunk error: ${errorChunk.error}`,
                 );
                 return;
             }
 
-            const missingChunk = orderedChunks.find((chunk: any) => !chunk.translatedHtml || !chunk.translatedHtml.trim());
+            const missingChunk = orderedChunks.find((chunk) => !chunk.translatedHtml || !chunk.translatedHtml.trim());
             if (missingChunk) {
-                markElementError(
-                    element,
+                markRegionError(
+                    regionId,
                     entry,
                     "Missing chunk translation",
-                    "translatePageV3: element has missing chunk translation",
+                    `translatePageV3: region ${regionId} has missing chunk translation`,
                 );
                 return;
             }
 
-            const combinedHtml = orderedChunks.map((chunk: any) => chunk.translatedHtml).join(" ");
+            const combinedHtml = orderedChunks.map((chunk) => chunk.translatedHtml).join(" ");
 
             if (!combinedHtml.trim()) {
-                markElementError(
-                    element,
+                markRegionError(
+                    regionId,
                     entry,
                     "Empty combined translation",
-                    "translatePageV3: element has empty combined translation",
+                    `translatePageV3: region ${regionId} has empty combined translation`,
                 );
                 return;
             }
 
-            const applied = applyTranslatedHTML(element, combinedHtml);
+            // Use surgical region replacement instead of replacing all children
+            const applied = applyRegionTranslation(entry.parentElement, regionId, combinedHtml);
             if (applied) {
                 successCount++;
                 entry.applied = true;
                 return;
             }
 
-            const plainText = combinedHtml.replace(/<[^>]*>/g, "");
-            if (plainText.trim()) {
-                element.textContent = plainText.trim();
-                successCount++;
-                entry.applied = true;
-                return;
-            }
-
-            markElementError(element, entry, "Empty translated content");
+            // Fallback: if surgical apply failed but we have text, leave original content
+            // (markers will be cleaned up later)
+            markRegionError(regionId, entry, "Region apply failed, preserving original content");
         };
 
         const handleTranslationResults = (results: HtmlTranslationResultItem[], batchInfo: HtmlTranslationOnUpdateMeta | null = null) => {
@@ -1939,7 +2444,7 @@ if ((window as any).hasRun) {
                     continue;
                 }
 
-                const entry = elementChunks.get(unit.element);
+                const entry = regionChunks.get(unit.regionId);
                 if (!entry) {
                     continue;
                 }
@@ -1959,16 +2464,16 @@ if ((window as any).hasRun) {
                 });
 
                 if (result.error) {
-                    markElementError(
-                        unit.element,
+                    markRegionError(
+                        unit.regionId,
                         entry,
                         result.error || "Chunk translation error",
-                        `translatePageV3: element has chunk error: ${result.error}`,
+                        `translatePageV3: region ${unit.regionId} has chunk error: ${result.error}`,
                     );
                 }
 
                 if (!entry.hasError) {
-                    applyElementIfReady(unit.element, entry);
+                    applyRegionIfReady(unit.regionId, entry);
                 }
             }
 
@@ -1976,24 +2481,30 @@ if ((window as any).hasRun) {
         };
 
         const finalizeTranslation = () => {
-            for (const [element, entry] of elementChunks) {
+            // Apply any remaining regions that haven't been applied yet
+            for (const [regionId, entry] of regionChunks) {
                 if (entry.applied || entry.hasError) {
                     continue;
                 }
                 if (entry.chunks.size < entry.totalChunks) {
-                    markElementError(
-                        element,
+                    markRegionError(
+                        regionId,
                         entry,
                         "Missing chunk translation",
-                        "translatePageV3: element missing chunk results",
+                        `translatePageV3: region ${regionId} missing chunk results`,
                     );
                     continue;
                 }
-                applyElementIfReady(element, entry);
+                applyRegionIfReady(regionId, entry);
+            }
+
+            // Clean up any orphaned markers from failed regions
+            for (const element of parentElements) {
+                cleanupOrphanedMarkers(element);
             }
 
             const summary =
-                errorCount > 0 ? `Done. ${successCount} translated, ${errorCount} errors` : `Done. ${successCount} translated`;
+                errorCount > 0 ? `Done. ${successCount} regions translated, ${errorCount} errors` : `Done. ${successCount} regions translated`;
             const summaryState = errorCount > 0 ? "error" : "done";
             displayLoadingIndicatorState(summary, summaryState, {
                 current: translatedChunks,
@@ -2010,6 +2521,10 @@ if ((window as any).hasRun) {
             finalizeTranslation();
         } catch (error) {
             console.error("translatePageV3 error:", error);
+            // Clean up markers even on error
+            for (const element of parentElements) {
+                cleanupOrphanedMarkers(element);
+            }
             displayLoadingIndicatorState(`Error: ${(error as Error).message}`, "error", {
                 current: 0,
                 total: totalChunks,
