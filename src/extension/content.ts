@@ -978,6 +978,14 @@ if ((window as any).hasRun) {
         totalChunks?: number;
     }
 
+    // Minimal unit type for translation requests (element not needed for background)
+    interface TranslationRequestUnit {
+        id?: number;
+        html: string;
+        chunkIndex?: number;
+        totalChunks?: number;
+    }
+
     function collectHTMLTranslationUnits(): HTMLTranslationUnit[] {
         const units: HTMLTranslationUnit[] = [];
         const seenElements = new WeakSet<Element>();
@@ -1465,7 +1473,7 @@ if ((window as any).hasRun) {
     }
 
     function startHtmlTranslation(
-        units: HTMLTranslationUnit[],
+        units: TranslationRequestUnit[],
         targetLanguage: string | null = null,
         onUpdate: ((results: HtmlTranslationResultItem[], batchInfo: HtmlTranslationOnUpdateMeta | null) => void) | null = null,
     ): Promise<HtmlTranslationResultItem[]> {
