@@ -1,6 +1,6 @@
 {
   "name": "ai-translator",
-  "version": "0.4.0",
+  "version": "0.6.1",
   "description": "Translate text and pages using customizable AI models.",
   "license": "AGPL-3.0",
   "scripts": {

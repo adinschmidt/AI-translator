@@ -42,6 +42,10 @@ import {
     MAX_UNIT_TOKENS,
     STREAM_UPDATE_THROTTLE_MS,
     STREAM_KEEP_ALIVE_INTERVAL_MS,
+    RATE_LIMIT_MAX_RETRIES,
+    RATE_LIMIT_BASE_DELAY_MS,
+    RATE_LIMIT_MAX_DELAY_MS,
+    RATE_LIMIT_BACKOFF_MULTIPLIER,
     buildStandardPrompt,
     buildInstructPrompt,
     createRequestId,
@@ -95,6 +99,108 @@ type OnBatchResultsCallback = (
 ) => void;
 
 const activeStreams = new Map<number, StreamState>();
+
+// Rate limit detection and retry helpers
+function isRateLimitError(error: any): boolean {
+    if (!error) return false;
+
+    // Check HTTP status code
+    const status = error.status || error.statusCode || error.code;
+    if (status === 429 || status === "429") return true;
+
+    // Check error message patterns
+    const message = String(error.message || error.error || error || "").toLowerCase();
+    if (message.includes("rate limit") || message.includes("rate_limit")) return true;
+    if (message.includes("too many requests")) return true;
+    if (message.includes("quota exceeded")) return true;
+    if (message.includes("tokens per minute")) return true;
+    if (message.includes("requests per minute")) return true;
+    if (message.includes("tpm") || message.includes("rpm")) return true;
+
+    // Check nested error (AI SDK wraps errors)
+    if (error.cause && isRateLimitError(error.cause)) return true;
+    if (error.lastError && isRateLimitError(error.lastError)) return true;
+
+    return false;
+}
+
+function parseRetryAfterHint(error: any): number | null {
+    const message = String(error?.message || error || "");
+
+    // Parse "try again in X.XXs" or "try again in X seconds"
+    const match = message.match(/try again in (\d+(?:\.\d+)?)\s*s/i);
+    if (match) {
+        const seconds = parseFloat(match[1]);
+        if (!isNaN(seconds) && seconds > 0 && seconds < 300) {
+            return Math.ceil(seconds * 1000);
+        }
+    }
+
+    // Check Retry-After header value if present
+    const retryAfter = error?.headers?.["retry-after"] || error?.retryAfter;
+    if (retryAfter) {
+        const seconds = parseFloat(retryAfter);
+        if (!isNaN(seconds) && seconds > 0 && seconds < 300) {
+            return Math.ceil(seconds * 1000);
+        }
+    }
+
+    return null;
+}
+
+function calculateBackoffDelay(attempt: number, hintMs: number | null): number {
+    // If we have a hint from the API, use it (with small buffer)
+    if (hintMs !== null) {
+        return Math.min(hintMs + 500, RATE_LIMIT_MAX_DELAY_MS);
+    }
+
+    // Exponential backoff with jitter
+    const baseDelay = RATE_LIMIT_BASE_DELAY_MS * Math.pow(RATE_LIMIT_BACKOFF_MULTIPLIER, attempt);
+    const jitter = Math.random() * 0.3 * baseDelay; // 0-30% jitter
+    return Math.min(baseDelay + jitter, RATE_LIMIT_MAX_DELAY_MS);
+}
+
+async function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function withRateLimitRetry<T>(
+    fn: () => Promise<T>,
+    context: string = "API call",
+): Promise<T> {
+    let lastError: any;
+
+    for (let attempt = 0; attempt <= RATE_LIMIT_MAX_RETRIES; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            lastError = error;
+
+            if (!isRateLimitError(error)) {
+                // Not a rate limit error, don't retry
+                throw error;
+            }
+
+            if (attempt === RATE_LIMIT_MAX_RETRIES) {
+                // Exhausted all retries
+                console.error(`${context}: Rate limit exhausted after ${attempt + 1} attempts`);
+                throw error;
+            }
+
+            const hintMs = parseRetryAfterHint(error);
+            const delayMs = calculateBackoffDelay(attempt, hintMs);
+
+            console.warn(
+                `${context}: Rate limit hit (attempt ${attempt + 1}/${RATE_LIMIT_MAX_RETRIES + 1}), ` +
+                `retrying in ${Math.round(delayMs / 1000)}s...`
+            );
+
+            await sleep(delayMs);
+        }
+    }
+
+    throw lastError;
+}
 
 function normalizeOpenAIBaseUrl(apiEndpoint: string, provider: Provider): string {
     const fallback = PROVIDER_DEFAULTS[provider]?.apiEndpoint || "";
@@ -547,12 +653,15 @@ async function translateHTMLBatch(
 
     const model = resolveProviderModel(apiType, apiKey, apiEndpoint, modelName);
 
-    const result = await generateText({
-        model,
-        system: systemPrompt,
-        prompt: userPrompt,
-        maxTokens: MAX_BATCH_OUTPUT_TOKENS,
-    });
+    const result = await withRateLimitRetry(
+        () => generateText({
+            model,
+            system: systemPrompt,
+            prompt: userPrompt,
+            maxTokens: MAX_BATCH_OUTPUT_TOKENS,
+        }),
+        `translateHTMLBatch (${batch.length} units)`,
+    );
 
     let outputText = result.text || "";
 
@@ -928,12 +1037,15 @@ async function translateTextApiCall(
     const maxTokens = resolveMaxTokens(provider, isFullPage);
 
     try {
-        const { text } = await generateText({
-            model,
-            system: systemPrompt,
-            prompt,
-            maxTokens: maxTokens ?? undefined,
-        });
+        const { text } = await withRateLimitRetry(
+            () => generateText({
+                model,
+                system: systemPrompt,
+                prompt,
+                maxTokens: maxTokens ?? undefined,
+            }),
+            "translateTextApiCall",
+        );
 
         let translation = text;
 
