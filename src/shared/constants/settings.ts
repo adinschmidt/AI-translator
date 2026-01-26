@@ -52,6 +52,12 @@ export const HTML_TRANSLATION_PORT_NAME = "htmlTranslation";
 export const STREAM_UPDATE_THROTTLE_MS = 120;
 export const STREAM_KEEP_ALIVE_INTERVAL_MS = 20000;
 
+// Rate limit retry configuration
+export const RATE_LIMIT_MAX_RETRIES = 5;
+export const RATE_LIMIT_BASE_DELAY_MS = 1000;
+export const RATE_LIMIT_MAX_DELAY_MS = 60000;
+export const RATE_LIMIT_BACKOFF_MULTIPLIER = 2;
+
 export function buildStandardPrompt(
     userInstructions: string,
     textToTranslate: string,
