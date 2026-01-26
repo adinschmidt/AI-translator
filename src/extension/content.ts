@@ -422,7 +422,13 @@ if ((window as any).hasRun) {
             return false;
         }
 
-        if (!BLOCK_LEVEL_TAGS.has(el.tagName)) {
+        const isBlockTag = BLOCK_LEVEL_TAGS.has(el.tagName);
+        const isDiv = el.tagName === "DIV";
+
+        // Must be either a block-level tag or a DIV
+        // DIVs are allowed so we can capture "leaf DIVs" - those without nested block elements
+        // This handles cases like <div>Text with <a>links</a></div> that would otherwise be missed
+        if (!isBlockTag && !isDiv) {
             return false;
         }
 
@@ -443,6 +449,8 @@ if ((window as any).hasRun) {
             return false;
         }
 
+        // Both block-level tags and DIVs must not contain nested blocks
+        // For DIVs, this ensures we only translate "leaf" DIVs (content containers, not structural)
         if (containsNestedBlocks(el)) {
             return false;
         }
