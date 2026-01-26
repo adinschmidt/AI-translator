@@ -58,6 +58,7 @@ if ((window as any).hasRun) {
 
     const BLOCK_LEVEL_TAGS = new Set([
         "P",
+        "DIV",
         "H1",
         "H2",
         "H3",
