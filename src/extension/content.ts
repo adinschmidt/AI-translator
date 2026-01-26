@@ -369,6 +369,321 @@ if ((window as any).hasRun) {
         }));
     }
 
+    // ========================================================================
+    // Region-Based Translation: Interfaces and Types
+    // ========================================================================
+
+    /**
+     * Represents a contiguous sequence of child nodes within a unit element
+     * that contain translatable text content.
+     */
+    interface Region {
+        startIndex: number; // childNodes index of first node
+        endIndex: number; // childNodes index of last node (inclusive)
+        nodes: Node[]; // actual Node references for serialization
+    }
+
+    /**
+     * A translation unit for a single region within a unit element.
+     * Multiple RegionTranslationUnits may exist for one parent element.
+     */
+    interface RegionTranslationUnit {
+        parentElement: Element; // The unit element containing this region
+        regionId: string; // UUID for marker identification
+        html: string; // Serialized simplified HTML
+        chunkIndex?: number; // For chunked regions
+        totalChunks?: number; // For chunked regions
+    }
+
+    type NodeClassification = "TRANSLATABLE" | "BOUNDARY" | "SKIP";
+
+    // ========================================================================
+    // Region-Based Translation: Helper Functions
+    // ========================================================================
+
+    /**
+     * Checks if HTML contains meaningful (non-whitespace) text content.
+     * Used to filter out regions that contain only whitespace.
+     */
+    function hasNonWhitespaceText(html: string): boolean {
+        const textOnly = html.replace(/<[^>]*>/g, "");
+        return textOnly.trim().length > 0;
+    }
+
+    /**
+     * Classifies a node for region discovery:
+     * - TRANSLATABLE: Node should be part of a translatable region
+     * - BOUNDARY: Node ends the current region and is preserved in place
+     * - SKIP: Node is ignored entirely (doesn't affect region boundaries)
+     */
+    function classifyNode(node: Node): NodeClassification {
+        // Comment nodes are skipped entirely
+        if (node.nodeType === Node.COMMENT_NODE) {
+            return "SKIP";
+        }
+
+        // Text nodes are always translatable
+        if (node.nodeType === Node.TEXT_NODE) {
+            return "TRANSLATABLE";
+        }
+
+        // Element nodes
+        if (node.nodeType === Node.ELEMENT_NODE) {
+            const el = node as Element;
+            const tag = el.tagName.toUpperCase();
+
+            // BR and WBR are always boundaries
+            if (tag === "BR" || tag === "WBR") {
+                return "BOUNDARY";
+            }
+
+            // Check if element has text content via simplified HTML
+            const simplifiedHTML = getNodeSimplifiedHTML(node);
+            if (simplifiedHTML.trim().length === 0) {
+                // No text content (image-only, icon-only, etc.) -> boundary
+                return "BOUNDARY";
+            }
+
+            return "TRANSLATABLE";
+        }
+
+        // Other node types (processing instructions, etc.) are skipped
+        return "SKIP";
+    }
+
+    /**
+     * Serializes a sequence of nodes into simplified HTML string.
+     * Reuses existing allowlist rules from getNodeSimplifiedHTML.
+     */
+    function serializeRegionNodes(nodes: Node[]): string {
+        let html = "";
+        for (const node of nodes) {
+            html += getNodeSimplifiedHTML(node);
+        }
+        return html.replace(/\s+/g, " ").trim();
+    }
+
+    /**
+     * Identifies translatable regions within a unit element by walking its
+     * direct childNodes and grouping contiguous translatable nodes.
+     *
+     * @param unitEl The unit element to scan for regions
+     * @returns Array of Region objects, each representing a contiguous
+     *          sequence of translatable nodes
+     */
+    function identifyRegions(unitEl: Element): Region[] {
+        const regions: Region[] = [];
+        let currentRegion: { startIndex: number; nodes: Node[] } | null = null;
+        const children = Array.from(unitEl.childNodes);
+
+        for (let i = 0; i < children.length; i++) {
+            const child = children[i];
+            const classification = classifyNode(child);
+
+            if (classification === "TRANSLATABLE") {
+                if (!currentRegion) {
+                    currentRegion = { startIndex: i, nodes: [] };
+                }
+                currentRegion.nodes.push(child);
+            } else if (classification === "BOUNDARY") {
+                // Finalize current region if it has meaningful text
+                if (currentRegion && currentRegion.nodes.length > 0) {
+                    const html = serializeRegionNodes(currentRegion.nodes);
+                    if (hasNonWhitespaceText(html)) {
+                        regions.push({
+                            startIndex: currentRegion.startIndex,
+                            endIndex: i - 1,
+                            nodes: currentRegion.nodes,
+                        });
+                    }
+                }
+                currentRegion = null;
+                // BOUNDARY node is preserved (not part of any region)
+            }
+            // SKIP nodes are ignored (don't affect region boundaries)
+        }
+
+        // Finalize last region
+        if (currentRegion && currentRegion.nodes.length > 0) {
+            const html = serializeRegionNodes(currentRegion.nodes);
+            if (hasNonWhitespaceText(html)) {
+                regions.push({
+                    startIndex: currentRegion.startIndex,
+                    endIndex: children.length - 1,
+                    nodes: currentRegion.nodes,
+                });
+            }
+        }
+
+        return regions;
+    }
+
+    /**
+     * Generates a UUID v4 for region identification.
+     * Falls back to a random string if crypto.randomUUID is not available.
+     */
+    function generateRegionId(): string {
+        if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+            return crypto.randomUUID();
+        }
+        // Fallback for environments without crypto.randomUUID
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0;
+            const v = c === "x" ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+        });
+    }
+
+    /**
+     * Inserts marker comments before and after a region's nodes.
+     * These markers are used later to identify which nodes to replace
+     * when applying the translated content.
+     *
+     * @param unitEl The parent element containing the region
+     * @param region The region to mark
+     * @returns The generated region ID (UUID)
+     */
+    function insertRegionMarkers(unitEl: Element, region: Region): string {
+        const regionId = generateRegionId();
+        const startMarker = document.createComment(`TR_REGION_START_${regionId}`);
+        const endMarker = document.createComment(`TR_REGION_END_${regionId}`);
+
+        // Insert start marker before first region node
+        const firstNode = region.nodes[0];
+        unitEl.insertBefore(startMarker, firstNode);
+
+        // Insert end marker after last region node
+        const lastNode = region.nodes[region.nodes.length - 1];
+        if (lastNode.nextSibling) {
+            unitEl.insertBefore(endMarker, lastNode.nextSibling);
+        } else {
+            unitEl.appendChild(endMarker);
+        }
+
+        return regionId;
+    }
+
+    /**
+     * Splits a region into chunks if its serialized HTML exceeds MAX_HTML_UNIT_CHARS.
+     * Reuses the existing chunking logic adapted for region nodes.
+     *
+     * @param region The region to potentially split
+     * @param maxChars Maximum characters per chunk (defaults to MAX_HTML_UNIT_CHARS)
+     * @returns Array of chunks, each with HTML and node indices
+     */
+    function splitRegionByNodes(region: Region, maxChars: number = MAX_HTML_UNIT_CHARS): Chunk[] {
+        const nodes = region.nodes;
+        const chunks: Chunk[] = [];
+        let currentChunk: { parts: string[]; nodeIndices: number[]; length: number } = {
+            parts: [],
+            nodeIndices: [],
+            length: 0,
+        };
+
+        for (let i = 0; i < nodes.length; i++) {
+            const node = nodes[i];
+            const nodeHTML = getNodeSimplifiedHTML(node);
+            const nodeLength = nodeHTML.length;
+
+            if (nodeLength === 0) continue;
+
+            // Handle oversized single nodes
+            if (nodeLength > maxChars) {
+                if (currentChunk.parts.length > 0) {
+                    chunks.push({
+                        html: currentChunk.parts.join(""),
+                        nodeIndices: currentChunk.nodeIndices,
+                    });
+                    currentChunk = { parts: [], nodeIndices: [], length: 0 };
+                }
+
+                if (node.nodeType === Node.TEXT_NODE) {
+                    const textChunks = splitTextNodeContent(node.textContent || "", maxChars);
+                    for (const textChunk of textChunks) {
+                        chunks.push({ html: textChunk, nodeIndices: [i] });
+                    }
+                } else if (node.nodeType === Node.ELEMENT_NODE) {
+                    const subChunks = splitHTMLUnitByChildNodes(node as Element, maxChars);
+                    for (const subChunk of subChunks) {
+                        chunks.push({ html: subChunk.html, nodeIndices: [i] });
+                    }
+                }
+                continue;
+            }
+
+            // Start new chunk if current would exceed limit
+            if (currentChunk.length + nodeLength > maxChars && currentChunk.parts.length > 0) {
+                chunks.push({
+                    html: currentChunk.parts.join(""),
+                    nodeIndices: currentChunk.nodeIndices,
+                });
+                currentChunk = { parts: [], nodeIndices: [], length: 0 };
+            }
+
+            currentChunk.parts.push(nodeHTML);
+            currentChunk.nodeIndices.push(i);
+            currentChunk.length += nodeLength;
+        }
+
+        // Push final chunk
+        if (currentChunk.parts.length > 0) {
+            chunks.push({
+                html: currentChunk.parts.join(""),
+                nodeIndices: currentChunk.nodeIndices,
+            });
+        }
+
+        return chunks.map((c) => ({
+            html: c.html.replace(/\s+/g, " ").trim(),
+            nodeIndices: c.nodeIndices,
+        }));
+    }
+
+    /**
+     * Collects region-based translation units from a single unit element.
+     * For each region found, inserts markers and generates translation unit(s).
+     * Handles chunking for large regions.
+     *
+     * @param unitEl The unit element to process
+     * @returns Array of RegionTranslationUnits for all regions in the element
+     */
+    function collectRegionUnitsFromElement(unitEl: Element): RegionTranslationUnit[] {
+        const units: RegionTranslationUnit[] = [];
+        const regions = identifyRegions(unitEl);
+
+        for (const region of regions) {
+            const regionId = insertRegionMarkers(unitEl, region);
+            const html = serializeRegionNodes(region.nodes);
+
+            if (html.length === 0) {
+                continue;
+            }
+
+            if (html.length > MAX_HTML_UNIT_CHARS) {
+                const chunks = splitRegionByNodes(region, MAX_HTML_UNIT_CHARS);
+                for (let i = 0; i < chunks.length; i++) {
+                    if (chunks[i].html.length > 0) {
+                        units.push({
+                            parentElement: unitEl,
+                            regionId: regionId,
+                            html: chunks[i].html,
+                            chunkIndex: i,
+                            totalChunks: chunks.length,
+                        });
+                    }
+                }
+            } else {
+                units.push({
+                    parentElement: unitEl,
+                    regionId: regionId,
+                    html: html,
+                });
+            }
+        }
+
+        return units;
+    }
+
     function isHiddenElement(el: Element): boolean {
         if (!el || el.nodeType !== Node.ELEMENT_NODE) {
             return false;
