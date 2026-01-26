@@ -684,6 +684,118 @@ if ((window as any).hasRun) {
         return units;
     }
 
+    // ========================================================================
+    // Region-Based Translation: Surgical DOM Apply Functions
+    // ========================================================================
+
+    /**
+     * Finds a marker comment with the specified text within a parent element.
+     * Searches only direct children of the parent element.
+     *
+     * @param parent The element to search within
+     * @param markerText The exact text content to match
+     * @returns The Comment node if found, null otherwise
+     */
+    function findMarkerComment(parent: Element, markerText: string): Comment | null {
+        for (const child of Array.from(parent.childNodes)) {
+            if (child.nodeType === Node.COMMENT_NODE && child.textContent === markerText) {
+                return child as Comment;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Applies a translated result to a specific region by replacing only the
+     * nodes between the region's start and end markers.
+     *
+     * This is the key function for preserving non-text nodes (images, icons, etc.)
+     * during translation. Instead of replacing all children of a unit element,
+     * it surgically replaces only the marked region.
+     *
+     * @param parentElement The element containing the region markers
+     * @param regionId The UUID identifying the region
+     * @param translatedHtml The translated HTML to insert
+     * @returns true if successful, false if markers not found or other error
+     */
+    function applyRegionTranslation(
+        parentElement: Element,
+        regionId: string,
+        translatedHtml: string
+    ): boolean {
+        // 1. Find markers
+        const startMarker = findMarkerComment(parentElement, `TR_REGION_START_${regionId}`);
+        const endMarker = findMarkerComment(parentElement, `TR_REGION_END_${regionId}`);
+
+        if (!startMarker || !endMarker) {
+            console.warn(`applyRegionTranslation: markers not found for region ${regionId}`);
+            return false; // Skip this region, don't modify DOM
+        }
+
+        // 2. Sanitize translated HTML
+        const sanitized = sanitizeTranslatedHTML(translatedHtml);
+        if (!sanitized || sanitized.trim().length === 0) {
+            console.warn(`applyRegionTranslation: empty sanitized result for region ${regionId}`);
+            // Decision: skip entirely to preserve original content
+            return false;
+        }
+
+        try {
+            // 3. Parse translated HTML into fragment
+            const temp = document.createElement("template");
+            temp.innerHTML = sanitized;
+            const fragment = temp.content;
+
+            // 4. Remove nodes between markers (exclusive of markers)
+            let current = startMarker.nextSibling;
+            while (current && current !== endMarker) {
+                const next = current.nextSibling;
+                parentElement.removeChild(current);
+                current = next;
+            }
+
+            // 5. Insert translated content before end marker
+            parentElement.insertBefore(fragment.cloneNode(true), endMarker);
+
+            // 6. Remove markers
+            parentElement.removeChild(startMarker);
+            parentElement.removeChild(endMarker);
+
+            console.log(
+                `applyRegionTranslation: applied ${sanitized.length} chars to region ${regionId} in ${parentElement.tagName}`
+            );
+            return true;
+        } catch (error) {
+            console.error(`applyRegionTranslation error for region ${regionId}:`, error);
+            return false;
+        }
+    }
+
+    /**
+     * Cleans up any orphaned region markers from a unit element.
+     * This should be called after translation is complete to remove markers
+     * from failed regions that were not applied.
+     *
+     * @param unitEl The unit element to clean up
+     */
+    function cleanupOrphanedMarkers(unitEl: Element): void {
+        const markers: Comment[] = [];
+        for (const child of Array.from(unitEl.childNodes)) {
+            if (child.nodeType === Node.COMMENT_NODE) {
+                const text = child.textContent || "";
+                if (text.startsWith("TR_REGION_START_") || text.startsWith("TR_REGION_END_")) {
+                    markers.push(child as Comment);
+                }
+            }
+        }
+        for (const marker of markers) {
+            unitEl.removeChild(marker);
+        }
+        if (markers.length > 0) {
+            console.log(`cleanupOrphanedMarkers: removed ${markers.length} orphaned markers from ${unitEl.tagName}`);
+        }
+    }
+
     function isHiddenElement(el: Element): boolean {
         if (!el || el.nodeType !== Node.ELEMENT_NODE) {
             return false;
