@@ -1,7 +1,10 @@
 # Manual Smoke Verification Checklist
 
-**Bead:** bd-azg - Verification: manual smoke checklist (Chrome + Firefox)
-**Date:** 2026-01-25
+**Beads:**
+- bd-azg - Verification: manual smoke checklist (Chrome + Firefox)
+- bd-4eo.5 - Region-based translation regression checklist
+
+**Date:** 2026-01-26
 **Build:** `bun run build.ts`
 
 ---
@@ -117,6 +120,62 @@ To complete this verification, load the extension and test the following:
 - [ ] **Expected:** No missing HTML elements
 - [ ] **Expected:** No broken page structure
 
+### Test 7: Wikipedia Infobox Image Preservation (Region-Based Translation)
+**Bead:** bd-4eo.5 - Verify region-based translation preserves images
+- [ ] Navigate to a Wikipedia article with an infobox containing an image (e.g., any country, city, or person article)
+- [ ] Right-click and choose "Translate Entire Page"
+- [ ] **Expected:** Infobox images remain visible and correctly positioned
+- [ ] **Expected:** Text around/below images is translated
+- [ ] **Expected:** Open browser DevTools → Elements panel → verify `<img>` nodes are still in the DOM
+- [ ] **Expected:** Image wrapper elements (`<span typeof="mw:File">`, `<a>` around images) are preserved
+
+### Test 8: Icons and SVGs Preserved
+**Non-text elements are not removed**
+- [ ] Navigate to a page with icon fonts or inline SVGs (GitHub, social media buttons)
+- [ ] Use "Translate Entire Page"
+- [ ] **Expected:** Icons remain visible (star ratings, share buttons, navigation icons)
+- [ ] **Expected:** SVG elements are not replaced or removed
+- [ ] **Expected:** Icon fonts (if any) display correctly
+
+### Test 9: Mixed Content Cells
+**Elements containing both images and text**
+- [ ] Navigate to a Wikipedia infobox with cells like: `<td><img>...<br><a>Caption text</a></td>`
+- [ ] Use "Translate Entire Page"
+- [ ] **Expected:** Image stays in place, caption text is translated
+- [ ] **Expected:** `<br>` elements preserved (line breaks maintained)
+- [ ] **Expected:** No DOM corruption or missing elements
+
+### Test 10: Partial Failure Resilience
+**One region failing should not affect others**
+- [ ] Translate a complex page with many regions
+- [ ] If any region fails (check console for "Region ... failed"), verify:
+- [ ] **Expected:** Other regions on the same page are still translated
+- [ ] **Expected:** Failed regions show original (untranslated) content, NOT blank
+- [ ] **Expected:** No orphaned comment markers visible in page (check "View Page Source")
+
+### Test 11: Extension UI Not Translated
+**Overlays and indicator should remain in original language**
+- [ ] Use "Translate Entire Page" on any page
+- [ ] **Expected:** Translation progress indicator text is NOT translated
+- [ ] **Expected:** Options page content is NOT translated
+- [ ] **Expected:** Popup/overlay UI remains in English
+
+---
+
+## Bug Report Template
+
+When reporting issues with region-based translation, include:
+
+1. **URL:** The page you were translating
+2. **Browser:** Chrome/Firefox version
+3. **Steps to reproduce:** What you did
+4. **Expected behavior:** What should have happened
+5. **Actual behavior:** What actually happened
+6. **Screenshots:** Before and after translation (if applicable)
+7. **Provider settings:** (WITHOUT API keys) - provider type, model name
+8. **Console errors:** Open DevTools (F12) → Console tab → copy any red error messages
+9. **DOM inspection:** For missing elements, check Elements panel to see if nodes exist but are hidden vs. completely removed
+
 ---
 
 ## Automated Verification Summary
@@ -145,7 +204,8 @@ The following components have been automatically verified:
 
 **Manual Verification:** Requires manual testing in browser
 
-To complete this bead:
+To complete verification:
 1. Load the extension in Chrome and Firefox
-2. Perform all 6 manual test checks above
-3. Report any failures
+2. Perform all 11 manual test checks above
+3. Pay special attention to Tests 7-11 for region-based translation
+4. Report any failures using the Bug Report Template
