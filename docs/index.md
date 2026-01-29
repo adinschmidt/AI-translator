@@ -6,7 +6,7 @@ hero:
     text: AI-powered translation for your browser
     tagline: Translate selections or full pages with your preferred AI model.
     image:
-        src: https://raw.githubusercontent.com/adinschmidt/AI-translator/master/images/screenshot_selection.png
+        src: https://raw.githubusercontent.com/adinschmidt/AI-translator/master/assets/images/screenshot_selection.png
         alt: AI Translator preview
     actions:
         - theme: brand
