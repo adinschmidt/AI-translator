@@ -110,8 +110,12 @@ if ((window as any).hasRun) {
         "BR",
     ]);
 
+    const TRANSLATION_POPUP_BASE_ID = "translation-popup-extension";
+    const TRANSLATION_POPUP_SELECTOR = '[data-translation-popup="true"]';
+    const TRANSLATION_POPUP_REQUEST_ID_ATTR = "translationRequestId";
+
     const EXTENSION_UI_SELECTORS = [
-        "#translation-popup-extension",
+        TRANSLATION_POPUP_SELECTOR,
         "#translation-loading-indicator",
         "#ai-translator-selection-translate-button",
     ];
@@ -1282,6 +1286,7 @@ if ((window as any).hasRun) {
     });
 
     let translationPopup: HTMLElement | null = null;
+    const translationPopupsByRequestId = new Map<string, HTMLElement>();
     let loadingIndicator: HTMLElement | null = null;
     let originalBodyContent: string | null = null;
     let isTranslated = false;
@@ -1291,8 +1296,11 @@ if ((window as any).hasRun) {
     let activeStreamRequestId: string | null = null;
     let completedStreamRequestId: string | null = null;
 
-    const SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY = "showTranslateButtonOnSelection";
+    const SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY =
+        STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION;
+    const KEEP_SELECTION_POPUP_OPEN_KEY = STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN;
     let showTranslateButtonOnSelectionEnabled = true;
+    let keepSelectionPopupOpenEnabled = false;
     let selectionTranslateButton: HTMLButtonElement | null = null;
     let selectionTranslateInProgress = false;
     let selectionListenerCleanup: (() => void) | null = null;
@@ -1344,6 +1352,7 @@ if ((window as any).hasRun) {
                     req.detectedLanguageName,
                     req.targetLanguageName,
                     isStreaming,
+                    requestId,
                 );
 
                 if (requestId && !req.isLoading && !isStreaming) {
@@ -1573,28 +1582,44 @@ if ((window as any).hasRun) {
         });
     }
 
-    getStorage([STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION])
+    getStorage([SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY, KEEP_SELECTION_POPUP_OPEN_KEY])
         .then((result) => {
-            const stored = result?.[STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION];
+            const stored = result?.[SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY];
             showTranslateButtonOnSelectionEnabled = typeof stored === "boolean" ? stored : true;
+            const keepPopupOpen = result?.[KEEP_SELECTION_POPUP_OPEN_KEY];
+            keepSelectionPopupOpenEnabled =
+                typeof keepPopupOpen === "boolean" ? keepPopupOpen : false;
             updateSelectionTranslateButtonState();
+            syncPopupOutsideClickBehavior();
         })
         .catch((error) => {
-            console.warn("Error reading selection button setting:", error);
+            console.warn("Error reading selection popup settings:", error);
             showTranslateButtonOnSelectionEnabled = true;
+            keepSelectionPopupOpenEnabled = false;
             updateSelectionTranslateButtonState();
+            syncPopupOutsideClickBehavior();
         });
 
     onStorageChanged((changes, areaName) => {
         if (areaName !== "sync") {
             return;
         }
-        if (!changes[STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION]) {
-            return;
+
+        const showButtonChange = changes[SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY];
+        if (showButtonChange) {
+            const nextValue = showButtonChange.newValue;
+            showTranslateButtonOnSelectionEnabled =
+                typeof nextValue === "boolean" ? nextValue : true;
+            updateSelectionTranslateButtonState();
         }
-        const nextValue = changes[STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION].newValue;
-        showTranslateButtonOnSelectionEnabled = typeof nextValue === "boolean" ? nextValue : true;
-        updateSelectionTranslateButtonState();
+
+        const keepPopupOpenChange = changes[KEEP_SELECTION_POPUP_OPEN_KEY];
+        if (keepPopupOpenChange) {
+            const nextValue = keepPopupOpenChange.newValue;
+            keepSelectionPopupOpenEnabled =
+                typeof nextValue === "boolean" ? nextValue : false;
+            syncPopupOutsideClickBehavior();
+        }
     });
 
     function updateSelectionTranslateButtonState(): void {
@@ -1650,7 +1675,9 @@ if ((window as any).hasRun) {
 
             selectionTranslateInProgress = true;
             hideSelectionTranslateButton();
-            displayPopup("Translating...", false, true);
+            if (!keepSelectionPopupOpenEnabled) {
+                displayPopup("Translating...", false, true);
+            }
 
             const msg: ContentToBackgroundMessage = {
                 action: "translateSelectedHtmlWithDetection",
@@ -1712,7 +1739,7 @@ if ((window as any).hasRun) {
                 return;
             }
 
-            if (translationPopup && translationPopup.contains(event.target as Node)) {
+            if (isInsideTranslationPopup(event.target as Node)) {
                 return;
             }
 
@@ -1782,7 +1809,7 @@ if ((window as any).hasRun) {
 
         if (
             selectionContainerEl &&
-            (selectionContainerEl.closest("#translation-popup-extension") ||
+            (selectionContainerEl.closest(TRANSLATION_POPUP_SELECTOR) ||
                 selectionContainerEl.closest("#translation-loading-indicator") ||
                 selectionContainerEl.closest("#ai-translator-selection-translate-button"))
         ) {
@@ -2105,7 +2132,7 @@ if ((window as any).hasRun) {
                     }
 
                     if (
-                        el.closest("#translation-popup-extension") ||
+                        el.closest(TRANSLATION_POPUP_SELECTOR) ||
                         el.closest("#translation-loading-indicator")
                     ) {
                         return NodeFilter.FILTER_REJECT;
@@ -2884,6 +2911,7 @@ if ((window as any).hasRun) {
             message.detectedLanguageName,
             message.targetLanguageName,
             true,
+            message.requestId,
         );
     }
 
@@ -2911,6 +2939,159 @@ if ((window as any).hasRun) {
         chrome.runtime.sendMessage({ action: "cancelTranslation", requestId } as ContentToBackgroundMessage);
     }
 
+    function getAllTranslationPopups(): HTMLElement[] {
+        return Array.from(document.querySelectorAll(TRANSLATION_POPUP_SELECTOR)) as HTMLElement[];
+    }
+
+    function getPopupForRequestId(requestId: string | null): HTMLElement | null {
+        if (!requestId) {
+            return null;
+        }
+        const popup = translationPopupsByRequestId.get(requestId) || null;
+        if (!popup || !popup.isConnected) {
+            translationPopupsByRequestId.delete(requestId);
+            return null;
+        }
+        return popup;
+    }
+
+    function isInsideTranslationPopup(node: Node | null): boolean {
+        if (!node) {
+            return false;
+        }
+        if (node instanceof Element) {
+            return Boolean(node.closest(TRANSLATION_POPUP_SELECTOR));
+        }
+        return Boolean(node.parentElement?.closest(TRANSLATION_POPUP_SELECTOR));
+    }
+
+    function createPopupElementId(requestId: string | null): string {
+        if (!requestId) {
+            return TRANSLATION_POPUP_BASE_ID;
+        }
+        const safeIdPart = requestId.replace(/[^a-zA-Z0-9_-]/g, "_");
+        return `${TRANSLATION_POPUP_BASE_ID}-${safeIdPart}`;
+    }
+
+    function registerPopup(popup: HTMLElement, requestId: string | null): void {
+        popup.dataset.translationPopup = "true";
+        if (requestId) {
+            popup.dataset[TRANSLATION_POPUP_REQUEST_ID_ATTR] = requestId;
+            translationPopupsByRequestId.set(requestId, popup);
+        }
+        translationPopup = popup;
+    }
+
+    function unregisterPopup(popup: HTMLElement): void {
+        const requestId = popup.dataset[TRANSLATION_POPUP_REQUEST_ID_ATTR];
+        if (requestId) {
+            translationPopupsByRequestId.delete(requestId);
+        }
+        if (translationPopup === popup) {
+            const remaining = getAllTranslationPopups();
+            translationPopup = remaining.length > 0 ? remaining[remaining.length - 1] : null;
+        }
+    }
+
+    interface PopupRect {
+        left: number;
+        top: number;
+        right: number;
+        bottom: number;
+    }
+
+    function getPopupRect(popup: HTMLElement): PopupRect {
+        const rect = popup.getBoundingClientRect();
+        return {
+            left: rect.left + window.scrollX,
+            top: rect.top + window.scrollY,
+            right: rect.right + window.scrollX,
+            bottom: rect.bottom + window.scrollY,
+        };
+    }
+
+    function rectsOverlap(a: PopupRect, b: PopupRect): boolean {
+        return (
+            a.left < b.right &&
+            a.right > b.left &&
+            a.top < b.bottom &&
+            a.bottom > b.top
+        );
+    }
+
+    function positionPopupToAvoidOverlap(popup: HTMLElement): void {
+        if (!keepSelectionPopupOpenEnabled) {
+            return;
+        }
+
+        const others = getAllTranslationPopups().filter((entry) => entry !== popup);
+        if (others.length === 0) {
+            return;
+        }
+
+        const popupWidth = popup.offsetWidth || parseFloat(popup.style.width) || 350;
+        const popupHeight = popup.offsetHeight || 120;
+        const margin = 12;
+        const viewportLeft = window.scrollX + margin;
+        const viewportTop = window.scrollY + margin;
+        const viewportRight = window.scrollX + window.innerWidth - margin;
+        const viewportBottom = window.scrollY + window.innerHeight - margin;
+
+        let left = parseFloat(popup.style.left) || window.scrollX;
+        let top = parseFloat(popup.style.top) || window.scrollY;
+
+        left = Math.min(Math.max(left, viewportLeft), Math.max(viewportLeft, viewportRight - popupWidth));
+        top = Math.max(top, viewportTop);
+
+        for (let attempt = 0; attempt < 30; attempt++) {
+            const candidateRect: PopupRect = {
+                left,
+                top,
+                right: left + popupWidth,
+                bottom: top + popupHeight,
+            };
+
+            let overlappingRect: PopupRect | null = null;
+            for (const otherPopup of others) {
+                const otherRect = getPopupRect(otherPopup);
+                if (rectsOverlap(candidateRect, otherRect)) {
+                    overlappingRect = otherRect;
+                    break;
+                }
+            }
+
+            if (!overlappingRect) {
+                break;
+            }
+
+            top = overlappingRect.bottom + margin;
+
+            if (top + popupHeight > viewportBottom) {
+                top = viewportTop;
+                left = overlappingRect.right + margin;
+                if (left + popupWidth > viewportRight) {
+                    left = viewportLeft;
+                }
+            }
+        }
+
+        popup.style.left = `${Math.round(left)}px`;
+        popup.style.top = `${Math.round(top)}px`;
+    }
+
+    function setPopupOutsideClickDismissEnabled(enabled: boolean): void {
+        document.removeEventListener("click", handleClickOutside, true);
+        if (enabled) {
+            document.addEventListener("click", handleClickOutside, true);
+        }
+    }
+
+    function syncPopupOutsideClickBehavior(): void {
+        const hasPopup = getAllTranslationPopups().length > 0;
+        const shouldAutoDismiss = hasPopup && !keepSelectionPopupOpenEnabled;
+        setPopupOutsideClickDismissEnabled(shouldAutoDismiss);
+    }
+
     function displayPopup(
         content: string,
         isError: boolean = false,
@@ -2918,17 +3099,31 @@ if ((window as any).hasRun) {
         detectedLanguageName: string | null = null,
         targetLanguageName: string | null = null,
         isStreaming: boolean = false,
+        requestId: string | null = null,
     ): void {
         console.log("displayPopup called with:", { content, isError, isLoading, detectedLanguageName, targetLanguageName });
-        const popupId = "translation-popup-extension";
-        let existingPopup = document.getElementById(popupId) as HTMLElement;
+        let createdPopup = false;
+        let existingPopup = getPopupForRequestId(requestId);
+
+        if (!existingPopup && !keepSelectionPopupOpenEnabled) {
+            existingPopup =
+                translationPopup && translationPopup.isConnected
+                    ? translationPopup
+                    : getAllTranslationPopups()[0] || null;
+            if (existingPopup) {
+                translationPopup = existingPopup;
+            }
+        }
 
         if (existingPopup && isStreaming) {
+            translationPopup = existingPopup;
             updateStreamingPopup(existingPopup, content);
+            syncPopupOutsideClickBehavior();
             return;
         }
 
         if (existingPopup && !isLoading) {
+            translationPopup = existingPopup;
             existingPopup.classList.remove("is-streaming");
             console.log("Updating existing popup content.");
             setSanitizedContent(existingPopup, content);
@@ -2938,18 +3133,23 @@ if ((window as any).hasRun) {
 
             addCloseButton(existingPopup);
             console.log("Existing popup updated:", existingPopup);
+            syncPopupOutsideClickBehavior();
             return;
         }
 
         if (existingPopup && isLoading) {
+            translationPopup = existingPopup;
             existingPopup.classList.remove("is-streaming");
             console.log("Popup already exists in loading state.");
+            syncPopupOutsideClickBehavior();
             return;
         }
 
         if (!existingPopup) {
             console.log("Creating new popup.");
-            removePopup(false);
+            if (!keepSelectionPopupOpenEnabled) {
+                removePopup(false);
+            }
 
             let top = 0;
             let left = 0;
@@ -2974,46 +3174,55 @@ if ((window as any).hasRun) {
                 left = window.scrollX + (window.lastMouseX || 0);
             }
 
-            translationPopup = document.createElement("div");
-            translationPopup.id = popupId;
-            existingPopup = translationPopup;
+            if (keepSelectionPopupOpenEnabled) {
+                const existingPopupCount = getAllTranslationPopups().length;
+                const cascadeOffset = Math.min(existingPopupCount * 16, 120);
+                top += cascadeOffset;
+                left += cascadeOffset;
+            }
 
-            translationPopup.style.position = "absolute";
-            translationPopup.style.top = `${top}px`;
-            translationPopup.style.left = `${left}px`;
-            translationPopup.style.zIndex = "2147483647";
-            translationPopup.style.borderRadius = "5px";
-            translationPopup.style.padding = "10px 25px 10px 15px";
-            translationPopup.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
-            translationPopup.style.width = `${popupWidth}px`;
-            translationPopup.style.maxWidth = `${maxWidth}px`;
-            translationPopup.style.fontFamily = "Arial, sans-serif";
-            translationPopup.style.fontSize = "14px";
-            translationPopup.style.lineHeight = "1.4";
-            translationPopup.style.pointerEvents = "auto";
+            const popupElement = document.createElement("div");
+            popupElement.id = keepSelectionPopupOpenEnabled
+                ? createPopupElementId(requestId)
+                : TRANSLATION_POPUP_BASE_ID;
+            popupElement.classList.add("translation-popup-extension");
+            registerPopup(popupElement, requestId);
+            existingPopup = popupElement;
+            createdPopup = true;
 
-            translationPopup.style.display = "block";
-            translationPopup.style.backgroundColor = isError ? "#fff0f0" : "white";
-            translationPopup.style.border = `1px solid ${isError ? "#f00" : "#ccc"}`;
-            translationPopup.style.color = isError ? "#a00" : "#333";
-            translationPopup.style.minWidth = `${minWidth}px`;
-            translationPopup.style.minHeight = "20px";
-            translationPopup.style.visibility = "visible";
-            translationPopup.style.opacity = "1";
+            popupElement.style.position = "absolute";
+            popupElement.style.top = `${top}px`;
+            popupElement.style.left = `${left}px`;
+            popupElement.style.zIndex = "2147483647";
+            popupElement.style.borderRadius = "5px";
+            popupElement.style.padding = "10px 25px 10px 15px";
+            popupElement.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
+            popupElement.style.width = `${popupWidth}px`;
+            popupElement.style.maxWidth = `${maxWidth}px`;
+            popupElement.style.fontFamily = "Arial, sans-serif";
+            popupElement.style.fontSize = "14px";
+            popupElement.style.lineHeight = "1.4";
+            popupElement.style.pointerEvents = "auto";
 
-            console.log("Popup element created and styled (before content):", translationPopup);
+            popupElement.style.display = "block";
+            popupElement.style.backgroundColor = isError ? "#fff0f0" : "white";
+            popupElement.style.border = `1px solid ${isError ? "#f00" : "#ccc"}`;
+            popupElement.style.color = isError ? "#a00" : "#333";
+            popupElement.style.minWidth = `${minWidth}px`;
+            popupElement.style.minHeight = "20px";
+            popupElement.style.visibility = "visible";
+            popupElement.style.opacity = "1";
+
+            console.log("Popup element created and styled (before content):", popupElement);
 
             try {
-                document.body.appendChild(translationPopup);
+                document.body.appendChild(popupElement);
                 console.log("Popup appended to document body.");
             } catch (e) {
                 console.error("Error appending popup to body:", e);
                 return;
             }
-
-            setTimeout(() => {
-                document.addEventListener("click", handleClickOutside, true);
-            }, 0);
+            syncPopupOutsideClickBehavior();
         }
 
         if (isLoading) {
@@ -3074,6 +3283,10 @@ if ((window as any).hasRun) {
         }
 
         addCloseButton(existingPopup);
+        if (keepSelectionPopupOpenEnabled && (createdPopup || !isStreaming)) {
+            positionPopupToAvoidOverlap(existingPopup);
+        }
+        syncPopupOutsideClickBehavior();
         console.log("Popup content set:", existingPopup);
     }
 
@@ -3094,31 +3307,67 @@ if ((window as any).hasRun) {
         closeButton.style.fontSize = "18px";
         closeButton.style.cursor = "pointer";
         closeButton.style.color = "#888";
-        closeButton.onclick = removePopup;
+        closeButton.onclick = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const popupRequestId =
+                popupElement.dataset[TRANSLATION_POPUP_REQUEST_ID_ATTR] || null;
+            const shouldResetInProgress =
+                !popupRequestId || popupRequestId === activeStreamRequestId;
+            removePopup(shouldResetInProgress, popupElement);
+        };
         popupElement.appendChild(closeButton);
     }
 
-    function removePopup(resetInProgress: boolean = true): void {
-        cancelActiveStream();
+    function removePopup(
+        resetInProgress: boolean = true,
+        popupToRemove: HTMLElement | null = null,
+    ): void {
+        const popups =
+            popupToRemove && popupToRemove.isConnected
+                ? [popupToRemove]
+                : getAllTranslationPopups();
+
+        if (popups.length === 0) {
+            return;
+        }
+
+        const shouldCancelActiveStream = popups.some((popup) => {
+            const requestId = popup.dataset[TRANSLATION_POPUP_REQUEST_ID_ATTR];
+            return (
+                !popupToRemove ||
+                Boolean(requestId && requestId === activeStreamRequestId)
+            );
+        });
+
+        if (shouldCancelActiveStream) {
+            cancelActiveStream();
+        }
+
         if (resetInProgress) {
             selectionTranslateInProgress = false;
         }
         hideSelectionTranslateButton();
-        const popup = document.getElementById("translation-popup-extension");
-        if (popup && popup.parentNode) {
-            popup.parentNode.removeChild(popup);
-            if (popup === translationPopup) {
-                translationPopup = null;
+
+        for (const popup of popups) {
+            if (popup.parentNode) {
+                popup.parentNode.removeChild(popup);
             }
-            document.removeEventListener("click", handleClickOutside, true);
+            unregisterPopup(popup);
         }
+
+        syncPopupOutsideClickBehavior();
     }
 
     function handleClickOutside(event: Event): void {
-        if (translationPopup && !translationPopup.contains(event.target as Node)) {
-            if (!loadingIndicator || !loadingIndicator.contains(event.target as Node)) {
-                removePopup();
-            }
+        const popup = translationPopup && translationPopup.isConnected
+            ? translationPopup
+            : getAllTranslationPopups()[0] || null;
+        if (!popup || popup.contains(event.target as Node)) {
+            return;
+        }
+        if (!loadingIndicator || !loadingIndicator.contains(event.target as Node)) {
+            removePopup(true, popup);
         }
     }
 }

@@ -17,6 +17,7 @@ import {
     SETTINGS_MODE_ADVANCED,
     BASIC_TARGET_LANGUAGE_DEFAULT,
     ADVANCED_TARGET_LANGUAGE_DEFAULT,
+    KEEP_SELECTION_POPUP_OPEN_DEFAULT,
     DEFAULT_TRANSLATION_INSTRUCTIONS,
     type SettingsMode,
 } from "../shared/constants/settings";
@@ -54,6 +55,9 @@ const basicTargetLanguageSelect = document.getElementById(
 
 const showTranslateButtonOnSelectionInput = document.getElementById(
     "show-translate-button-on-selection",
+) as HTMLInputElement;
+const keepSelectionPopupOpenInput = document.getElementById(
+    "keep-selection-popup-open",
 ) as HTMLInputElement;
 
 const ollamaSettingsDiv = document.getElementById("ollama-settings") as HTMLElement;
@@ -229,6 +233,7 @@ async function loadSettings(): Promise<void> {
             STORAGE_KEYS.ADVANCED_TARGET_LANGUAGE,
             STORAGE_KEYS.EXTRA_INSTRUCTIONS,
             STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION,
+            STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN,
         ]);
 
         console.log("options.ts: Raw settings loaded from storage:", result);
@@ -257,13 +262,26 @@ async function loadSettings(): Promise<void> {
                 ? result.showTranslateButtonOnSelection
                 : true;
 
-        if (shouldPersistModeMigration || needsPersistShowButtonSetting) {
+        const needsPersistKeepPopupSetting =
+            typeof result.keepSelectionPopupOpen !== "boolean";
+
+        const keepPopupSetting =
+            typeof result.keepSelectionPopupOpen === "boolean"
+                ? result.keepSelectionPopupOpen
+                : KEEP_SELECTION_POPUP_OPEN_DEFAULT;
+
+        if (
+            shouldPersistModeMigration ||
+            needsPersistShowButtonSetting ||
+            needsPersistKeepPopupSetting
+        ) {
             setStorage({
                 [STORAGE_KEYS.SETTINGS_MODE]: settingsMode,
                 [STORAGE_KEYS.BASIC_TARGET_LANGUAGE]: basicTargetLanguage,
                 [STORAGE_KEYS.ADVANCED_TARGET_LANGUAGE]: advancedTargetLanguage,
                 [STORAGE_KEYS.EXTRA_INSTRUCTIONS]: extraInstructions,
                 [STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION]: showButtonSetting,
+                [STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN]: keepPopupSetting,
             }).catch((error) => {
                 console.error("options.ts: Error persisting mode migration:", error);
             });
@@ -294,6 +312,14 @@ async function loadSettings(): Promise<void> {
             const current = result.showTranslateButtonOnSelection;
             showTranslateButtonOnSelectionInput.checked =
                 typeof current === "boolean" ? current : true;
+        }
+
+        if (keepSelectionPopupOpenInput) {
+            const current = result.keepSelectionPopupOpen;
+            keepSelectionPopupOpenInput.checked =
+                typeof current === "boolean"
+                    ? current
+                    : KEEP_SELECTION_POPUP_OPEN_DEFAULT;
         }
 
         providerSettings = result.providerSettings || {};
@@ -563,6 +589,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 [STORAGE_KEYS.BASIC_TARGET_LANGUAGE]: basicTargetLanguage,
                 [STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION]:
                     showTranslateButtonOnSelectionInput?.checked ?? true,
+                [STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN]:
+                    keepSelectionPopupOpenInput?.checked ??
+                    KEEP_SELECTION_POPUP_OPEN_DEFAULT,
             }).catch((error) => {
                 console.error("options.ts: Error saving settings mode:", error);
             });
@@ -621,6 +650,18 @@ document.addEventListener("DOMContentLoaded", () => {
                     showTranslateButtonOnSelectionInput.checked,
             }).catch((error) => {
                 console.error("options.ts: Error saving show button setting:", error);
+            });
+            displayStatus("Settings saved!", false);
+        });
+    }
+
+    if (keepSelectionPopupOpenInput) {
+        keepSelectionPopupOpenInput.addEventListener("change", () => {
+            setStorage({
+                [STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN]:
+                    keepSelectionPopupOpenInput.checked,
+            }).catch((error) => {
+                console.error("options.ts: Error saving popup persistence setting:", error);
             });
             displayStatus("Settings saved!", false);
         });

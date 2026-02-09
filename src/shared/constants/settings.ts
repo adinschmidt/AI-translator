@@ -3,6 +3,7 @@ export const BASIC_TARGET_LANGUAGE_KEY = "basicTargetLanguage";
 export const ADVANCED_TARGET_LANGUAGE_KEY = "advancedTargetLanguage";
 export const EXTRA_INSTRUCTIONS_KEY = "extraInstructions";
 export const SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY = "showTranslateButtonOnSelection";
+export const KEEP_SELECTION_POPUP_OPEN_KEY = "keepSelectionPopupOpen";
 
 export const SETTINGS_MODE_BASIC = "basic";
 export const SETTINGS_MODE_ADVANCED = "advanced";
@@ -11,6 +12,7 @@ export type SettingsMode = typeof SETTINGS_MODE_BASIC | typeof SETTINGS_MODE_ADV
 
 export const BASIC_TARGET_LANGUAGE_DEFAULT = "en";
 export const ADVANCED_TARGET_LANGUAGE_DEFAULT = "en";
+export const KEEP_SELECTION_POPUP_OPEN_DEFAULT = false;
 
 export const DEFAULT_TRANSLATION_INSTRUCTIONS =
     "Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations.";
