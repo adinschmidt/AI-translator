@@ -58,7 +58,7 @@ export const PROVIDER_DEFAULTS = {
     },
     cerebras: {
         apiEndpoint: "https://api.cerebras.ai/v1/chat/completions",
-        modelName: "qwen-3-235b-a22b-instruct-2507",
+        modelName: "qwen-3-32b",
     },
     ollama: {
         apiEndpoint: "http://localhost:11434",
