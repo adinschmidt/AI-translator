@@ -92,10 +92,18 @@ export function createRequestId(): string {
 }
 
 export function isInstructModelName(modelName: string): boolean {
-    return typeof modelName === "string" &&
-        modelName.toLowerCase().includes("instruct");
+    return typeof modelName === "string" && modelName.toLowerCase().includes("instruct");
 }
 
 export function stripThinkBlocks(text: string): string {
-    return text.replace(/[\s\S]*?<\/think>/gi, "").trim();
+    if (typeof text !== "string" || text.length === 0) {
+        return "";
+    }
+
+    // Remove only explicit <think>...</think> blocks; keep regular text intact.
+    let cleaned = text.replace(/<think\b[^>]*>[\s\S]*?<\/think>/gi, "");
+    // Some providers emit orphan think tags; strip tag markers without dropping content.
+    cleaned = cleaned.replace(/<\/?think\b[^>]*>/gi, "");
+
+    return cleaned.trim();
 }

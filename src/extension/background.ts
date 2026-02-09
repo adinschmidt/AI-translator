@@ -155,13 +155,14 @@ function calculateBackoffDelay(attempt: number, hintMs: number | null): number {
     }
 
     // Exponential backoff with jitter
-    const baseDelay = RATE_LIMIT_BASE_DELAY_MS * Math.pow(RATE_LIMIT_BACKOFF_MULTIPLIER, attempt);
+    const baseDelay =
+        RATE_LIMIT_BASE_DELAY_MS * Math.pow(RATE_LIMIT_BACKOFF_MULTIPLIER, attempt);
     const jitter = Math.random() * 0.3 * baseDelay; // 0-30% jitter
     return Math.min(baseDelay + jitter, RATE_LIMIT_MAX_DELAY_MS);
 }
 
 async function sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function withRateLimitRetry<T>(
@@ -183,7 +184,9 @@ async function withRateLimitRetry<T>(
 
             if (attempt === RATE_LIMIT_MAX_RETRIES) {
                 // Exhausted all retries
-                console.error(`${context}: Rate limit exhausted after ${attempt + 1} attempts`);
+                console.error(
+                    `${context}: Rate limit exhausted after ${attempt + 1} attempts`,
+                );
                 throw error;
             }
 
@@ -192,7 +195,7 @@ async function withRateLimitRetry<T>(
 
             console.warn(
                 `${context}: Rate limit hit (attempt ${attempt + 1}/${RATE_LIMIT_MAX_RETRIES + 1}), ` +
-                `retrying in ${Math.round(delayMs / 1000)}s...`
+                    `retrying in ${Math.round(delayMs / 1000)}s...`,
             );
 
             await sleep(delayMs);
@@ -256,6 +259,224 @@ function normalizeGoogleBaseUrl(apiEndpoint: string): string {
     return base;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isCerebrasQwenModelName(modelName: unknown): boolean {
+    return typeof modelName === "string" && modelName.toLowerCase().includes("qwen");
+}
+
+function extractTextParts(value: unknown): string[] {
+    if (typeof value === "string") {
+        return [value];
+    }
+
+    if (Array.isArray(value)) {
+        return value.flatMap(extractTextParts);
+    }
+
+    if (!isRecord(value)) {
+        return [];
+    }
+
+    const parts: string[] = [];
+    parts.push(...extractTextParts(value.text));
+    parts.push(...extractTextParts(value.content));
+    return parts;
+}
+
+function pickFirstUsableTranslation(provider: Provider, candidates: string[]): string {
+    for (const candidate of candidates) {
+        if (!candidate || candidate.trim() === "") {
+            continue;
+        }
+
+        const cleaned = shouldStripThinkBlocks(provider)
+            ? stripThinkBlocks(candidate)
+            : candidate;
+
+        if (cleaned && cleaned.trim() !== "") {
+            return cleaned.trim();
+        }
+    }
+
+    return "";
+}
+
+function extractFallbackTranslationFromResponseBody(
+    responseBody: unknown,
+    provider: Provider,
+): string {
+    if (!isRecord(responseBody)) {
+        return "";
+    }
+
+    const candidates: string[] = [];
+
+    const outputText = extractTextParts(responseBody.output_text);
+    if (outputText.length > 0) {
+        candidates.push(...outputText);
+    }
+
+    const choicesValue = responseBody.choices;
+    if (Array.isArray(choicesValue)) {
+        for (const choiceValue of choicesValue) {
+            if (!isRecord(choiceValue)) {
+                continue;
+            }
+
+            const message = isRecord(choiceValue.message) ? choiceValue.message : null;
+            if (!message) {
+                continue;
+            }
+
+            candidates.push(...extractTextParts(message.content));
+
+            // If the provider emits think-tagged reasoning in non-standard fields,
+            // recover only the final answer section after stripping think blocks.
+            const reasoningContentParts = extractTextParts(message.reasoning_content);
+            if (reasoningContentParts.length > 0) {
+                const reasoningCandidate = reasoningContentParts.join("\n");
+                if (/<\/?think\b/i.test(reasoningCandidate)) {
+                    candidates.push(reasoningCandidate);
+                }
+            }
+        }
+    }
+
+    return pickFirstUsableTranslation(provider, candidates);
+}
+
+function extractThinkTaggedFallback(provider: Provider, text: string): string {
+    if (!shouldStripThinkBlocks(provider) || !/<\/?think\b/i.test(text)) {
+        return "";
+    }
+
+    return pickFirstUsableTranslation(provider, [text]);
+}
+
+function parseProviderErrorDetail(value: unknown): string | null {
+    if (typeof value === "string") {
+        const trimmed = value.trim();
+        return trimmed ? trimmed : null;
+    }
+
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            const nested = parseProviderErrorDetail(item);
+            if (nested) {
+                return nested;
+            }
+        }
+        return null;
+    }
+
+    if (!isRecord(value)) {
+        return null;
+    }
+
+    const directKeys = [
+        "message",
+        "detail",
+        "description",
+        "error_description",
+        "reason",
+    ];
+    for (const key of directKeys) {
+        const nested = parseProviderErrorDetail(value[key]);
+        if (nested) {
+            return nested;
+        }
+    }
+
+    if (value.error !== undefined) {
+        const nested = parseProviderErrorDetail(value.error);
+        if (nested) {
+            return nested;
+        }
+    }
+
+    if (value.errors !== undefined) {
+        const nested = parseProviderErrorDetail(value.errors);
+        if (nested) {
+            return nested;
+        }
+    }
+
+    return null;
+}
+
+function truncateLogString(value: string, maxLength: number = 800): string {
+    if (value.length <= maxLength) {
+        return value;
+    }
+
+    return `${value.slice(0, maxLength)}…`;
+}
+
+function summarizeApiError(error: unknown): {
+    userMessage: string;
+    debug: {
+        name?: string;
+        message: string;
+        statusCode?: number;
+        isRetryable?: boolean;
+        data?: unknown;
+        responseBody?: unknown;
+    };
+} {
+    const e = error as any;
+    const statusCode =
+        typeof e?.statusCode === "number"
+            ? e.statusCode
+            : typeof e?.status === "number"
+              ? e.status
+              : undefined;
+
+    const baseMessage = String(e?.message || error || "Unknown error");
+    const dataDetail = parseProviderErrorDetail(e?.data);
+
+    let parsedResponseBody: unknown = undefined;
+    if (typeof e?.responseBody === "string" && e.responseBody.trim() !== "") {
+        try {
+            parsedResponseBody = JSON.parse(e.responseBody);
+        } catch {
+            parsedResponseBody = truncateLogString(e.responseBody);
+        }
+    } else if (e?.responseBody !== undefined) {
+        parsedResponseBody = e.responseBody;
+    }
+
+    const responseDetail = parseProviderErrorDetail(parsedResponseBody);
+    const detail = dataDetail || responseDetail || null;
+
+    const detailParts: string[] = [];
+    if (statusCode !== undefined) {
+        detailParts.push(`status ${statusCode}`);
+    }
+    if (detail) {
+        detailParts.push(detail);
+    }
+
+    const userMessage =
+        detailParts.length > 0
+            ? `${baseMessage} (${detailParts.join("; ")})`
+            : baseMessage;
+
+    return {
+        userMessage,
+        debug: {
+            name: e?.name,
+            message: baseMessage,
+            statusCode,
+            isRetryable: typeof e?.isRetryable === "boolean" ? e.isRetryable : undefined,
+            data: e?.data,
+            responseBody: parsedResponseBody,
+        },
+    };
+}
+
 function resolveProviderModel(
     provider: Provider,
     apiKey: string,
@@ -312,6 +533,42 @@ function resolveMaxTokens(provider: Provider, isFullPage: boolean): number | und
 
 function shouldStripThinkBlocks(provider: Provider): boolean {
     return provider === "groq" || provider === "cerebras";
+}
+
+function shouldUseStreamingForSelectedText(
+    provider: Provider,
+    modelName: string,
+): boolean {
+    if (
+        provider === "cerebras" &&
+        isCerebrasQwenModelName(modelName) &&
+        isInstructModelName(modelName)
+    ) {
+        return false;
+    }
+
+    return true;
+}
+
+function shouldRetrySelectedTextWithoutStreaming(
+    error: unknown,
+    provider: Provider,
+    modelName: string,
+): boolean {
+    const message = String((error as any)?.message || error || "").toLowerCase();
+    if (message.includes("no translation text")) {
+        return true;
+    }
+
+    if (
+        provider === "cerebras" &&
+        isCerebrasQwenModelName(modelName) &&
+        isInstructModelName(modelName)
+    ) {
+        return true;
+    }
+
+    return false;
 }
 
 function startStreamKeepAlive(): ReturnType<typeof setInterval> {
@@ -654,12 +911,13 @@ async function translateHTMLBatch(
     const model = resolveProviderModel(apiType, apiKey, apiEndpoint, modelName);
 
     const result = await withRateLimitRetry(
-        () => generateText({
-            model,
-            system: systemPrompt,
-            prompt: userPrompt,
-            maxTokens: MAX_BATCH_OUTPUT_TOKENS,
-        }),
+        () =>
+            generateText({
+                model,
+                system: systemPrompt,
+                prompt: userPrompt,
+                maxTokens: MAX_BATCH_OUTPUT_TOKENS,
+            }),
         `translateHTMLBatch (${batch.length} units)`,
     );
 
@@ -958,22 +1216,35 @@ async function streamSelectedTranslation(
         });
 
         let translation = "";
-        for await (const chunk of result.textStream) {
-            translation += chunk;
-            const streamedText = shouldStripThinkBlocks(provider)
-                ? stripThinkBlocks(translation)
-                : translation;
-            scheduleStreamUpdate(
-                streamState,
-                streamedText,
-                detectedLanguageName,
-                targetLanguageName,
-            );
+        let reasoningText = "";
+        for await (const part of result.fullStream) {
+            if (part.type === "text-delta") {
+                translation += part.textDelta;
+                const streamedText = pickFirstUsableTranslation(provider, [translation]);
+                if (streamedText !== "") {
+                    scheduleStreamUpdate(
+                        streamState,
+                        streamedText,
+                        detectedLanguageName,
+                        targetLanguageName,
+                    );
+                }
+            } else if (
+                part.type === "reasoning" &&
+                typeof part.textDelta === "string"
+            ) {
+                reasoningText += part.textDelta;
+            }
         }
 
-        const finalText = shouldStripThinkBlocks(provider)
-            ? stripThinkBlocks(translation)
-            : translation;
+        const finalText = pickFirstUsableTranslation(provider, [
+            translation,
+            extractThinkTaggedFallback(provider, reasoningText),
+        ]);
+
+        if (!finalText || finalText.trim() === "") {
+            throw new Error("API returned no translation text.");
+        }
         flushStreamUpdate(
             streamState,
             finalText,
@@ -985,7 +1256,9 @@ async function streamSelectedTranslation(
         if (controller.signal.aborted || (error as any)?.name === "AbortError") {
             return null;
         }
-        throw error;
+        const summary = summarizeApiError(error);
+        console.error("AI SDK streaming translation error:", summary.debug);
+        throw new Error(summary.userMessage, { cause: error as any });
     } finally {
         if (activeStreams.get(tabId) === streamState) {
             activeStreams.delete(tabId);
@@ -1037,21 +1310,27 @@ async function translateTextApiCall(
     const maxTokens = resolveMaxTokens(provider, isFullPage);
 
     try {
-        const { text } = await withRateLimitRetry(
-            () => generateText({
-                model,
-                system: systemPrompt,
-                prompt,
-                maxTokens: maxTokens ?? undefined,
-            }),
+        const result = await withRateLimitRetry(
+            () =>
+                generateText({
+                    model,
+                    system: systemPrompt,
+                    prompt,
+                    maxTokens: maxTokens ?? undefined,
+                }),
             "translateTextApiCall",
         );
 
-        let translation = text;
+        const fallbackFromBody = extractFallbackTranslationFromResponseBody(
+            result.response?.body,
+            provider,
+        );
 
-        if (shouldStripThinkBlocks(provider)) {
-            translation = stripThinkBlocks(translation);
-        }
+        const translation = pickFirstUsableTranslation(provider, [
+            result.text || "",
+            fallbackFromBody,
+            extractThinkTaggedFallback(provider, result.reasoning || ""),
+        ]);
 
         if (!translation || translation.trim() === "") {
             throw new Error("API returned no translation text.");
@@ -1059,8 +1338,9 @@ async function translateTextApiCall(
 
         return translation.trim();
     } catch (error) {
-        console.error("AI SDK translation error:", error);
-        throw error;
+        const summary = summarizeApiError(error);
+        console.error("AI SDK translation error:", summary.debug);
+        throw new Error(summary.userMessage, { cause: error as any });
     }
 }
 
@@ -1096,6 +1376,10 @@ async function getSettingsAndTranslate(
         modelName: finalModel,
         translationInstructions: finalInstructions,
     } = settings;
+    const selectedModelName =
+        finalModel ||
+        PROVIDER_DEFAULTS[finalType]?.modelName ||
+        PROVIDER_DEFAULTS.openai?.modelName;
 
     const resolvedRequestId = requestId || createRequestId();
 
@@ -1117,6 +1401,40 @@ async function getSettingsAndTranslate(
             resolvedRequestId,
         );
 
+        if (!shouldUseStreamingForSelectedText(finalType, selectedModelName)) {
+            translateTextApiCall(
+                textToTranslate,
+                finalKey,
+                finalEndpoint,
+                finalType,
+                false,
+                selectedModelName,
+                finalInstructions,
+            )
+                .then((translation) => {
+                    notifyContentScript(
+                        tabId,
+                        translation,
+                        false,
+                        false,
+                        false,
+                        resolvedRequestId,
+                    );
+                })
+                .catch((error) => {
+                    console.error("Translation error:", error);
+                    notifyContentScript(
+                        tabId,
+                        `Translation Error: ${(error as any).message}`,
+                        false,
+                        true,
+                        false,
+                        resolvedRequestId,
+                    );
+                });
+            return;
+        }
+
         streamSelectedTranslation(
             tabId,
             resolvedRequestId,
@@ -1124,11 +1442,11 @@ async function getSettingsAndTranslate(
             finalKey,
             finalEndpoint,
             finalType,
-            finalModel,
+            selectedModelName,
             finalInstructions,
         )
             .then((translation) => {
-                if (!translation) {
+                if (translation === null) {
                     return;
                 }
                 notifyContentScript(
@@ -1140,7 +1458,45 @@ async function getSettingsAndTranslate(
                     resolvedRequestId,
                 );
             })
-            .catch((error) => {
+            .catch(async (error) => {
+                if (
+                    shouldRetrySelectedTextWithoutStreaming(
+                        error,
+                        finalType,
+                        selectedModelName,
+                    )
+                ) {
+                    console.warn(
+                        "Streaming selected translation failed; retrying without streaming.",
+                    );
+                    try {
+                        const fallbackTranslation = await translateTextApiCall(
+                            textToTranslate,
+                            finalKey,
+                            finalEndpoint,
+                            finalType,
+                            false,
+                            selectedModelName,
+                            finalInstructions,
+                        );
+                        notifyContentScript(
+                            tabId,
+                            fallbackTranslation,
+                            false,
+                            false,
+                            false,
+                            resolvedRequestId,
+                        );
+                        return;
+                    } catch (fallbackError) {
+                        console.error(
+                            "Selected-text fallback translation error:",
+                            fallbackError,
+                        );
+                        error = fallbackError;
+                    }
+                }
+
                 console.error("Translation error:", error);
                 notifyContentScript(
                     tabId,
@@ -1228,6 +1584,10 @@ async function getSettingsAndTranslateWithDetection(
         apiType: finalType,
         modelName: finalModel,
     } = settings;
+    const selectedModelName =
+        finalModel ||
+        PROVIDER_DEFAULTS[finalType]?.modelName ||
+        PROVIDER_DEFAULTS.openai?.modelName;
 
     let targetLanguageLabel: string;
     let finalInstructions: string;
@@ -1286,6 +1646,44 @@ async function getSettingsAndTranslateWithDetection(
             resolvedRequestId,
         );
 
+        if (!shouldUseStreamingForSelectedText(finalType, selectedModelName)) {
+            translateTextApiCall(
+                textToTranslate,
+                finalKey,
+                finalEndpoint,
+                finalType,
+                false,
+                selectedModelName,
+                finalInstructions,
+            )
+                .then((translation) => {
+                    notifyContentScriptWithDetection(
+                        tabId,
+                        translation,
+                        false,
+                        false,
+                        false,
+                        detectedLanguageName,
+                        targetLanguageLabel,
+                        resolvedRequestId,
+                    );
+                })
+                .catch((error) => {
+                    console.error("Translation error:", error);
+                    notifyContentScriptWithDetection(
+                        tabId,
+                        `Translation Error: ${(error as any).message}`,
+                        false,
+                        true,
+                        false,
+                        detectedLanguageName,
+                        targetLanguageLabel,
+                        resolvedRequestId,
+                    );
+                });
+            return;
+        }
+
         streamSelectedTranslation(
             tabId,
             resolvedRequestId,
@@ -1293,13 +1691,13 @@ async function getSettingsAndTranslateWithDetection(
             finalKey,
             finalEndpoint,
             finalType,
-            finalModel,
+            selectedModelName,
             finalInstructions,
             detectedLanguageName,
             targetLanguageLabel,
         )
             .then((translation) => {
-                if (!translation) {
+                if (translation === null) {
                     return;
                 }
                 notifyContentScriptWithDetection(
@@ -1313,7 +1711,47 @@ async function getSettingsAndTranslateWithDetection(
                     resolvedRequestId,
                 );
             })
-            .catch((error) => {
+            .catch(async (error) => {
+                if (
+                    shouldRetrySelectedTextWithoutStreaming(
+                        error,
+                        finalType,
+                        selectedModelName,
+                    )
+                ) {
+                    console.warn(
+                        "Streaming selected translation with detection failed; retrying without streaming.",
+                    );
+                    try {
+                        const fallbackTranslation = await translateTextApiCall(
+                            textToTranslate,
+                            finalKey,
+                            finalEndpoint,
+                            finalType,
+                            false,
+                            selectedModelName,
+                            finalInstructions,
+                        );
+                        notifyContentScriptWithDetection(
+                            tabId,
+                            fallbackTranslation,
+                            false,
+                            false,
+                            false,
+                            detectedLanguageName,
+                            targetLanguageLabel,
+                            resolvedRequestId,
+                        );
+                        return;
+                    } catch (fallbackError) {
+                        console.error(
+                            "Selected-text fallback translation with detection error:",
+                            fallbackError,
+                        );
+                        error = fallbackError;
+                    }
+                }
+
                 console.error("Translation error:", error);
                 notifyContentScriptWithDetection(
                     tabId,
