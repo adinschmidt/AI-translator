@@ -59,6 +59,23 @@ export const LANGUAGE_NAMES: Record<string, string> = {
 
 export type LanguageCode = keyof typeof LANGUAGE_NAMES;
 
+const INVALID_DETECTED_LANGUAGE_CODES = new Set([
+    "",
+    "und",
+    "unknown",
+    "auto",
+    "zxx",
+    "mis",
+]);
+
+const INVALID_DETECTED_LANGUAGE_NAMES = new Set([
+    "",
+    "unknown",
+    "undetermined",
+    "unidentified",
+    "n/a",
+]);
+
 export const BASIC_TARGET_LANGUAGES = [
     { value: "en", label: "English" },
     { value: "es", label: "Español" },
@@ -88,23 +105,34 @@ export function getBasicTargetLanguageLabel(value: string): string {
     );
 }
 
-export function buildBasicTranslationInstructions(
-    targetLanguageLabel: string,
-): string {
+export function buildBasicTranslationInstructions(targetLanguageLabel: string): string {
     return `Translate the following text to ${targetLanguageLabel}. Keep the same meaning and tone. DO NOT add any additional text or explanations.`;
 }
 
 export function buildTranslationInstructionsWithDetection(
+    detectedLanguage: string | null,
     detectedLanguageName: string | null,
     targetLanguageLabel: string,
     extraInstructions: string,
 ): string {
+    const normalizedDetectedLanguage = (detectedLanguage || "").trim().toLowerCase();
+    const normalizedDetectedLanguageName = (detectedLanguageName || "")
+        .trim()
+        .toLowerCase();
+    const normalizedTargetLanguageName = (targetLanguageLabel || "").trim().toLowerCase();
+    const hasDetectedSourceLanguage =
+        !INVALID_DETECTED_LANGUAGE_CODES.has(normalizedDetectedLanguage) &&
+        !INVALID_DETECTED_LANGUAGE_NAMES.has(normalizedDetectedLanguageName);
+
     let instructions;
 
-    if (detectedLanguageName && detectedLanguageName !== targetLanguageLabel) {
+    if (
+        hasDetectedSourceLanguage &&
+        normalizedDetectedLanguageName !== normalizedTargetLanguageName
+    ) {
         instructions = `Translate the following text from ${detectedLanguageName} to ${targetLanguageLabel}.`;
     } else {
-        instructions = `Translate the following text to ${targetLanguageLabel}.`;
+        instructions = `Translate this into ${targetLanguageLabel}.`;
     }
 
     instructions +=

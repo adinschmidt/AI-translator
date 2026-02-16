@@ -1229,10 +1229,7 @@ async function streamSelectedTranslation(
                         targetLanguageName,
                     );
                 }
-            } else if (
-                part.type === "reasoning" &&
-                typeof part.textDelta === "string"
-            ) {
+            } else if (part.type === "reasoning" && typeof part.textDelta === "string") {
                 reasoningText += part.textDelta;
             }
         }
@@ -1600,6 +1597,7 @@ async function getSettingsAndTranslateWithDetection(
             PROVIDER_DEFAULTS[finalType]?.apiEndpoint || settings.apiEndpoint;
         settings.modelName = PROVIDER_DEFAULTS[finalType]?.modelName;
         finalInstructions = buildTranslationInstructionsWithDetection(
+            detectedLanguage,
             detectedLanguageName,
             targetLanguageLabel,
             "",
@@ -1609,6 +1607,7 @@ async function getSettingsAndTranslateWithDetection(
             storage.advancedTargetLanguage || ADVANCED_TARGET_LANGUAGE_DEFAULT;
         targetLanguageLabel = getBasicTargetLanguageLabel(languageValue);
         finalInstructions = buildTranslationInstructionsWithDetection(
+            detectedLanguage,
             detectedLanguageName,
             targetLanguageLabel,
             storage.extraInstructions || "",
