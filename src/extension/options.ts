@@ -58,7 +58,9 @@ const extraInstructionsInput = document.getElementById(
     "extra-instructions",
 ) as HTMLTextAreaElement;
 
-const settingsModeSelect = document.getElementById("settings-mode") as HTMLSelectElement;
+const advancedModeToggle = document.getElementById(
+    "advanced-mode-toggle",
+) as HTMLInputElement;
 const uiThemeInputs = Array.from(
     document.querySelectorAll<HTMLInputElement>('input[name="ui-theme"]'),
 );
@@ -523,8 +525,8 @@ async function loadSettings(): Promise<void> {
             });
         }
 
-        if (settingsModeSelect) {
-            settingsModeSelect.value = settingsMode;
+        if (advancedModeToggle) {
+            advancedModeToggle.checked = settingsMode === SETTINGS_MODE_ADVANCED;
         }
 
         populateBasicLanguageDropdown();
@@ -848,13 +850,11 @@ document.addEventListener("DOMContentLoaded", () => {
     populateAdvancedLanguageDropdown();
     loadSettings();
 
-    if (settingsModeSelect) {
-        settingsModeSelect.addEventListener("change", (event) => {
-            const value = (event.target as HTMLSelectElement).value;
-            settingsMode =
-                value === SETTINGS_MODE_ADVANCED
-                    ? SETTINGS_MODE_ADVANCED
-                    : SETTINGS_MODE_BASIC;
+    if (advancedModeToggle) {
+        advancedModeToggle.addEventListener("change", () => {
+            settingsMode = advancedModeToggle.checked
+                ? SETTINGS_MODE_ADVANCED
+                : SETTINGS_MODE_BASIC;
 
             const isBasic = settingsMode === SETTINGS_MODE_BASIC;
 

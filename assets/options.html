@@ -126,42 +126,28 @@
             </div>
 
             <div class="mb-6">
-                <label
-                    for="settings-mode"
-                    class="block text-sm font-medium text-gray-700 mb-1"
-                    >Mode:</label
-                >
-                <select
-                    id="settings-mode"
-                    name="settings-mode"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
-                >
-                    <option value="basic">Basic</option>
-                    <option value="advanced">Advanced</option>
-                </select>
-                <p class="text-xs text-gray-500 mt-1">
-                    Basic hides advanced configuration like endpoints, models, and custom
-                    prompts.
-                </p>
-            </div>
-
-            <div class="mb-6">
-                <label class="flex items-start gap-2">
-                    <input
-                        type="checkbox"
-                        id="show-translate-button-on-selection"
-                        class="mt-1"
-                    />
-                    <span>
-                        <span class="block text-sm font-medium text-gray-700">
-                            Show Translate button on selection
-                        </span>
-                        <span class="block text-xs text-gray-500">
-                            Shows a small Translate button when you select text on any
-                            page. Requires site access on all pages.
-                        </span>
-                    </span>
-                </label>
+                <div class="mode-switch-row">
+                    <div>
+                        <label
+                            for="advanced-mode-toggle"
+                            class="block text-sm font-medium text-gray-700"
+                            >Advanced mode</label
+                        >
+                        <p class="text-xs text-gray-500 mt-1">
+                            Turn on to edit endpoints, models, and custom prompts.
+                        </p>
+                    </div>
+                    <label class="ios-switch" for="advanced-mode-toggle">
+                        <input
+                            type="checkbox"
+                            id="advanced-mode-toggle"
+                            name="advanced-mode-toggle"
+                            role="switch"
+                            aria-label="Advanced mode"
+                        />
+                        <span class="ios-switch-track"></span>
+                    </label>
+                </div>
             </div>
 
             <form id="settings-form">
@@ -494,38 +480,85 @@
                     </div>
 
                     <div class="mb-4">
-                        <label class="flex items-start gap-2">
-                            <input
-                                type="checkbox"
-                                id="keep-selection-popup-open"
-                                class="mt-1"
-                            />
-                            <span>
-                                <span class="block text-sm font-medium text-gray-700">
-                                    Keep selection translation window open
-                                </span>
-                                <span class="block text-xs text-gray-500">
-                                    Adds an X close button and prevents the selection
-                                    translation window from closing when clicking
-                                    elsewhere on the page.
-                                </span>
-                            </span>
-                        </label>
+                        <div class="mode-switch-row">
+                            <div>
+                                <label
+                                    for="show-translate-button-on-selection"
+                                    class="block text-sm font-medium text-gray-700"
+                                >
+                                    Show Translate button on selection
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Shows a small Translate button when you select text on
+                                    any page. Requires site access on all pages.
+                                </p>
+                            </div>
+                            <label
+                                class="ios-switch"
+                                for="show-translate-button-on-selection"
+                            >
+                                <input
+                                    type="checkbox"
+                                    id="show-translate-button-on-selection"
+                                    role="switch"
+                                    aria-label="Show Translate button on selection"
+                                />
+                                <span class="ios-switch-track"></span>
+                            </label>
+                        </div>
                     </div>
 
                     <div class="mb-4">
-                        <label class="flex items-start gap-2">
-                            <input type="checkbox" id="debug-mode" class="mt-1" />
-                            <span>
-                                <span class="block text-sm font-medium text-gray-700">
+                        <div class="mode-switch-row">
+                            <div>
+                                <label
+                                    for="keep-selection-popup-open"
+                                    class="block text-sm font-medium text-gray-700"
+                                >
+                                    Keep selection translation window open
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    Adds an X close button and prevents the selection
+                                    translation window from closing when clicking
+                                    elsewhere on the page.
+                                </p>
+                            </div>
+                            <label class="ios-switch" for="keep-selection-popup-open">
+                                <input
+                                    type="checkbox"
+                                    id="keep-selection-popup-open"
+                                    role="switch"
+                                    aria-label="Keep selection translation window open"
+                                />
+                                <span class="ios-switch-track"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="mode-switch-row">
+                            <div>
+                                <label
+                                    for="debug-mode"
+                                    class="block text-sm font-medium text-gray-700"
+                                >
                                     Enable debug mode
-                                </span>
-                                <span class="block text-xs text-gray-500">
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">
                                     Adds detailed logs to browser/extension consoles and
                                     shows detailed error info in translation popups.
-                                </span>
-                            </span>
-                        </label>
+                                </p>
+                            </div>
+                            <label class="ios-switch" for="debug-mode">
+                                <input
+                                    type="checkbox"
+                                    id="debug-mode"
+                                    role="switch"
+                                    aria-label="Enable debug mode"
+                                />
+                                <span class="ios-switch-track"></span>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
