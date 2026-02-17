@@ -48,6 +48,12 @@ const fillDefaultModelButton = document.getElementById(
 const advancedTargetLanguageSelect = document.getElementById(
     "advanced-target-language",
 ) as HTMLSelectElement;
+const advancedTargetLanguageCustomContainer = document.getElementById(
+    "advanced-target-language-custom-container",
+) as HTMLElement;
+const advancedTargetLanguageCustomInput = document.getElementById(
+    "advanced-target-language-custom",
+) as HTMLInputElement;
 const extraInstructionsInput = document.getElementById(
     "extra-instructions",
 ) as HTMLTextAreaElement;
@@ -65,6 +71,12 @@ const basicApiKeyInput = document.getElementById("basic-api-key") as HTMLInputEl
 const basicTargetLanguageSelect = document.getElementById(
     "basic-target-language",
 ) as HTMLSelectElement;
+const basicTargetLanguageCustomContainer = document.getElementById(
+    "basic-target-language-custom-container",
+) as HTMLElement;
+const basicTargetLanguageCustomInput = document.getElementById(
+    "basic-target-language-custom",
+) as HTMLInputElement;
 
 const showTranslateButtonOnSelectionInput = document.getElementById(
     "show-translate-button-on-selection",
@@ -100,6 +112,7 @@ const providerKeyDocsLink = document.getElementById(
 ) as HTMLAnchorElement | null;
 
 const PROVIDERS_DOCS_BASE_URL = "https://adinschmidt.com/AI-translator/providers";
+const CUSTOM_TARGET_LANGUAGE_OPTION_VALUE = "__custom__";
 const PROVIDER_DOC_ANCHORS: Record<Provider, string> = {
     openai: "openai",
     anthropic: "anthropic-claude",
@@ -178,30 +191,118 @@ function ensureSystemThemeWatcher(): void {
     }
 }
 
-function populateBasicLanguageDropdown(): void {
-    if (!basicTargetLanguageSelect) return;
+function resolveBuiltInTargetLanguageValue(
+    value: string | null | undefined,
+): string | null {
+    const normalizedValue = value?.trim().toLowerCase();
+    if (!normalizedValue) {
+        return null;
+    }
 
-    basicTargetLanguageSelect.textContent = "";
+    for (const language of BASIC_TARGET_LANGUAGES) {
+        if (language.value.toLowerCase() === normalizedValue) {
+            return language.value;
+        }
+
+        if (language.label.toLowerCase() === normalizedValue) {
+            return language.value;
+        }
+    }
+
+    return null;
+}
+
+function populateTargetLanguageDropdown(selectEl: HTMLSelectElement): void {
+    selectEl.textContent = "";
 
     for (const lang of BASIC_TARGET_LANGUAGES) {
         const option = document.createElement("option");
         option.value = lang.value;
         option.textContent = lang.label;
-        basicTargetLanguageSelect.appendChild(option);
+        selectEl.appendChild(option);
     }
+
+    const customOption = document.createElement("option");
+    customOption.value = CUSTOM_TARGET_LANGUAGE_OPTION_VALUE;
+    customOption.textContent = "Custom…";
+    selectEl.appendChild(customOption);
+}
+
+function populateBasicLanguageDropdown(): void {
+    if (!basicTargetLanguageSelect) {
+        return;
+    }
+
+    populateTargetLanguageDropdown(basicTargetLanguageSelect);
 }
 
 function populateAdvancedLanguageDropdown(): void {
-    if (!advancedTargetLanguageSelect) return;
-
-    advancedTargetLanguageSelect.textContent = "";
-
-    for (const lang of BASIC_TARGET_LANGUAGES) {
-        const option = document.createElement("option");
-        option.value = lang.value;
-        option.textContent = lang.label;
-        advancedTargetLanguageSelect.appendChild(option);
+    if (!advancedTargetLanguageSelect) {
+        return;
     }
+
+    populateTargetLanguageDropdown(advancedTargetLanguageSelect);
+}
+
+function setCustomTargetLanguageVisibility(
+    container: HTMLElement | null,
+    selectEl: HTMLSelectElement | null,
+): void {
+    if (!container || !selectEl) {
+        return;
+    }
+
+    const isCustom = selectEl.value === CUSTOM_TARGET_LANGUAGE_OPTION_VALUE;
+    container.classList.toggle("hidden", !isCustom);
+}
+
+function normalizeStoredTargetLanguage(
+    value: string | null | undefined,
+    fallback: string,
+): string {
+    const normalized = value?.trim() || "";
+    return normalized || fallback;
+}
+
+function resolveTargetLanguageFromControls(
+    selectEl: HTMLSelectElement | null,
+    customInput: HTMLInputElement | null,
+    fallback: string,
+): string {
+    if (!selectEl) {
+        return fallback;
+    }
+
+    if (selectEl.value === CUSTOM_TARGET_LANGUAGE_OPTION_VALUE) {
+        const customValue = customInput?.value.trim() || "";
+        return customValue || fallback;
+    }
+
+    return selectEl.value || fallback;
+}
+
+function applyTargetLanguageToControls(
+    value: string,
+    selectEl: HTMLSelectElement | null,
+    customInput: HTMLInputElement | null,
+    customContainer: HTMLElement | null,
+    fallback: string,
+): string {
+    const normalizedValue = normalizeStoredTargetLanguage(value, fallback);
+    const builtInValue = resolveBuiltInTargetLanguageValue(normalizedValue);
+    const isBuiltIn = builtInValue !== null;
+
+    if (selectEl) {
+        selectEl.value = builtInValue || CUSTOM_TARGET_LANGUAGE_OPTION_VALUE;
+    }
+
+    if (customInput) {
+        customInput.value = isBuiltIn ? "" : normalizedValue;
+    }
+
+    setCustomTargetLanguageVisibility(customContainer, selectEl);
+
+    return builtInValue || normalizedValue;
 }
 
 async function fetchOllamaModels(baseUrl: string): Promise<string[]> {
@@ -429,13 +530,21 @@ async function loadSettings(): Promise<void> {
         populateBasicLanguageDropdown();
         populateAdvancedLanguageDropdown();
 
-        if (basicTargetLanguageSelect) {
-            basicTargetLanguageSelect.value = basicTargetLanguage;
-        }
+        basicTargetLanguage = applyTargetLanguageToControls(
+            basicTargetLanguage,
+            basicTargetLanguageSelect,
+            basicTargetLanguageCustomInput,
+            basicTargetLanguageCustomContainer,
+            BASIC_TARGET_LANGUAGE_DEFAULT,
+        );
 
-        if (advancedTargetLanguageSelect) {
-            advancedTargetLanguageSelect.value = advancedTargetLanguage;
-        }
+        advancedTargetLanguage = applyTargetLanguageToControls(
+            advancedTargetLanguage,
+            advancedTargetLanguageSelect,
+            advancedTargetLanguageCustomInput,
+            advancedTargetLanguageCustomContainer,
+            ADVANCED_TARGET_LANGUAGE_DEFAULT,
+        );
 
         if (extraInstructionsInput) {
             extraInstructionsInput.value = extraInstructions;
@@ -585,9 +694,13 @@ function applyBasicSettingsToUI(provider: string): void {
         basicApiKeyInput.value = settings.apiKey || "";
     }
 
-    if (basicTargetLanguageSelect) {
-        basicTargetLanguageSelect.value = basicTargetLanguage;
-    }
+    basicTargetLanguage = applyTargetLanguageToControls(
+        basicTargetLanguage,
+        basicTargetLanguageSelect,
+        basicTargetLanguageCustomInput,
+        basicTargetLanguageCustomContainer,
+        BASIC_TARGET_LANGUAGE_DEFAULT,
+    );
 }
 
 function autoSaveSetting(): void {
@@ -610,8 +723,11 @@ async function saveSetting(): Promise<void> {
 
         const apiKey = basicApiKeyInput?.value.trim() || "";
         const defaults = resolveProviderDefaults(provider);
-        const targetLanguageValue =
-            basicTargetLanguageSelect?.value || BASIC_TARGET_LANGUAGE_DEFAULT;
+        const targetLanguageValue = resolveTargetLanguageFromControls(
+            basicTargetLanguageSelect,
+            basicTargetLanguageCustomInput,
+            BASIC_TARGET_LANGUAGE_DEFAULT,
+        );
         const targetLanguageLabel = getBasicTargetLanguageLabel(targetLanguageValue);
         const translationInstructions =
             buildBasicTranslationInstructions(targetLanguageLabel);
@@ -651,8 +767,11 @@ async function saveSetting(): Promise<void> {
     const apiEndpoint = apiEndpointInput.value.trim();
     const modelName = modelNameInput.value.trim();
 
-    advancedTargetLanguage =
-        advancedTargetLanguageSelect?.value || ADVANCED_TARGET_LANGUAGE_DEFAULT;
+    advancedTargetLanguage = resolveTargetLanguageFromControls(
+        advancedTargetLanguageSelect,
+        advancedTargetLanguageCustomInput,
+        ADVANCED_TARGET_LANGUAGE_DEFAULT,
+    );
     extraInstructions = extraInstructionsInput?.value.trim() || "";
 
     console.log(
@@ -795,24 +914,71 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (basicTargetLanguageSelect) {
-        basicTargetLanguageSelect.addEventListener("change", (event) => {
-            basicTargetLanguage =
-                (event.target as HTMLSelectElement).value ||
-                BASIC_TARGET_LANGUAGE_DEFAULT;
+        basicTargetLanguageSelect.addEventListener("change", () => {
+            setCustomTargetLanguageVisibility(
+                basicTargetLanguageCustomContainer,
+                basicTargetLanguageSelect,
+            );
+            basicTargetLanguage = resolveTargetLanguageFromControls(
+                basicTargetLanguageSelect,
+                basicTargetLanguageCustomInput,
+                BASIC_TARGET_LANGUAGE_DEFAULT,
+            );
+            autoSaveSetting();
+        });
+    }
+
+    if (basicTargetLanguageCustomInput) {
+        basicTargetLanguageCustomInput.addEventListener("input", () => {
+            if (
+                basicTargetLanguageSelect?.value !== CUSTOM_TARGET_LANGUAGE_OPTION_VALUE
+            ) {
+                return;
+            }
+
+            basicTargetLanguage = resolveTargetLanguageFromControls(
+                basicTargetLanguageSelect,
+                basicTargetLanguageCustomInput,
+                BASIC_TARGET_LANGUAGE_DEFAULT,
+            );
             autoSaveSetting();
         });
     }
 
     if (advancedTargetLanguageSelect) {
-        advancedTargetLanguageSelect.addEventListener("change", (event) => {
-            advancedTargetLanguage =
-                (event.target as HTMLSelectElement).value ||
-                ADVANCED_TARGET_LANGUAGE_DEFAULT;
+        advancedTargetLanguageSelect.addEventListener("change", () => {
+            setCustomTargetLanguageVisibility(
+                advancedTargetLanguageCustomContainer,
+                advancedTargetLanguageSelect,
+            );
+            advancedTargetLanguage = resolveTargetLanguageFromControls(
+                advancedTargetLanguageSelect,
+                advancedTargetLanguageCustomInput,
+                ADVANCED_TARGET_LANGUAGE_DEFAULT,
+            );
             autoSaveSetting();
         });
         console.log(
             "options.ts: Change listener added to advanced-target-language select.",
         );
+    }
+
+    if (advancedTargetLanguageCustomInput) {
+        advancedTargetLanguageCustomInput.addEventListener("input", () => {
+            if (
+                advancedTargetLanguageSelect?.value !==
+                CUSTOM_TARGET_LANGUAGE_OPTION_VALUE
+            ) {
+                return;
+            }
+
+            advancedTargetLanguage = resolveTargetLanguageFromControls(
+                advancedTargetLanguageSelect,
+                advancedTargetLanguageCustomInput,
+                ADVANCED_TARGET_LANGUAGE_DEFAULT,
+            );
+            autoSaveSetting();
+        });
     }
 
     if (extraInstructionsInput) {

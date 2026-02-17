@@ -7,6 +7,7 @@ import {
     UI_THEME_SYSTEM,
     type UITheme,
 } from "../shared/constants/settings";
+import { normalizeLanguageComparisonValue } from "../shared/constants/languages";
 import {
     type BackgroundToContentMessage,
     type ContentToBackgroundMessage,
@@ -2152,11 +2153,14 @@ if ((window as any).hasRun) {
 
             const targetLanguage = response?.targetLanguage || "en";
 
-            const detectedNormalized = detectionResult.language
-                .toLowerCase()
-                .split("-")[0];
-            const targetNormalized = targetLanguage.toLowerCase().split("-")[0];
-            const isSameLanguage = detectedNormalized === targetNormalized;
+            const detectedNormalized = normalizeLanguageComparisonValue(
+                detectionResult.language,
+            );
+            const targetNormalized = normalizeLanguageComparisonValue(targetLanguage);
+            const isSameLanguage =
+                detectedNormalized !== "" &&
+                targetNormalized !== "" &&
+                detectedNormalized === targetNormalized;
 
             if (isSameLanguage) {
                 console.log(

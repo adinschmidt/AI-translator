@@ -93,16 +93,118 @@ export const BASIC_TARGET_LANGUAGES = [
 
 export type BasicTargetLanguage = (typeof BASIC_TARGET_LANGUAGES)[number]["value"];
 
+const LANGUAGE_CODE_LOOKUP = new Map<string, string>();
+const LANGUAGE_NAME_LOOKUP = new Map<string, string>();
+
+for (const [code, name] of Object.entries(LANGUAGE_NAMES)) {
+    const normalizedCode = code.trim().toLowerCase();
+    if (normalizedCode) {
+        LANGUAGE_CODE_LOOKUP.set(normalizedCode, code);
+    }
+
+    const normalizedName = name.trim().toLowerCase();
+    if (normalizedName && !LANGUAGE_NAME_LOOKUP.has(normalizedName)) {
+        LANGUAGE_NAME_LOOKUP.set(normalizedName, code);
+    }
+}
+
+for (const language of BASIC_TARGET_LANGUAGES) {
+    const normalizedLabel = language.label.trim().toLowerCase();
+    if (normalizedLabel) {
+        LANGUAGE_NAME_LOOKUP.set(normalizedLabel, language.value);
+    }
+}
+
+function normalizeLanguageInput(value: string | null | undefined): string {
+    return (value || "").trim();
+}
+
+function resolveLanguageCode(value: string | null | undefined): string | null {
+    const normalizedValue = normalizeLanguageInput(value).toLowerCase();
+    if (!normalizedValue) {
+        return null;
+    }
+
+    const directCodeMatch = LANGUAGE_CODE_LOOKUP.get(normalizedValue);
+    if (directCodeMatch) {
+        return directCodeMatch;
+    }
+
+    const normalizedBaseCode = normalizedValue.split("-")[0];
+    const baseCodeMatch = LANGUAGE_CODE_LOOKUP.get(normalizedBaseCode);
+    if (baseCodeMatch) {
+        return baseCodeMatch;
+    }
+
+    const nameMatch = LANGUAGE_NAME_LOOKUP.get(normalizedValue);
+    if (nameMatch) {
+        return nameMatch;
+    }
+
+    return null;
+}
+
+export function normalizeLanguageComparisonValue(
+    value: string | null | undefined,
+): string {
+    const normalizedValue = normalizeLanguageInput(value);
+    if (!normalizedValue) {
+        return "";
+    }
+
+    const resolvedCode = resolveLanguageCode(normalizedValue);
+    if (resolvedCode) {
+        return resolvedCode.toLowerCase().split("-")[0];
+    }
+
+    return normalizedValue.toLowerCase();
+}
+
 export function getLanguageDisplayName(languageCode: string | null): string {
-    if (!languageCode) return "Unknown";
-    const normalizedCode = languageCode.toLowerCase().split("-")[0];
-    return LANGUAGE_NAMES[languageCode] || LANGUAGE_NAMES[normalizedCode] || languageCode;
+    const normalizedInput = normalizeLanguageInput(languageCode);
+    if (!normalizedInput) {
+        return "Unknown";
+    }
+
+    const resolvedCode = resolveLanguageCode(normalizedInput);
+    if (resolvedCode) {
+        const normalizedCode = resolvedCode.toLowerCase().split("-")[0];
+        return (
+            LANGUAGE_NAMES[resolvedCode] ||
+            LANGUAGE_NAMES[normalizedCode] ||
+            normalizedInput
+        );
+    }
+
+    const normalizedCode = normalizedInput.toLowerCase().split("-")[0];
+    return (
+        LANGUAGE_NAMES[normalizedInput] ||
+        LANGUAGE_NAMES[normalizedCode] ||
+        normalizedInput
+    );
 }
 
 export function getBasicTargetLanguageLabel(value: string): string {
-    return (
-        BASIC_TARGET_LANGUAGES.find((lang) => lang.value === value)?.label || "English"
+    const normalizedValue = normalizeLanguageInput(value);
+    if (!normalizedValue) {
+        return "English";
+    }
+
+    const basicMatchByValue = BASIC_TARGET_LANGUAGES.find(
+        (lang) => lang.value.toLowerCase() === normalizedValue.toLowerCase(),
     );
+    if (basicMatchByValue) {
+        return basicMatchByValue.label;
+    }
+
+    const basicMatchByLabel = BASIC_TARGET_LANGUAGES.find(
+        (lang) => lang.label.toLowerCase() === normalizedValue.toLowerCase(),
+    );
+    if (basicMatchByLabel) {
+        return basicMatchByLabel.label;
+    }
+
+    return getLanguageDisplayName(normalizedValue);
 }
 
 export function buildBasicTranslationInstructions(targetLanguageLabel: string): string {
@@ -115,11 +217,11 @@ export function buildTranslationInstructionsWithDetection(
     targetLanguageLabel: string,
     extraInstructions: string,
 ): string {
-    const normalizedDetectedLanguage = (detectedLanguage || "").trim().toLowerCase();
-    const normalizedDetectedLanguageName = (detectedLanguageName || "")
-        .trim()
-        .toLowerCase();
-    const normalizedTargetLanguageName = (targetLanguageLabel || "").trim().toLowerCase();
+    const normalizedDetectedLanguage = normalizeLanguageComparisonValue(detectedLanguage);
+    const normalizedDetectedLanguageName =
+        normalizeLanguageComparisonValue(detectedLanguageName);
+    const normalizedTargetLanguageName =
+        normalizeLanguageComparisonValue(targetLanguageLabel);
     const hasDetectedSourceLanguage =
         !INVALID_DETECTED_LANGUAGE_CODES.has(normalizedDetectedLanguage) &&
         !INVALID_DETECTED_LANGUAGE_NAMES.has(normalizedDetectedLanguageName);
