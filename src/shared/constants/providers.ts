@@ -40,7 +40,7 @@ export const PROVIDER_DEFAULTS = {
     },
     groq: {
         apiEndpoint: "https://api.groq.com/openai/v1/chat/completions",
-        modelName: "kimi-k2-instruct",
+        modelName: "moonshotai/kimi-k2-instruct",
     },
     grok: {
         apiEndpoint: "https://api.x.ai/v1/chat/completions",
@@ -73,6 +73,17 @@ export const PROVIDER_DEFAULTS = {
     },
 } as const;
 
+const PROVIDER_MODEL_ALIASES: Partial<Record<Provider, Record<string, string>>> = {
+    groq: {
+        "kimi-k2-instruct": "moonshotai/kimi-k2-instruct",
+        "qwen3-32b": "qwen/qwen3-32b",
+        "gpt-oss-120b": "openai/gpt-oss-120b",
+        "gpt-oss-20b": "openai/gpt-oss-20b",
+        compound: "groq/compound",
+        "compound-mini": "groq/compound-mini",
+    },
+};
+
 export type ProviderSettings = {
     apiKey: string;
     apiEndpoint: string;
@@ -83,6 +94,23 @@ export type ProviderSettings = {
 
 export function isSupportedCerebrasModel(modelName: string): boolean {
     return (CEREBRAS_SUPPORTED_MODELS as readonly string[]).includes(modelName);
+}
+
+export function canonicalizeProviderModelName(
+    provider: string,
+    modelName: string,
+): string {
+    const normalizedModelName = modelName.trim();
+    if (!normalizedModelName) {
+        return normalizedModelName;
+    }
+
+    const aliases = PROVIDER_MODEL_ALIASES[provider as Provider];
+    if (!aliases) {
+        return normalizedModelName;
+    }
+
+    return aliases[normalizedModelName.toLowerCase()] || normalizedModelName;
 }
 
 export function resolveProviderDefaults(provider: string): ProviderSettings {

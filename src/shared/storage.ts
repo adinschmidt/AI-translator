@@ -3,7 +3,7 @@ import type { SettingsMode, UITheme } from "./constants/settings";
 import {
     PROVIDERS,
     PROVIDER_DEFAULTS,
-    isSupportedCerebrasModel,
+    canonicalizeProviderModelName,
 } from "./constants/providers";
 import {
     DEFAULT_TRANSLATION_INSTRUCTIONS,
@@ -160,14 +160,6 @@ export interface EffectiveProviderSettings {
     apiType: Provider;
 }
 
-function normalizeProviderModelName(provider: Provider, modelName: string): string {
-    if (provider === "cerebras" && !isSupportedCerebrasModel(modelName)) {
-        return PROVIDER_DEFAULTS.cerebras.modelName;
-    }
-
-    return modelName;
-}
-
 export function getEffectiveProviderSettings(
     storage: StorageGetResult,
     mode: SettingsMode,
@@ -191,7 +183,7 @@ export function getEffectiveProviderSettings(
                 perProvider.apiEndpoint ||
                 PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
                 "",
-            modelName: normalizeProviderModelName(
+            modelName: canonicalizeProviderModelName(
                 activeProvider,
                 perProvider.modelName ||
                     PROVIDER_DEFAULTS[activeProvider]?.modelName ||
@@ -219,7 +211,7 @@ export function getEffectiveProviderSettings(
         apiKey: storage.apiKey || "",
         apiEndpoint:
             storage.apiEndpoint || PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || "",
-        modelName: normalizeProviderModelName(
+        modelName: canonicalizeProviderModelName(
             activeProvider,
             storage.modelName || PROVIDER_DEFAULTS[activeProvider]?.modelName || "",
         ),

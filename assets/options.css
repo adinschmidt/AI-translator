@@ -152,6 +152,85 @@ body {
     gap: 16px;
 }
 
+.model-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.model-name-combobox {
+    position: relative;
+    flex: 1 1 240px;
+    min-width: 0;
+}
+
+.model-name-input {
+    width: 100%;
+}
+
+.model-controls button {
+    white-space: nowrap;
+}
+
+.model-options {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 30;
+    border: 1px solid var(--options-border);
+    border-radius: 8px;
+    background: var(--options-input-bg);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.model-options-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px;
+}
+
+.model-options-item {
+    margin: 0;
+}
+
+.model-option-button {
+    width: 100%;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--options-input-text);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1.35;
+    padding: 6px 8px;
+    text-align: left;
+}
+
+.model-option-button:hover,
+.model-option-button:focus-visible {
+    background: var(--options-muted-bg);
+    outline: none;
+}
+
+.model-option-button.is-active {
+    background: var(--options-muted-bg);
+}
+
+.model-option-button.is-custom {
+    font-style: italic;
+}
+
+.model-options-empty {
+    margin: 0;
+    padding: 8px;
+    color: var(--options-text-subtle);
+    font-size: 12px;
+}
+
 .ios-switch {
     position: relative;
     display: inline-block;

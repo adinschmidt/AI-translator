@@ -8,7 +8,8 @@ import {
     PROVIDERS,
     PROVIDER_DEFAULTS,
     BASIC_PROVIDERS,
-    isSupportedCerebrasModel,
+    CEREBRAS_SUPPORTED_MODELS,
+    canonicalizeProviderModelName,
     resolveProviderDefaults,
     type Provider,
 } from "../shared/constants/providers";
@@ -41,9 +42,22 @@ const fillDefaultEndpointButton = document.getElementById(
     "fill-default-endpoint",
 ) as HTMLButtonElement;
 const modelNameInput = document.getElementById("model-name") as HTMLInputElement;
+const refreshModelsButton = document.getElementById(
+    "refresh-models",
+) as HTMLButtonElement;
 const fillDefaultModelButton = document.getElementById(
     "fill-default-model",
 ) as HTMLButtonElement;
+const modelListStatus = document.getElementById("model-list-status") as HTMLElement;
+const modelOptionsContainer = document.getElementById(
+    "model-options-container",
+) as HTMLElement;
+const modelOptionsList = document.getElementById(
+    "model-options-list",
+) as HTMLUListElement;
+const modelOptionsEmpty = document.getElementById("model-options-empty") as HTMLElement;
+const modelNameCombobox = document.getElementById("model-name-combobox") as HTMLElement;
+const ollamaModelNote = document.getElementById("ollama-model-note") as HTMLElement;
 
 const advancedTargetLanguageSelect = document.getElementById(
     "advanced-target-language",
@@ -88,27 +102,10 @@ const keepSelectionPopupOpenInput = document.getElementById(
 ) as HTMLInputElement;
 const debugModeInput = document.getElementById("debug-mode") as HTMLInputElement;
 
-const ollamaSettingsDiv = document.getElementById("ollama-settings") as HTMLElement;
-const ollamaModelSelect = document.getElementById(
-    "ollama-model-select",
-) as HTMLSelectElement;
-const refreshOllamaModelsButton = document.getElementById(
-    "refresh-ollama-models",
-) as HTMLButtonElement;
 const apiKeyContainer = document
     .getElementById("api-key")
     ?.closest(".mb-4") as HTMLElement;
-const modelNameContainer = document
-    .getElementById("model-name")
-    ?.closest(".mb-4") as HTMLElement;
-
-const cerebrasSettingsDiv = document.getElementById("cerebras-settings") as HTMLElement;
-const cerebrasModelSelect = document.getElementById(
-    "cerebras-model-select",
-) as HTMLSelectElement;
-
-const groqSettingsDiv = document.getElementById("groq-settings") as HTMLElement;
-const groqModelSelect = document.getElementById("groq-model-select") as HTMLSelectElement;
+const modelNameContainer = document.getElementById("model-name-container") as HTMLElement;
 const providerKeyDocsLink = document.getElementById(
     "provider-key-docs-link",
 ) as HTMLAnchorElement | null;
@@ -129,6 +126,50 @@ const PROVIDER_DOC_ANCHORS: Record<Provider, string> = {
     ollama: "ollama-local",
 };
 
+const MODEL_FETCHABLE_PROVIDERS = new Set<Provider>(PROVIDERS);
+const OPENAI_COMPATIBLE_MODEL_ENDPOINT_PROVIDERS = new Set<Provider>([
+    "openai",
+    "groq",
+    "grok",
+    "openrouter",
+    "deepseek",
+    "mistral",
+    "qwen",
+    "cerebras",
+]);
+
+const PROVIDER_FALLBACK_MODELS: Record<Provider, string[]> = {
+    openai: [PROVIDER_DEFAULTS.openai.modelName],
+    anthropic: [PROVIDER_DEFAULTS.anthropic.modelName],
+    google: [PROVIDER_DEFAULTS.google.modelName],
+    groq: [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "meta-llama/llama-4-maverick-17b-128e-instruct",
+        "meta-llama/llama-4-scout-17b-16e-instruct",
+        "moonshotai/kimi-k2-instruct",
+        "qwen/qwen3-32b",
+        "openai/gpt-oss-120b",
+        "openai/gpt-oss-20b",
+        "groq/compound",
+        "groq/compound-mini",
+        "allam-2-7b",
+    ],
+    grok: [PROVIDER_DEFAULTS.grok.modelName],
+    openrouter: [PROVIDER_DEFAULTS.openrouter.modelName],
+    deepseek: [PROVIDER_DEFAULTS.deepseek.modelName],
+    mistral: [PROVIDER_DEFAULTS.mistral.modelName],
+    qwen: [PROVIDER_DEFAULTS.qwen.modelName],
+    cerebras: [...CEREBRAS_SUPPORTED_MODELS],
+    ollama: [PROVIDER_DEFAULTS.ollama.modelName],
+};
+
+interface ProviderModelOptionsState {
+    models: string[];
+    source: "dynamic" | "fallback";
+    statusText: string;
+}
+
 let providerSettings: ProviderSettingsMap = {};
 let settingsMode: SettingsMode = SETTINGS_MODE_BASIC;
 let basicTargetLanguage = BASIC_TARGET_LANGUAGE_DEFAULT;
@@ -137,6 +178,10 @@ let extraInstructions = "";
 let debugModeEnabled = DEBUG_MODE_DEFAULT;
 let uiTheme: UITheme = UI_THEME_DEFAULT;
 let systemThemeMediaQuery: MediaQueryList | null = null;
+let providerModelOptionsState: Partial<Record<Provider, ProviderModelOptionsState>> = {};
+let activeModelFetchRequestId = 0;
+let isModelDropdownOpen = false;
+let activeModelOptionIndex = -1;
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -326,27 +371,646 @@ async function fetchOllamaModels(baseUrl: string): Promise<string[]> {
     }
 }
 
-function populateOllamaModelDropdown(models: string[], selectedModel = ""): void {
-    if (!ollamaModelSelect) return;
-
-    while (ollamaModelSelect.firstChild) {
-        ollamaModelSelect.removeChild(ollamaModelSelect.firstChild);
-    }
-
-    const placeholderOption = document.createElement("option");
-    placeholderOption.value = "";
-    placeholderOption.textContent = "-- Select a model --";
-    ollamaModelSelect.appendChild(placeholderOption);
-
+function normalizeModelList(models: string[]): string[] {
+    const seen = new Set<string>();
+    const deduped: string[] = [];
     for (const model of models) {
-        const option = document.createElement("option");
-        option.value = model;
-        option.textContent = model;
-        if (model === selectedModel) {
-            option.selected = true;
+        const normalized = model.trim();
+        if (!normalized || seen.has(normalized)) {
+            continue;
         }
-        ollamaModelSelect.appendChild(option);
+        seen.add(normalized);
+        deduped.push(normalized);
     }
+    return deduped;
+}
+
+function truncateErrorDetails(details: string, maxLength = 180): string {
+    const normalized = details.replace(/\s+/g, " ").trim();
+    if (!normalized) {
+        return "";
+    }
+    if (normalized.length <= maxLength) {
+        return normalized;
+    }
+    return `${normalized.slice(0, maxLength - 1)}…`;
+}
+
+async function fetchJsonOrThrow(url: string, init?: RequestInit): Promise<any> {
+    const response = await fetch(url, init);
+    if (!response.ok) {
+        const details = truncateErrorDetails(await response.text());
+        throw new Error(
+            details
+                ? `HTTP ${response.status}: ${response.statusText} (${details})`
+                : `HTTP ${response.status}: ${response.statusText}`,
+        );
+    }
+    return response.json();
+}
+
+function resolveModelIdentifier(item: any): string {
+    if (typeof item === "string") {
+        return item;
+    }
+
+    if (typeof item?.id === "string" && item.id.trim()) {
+        return item.id;
+    }
+
+    if (typeof item?.name === "string" && item.name.trim()) {
+        return item.name;
+    }
+
+    return "";
+}
+
+function resolveStringArray(value: unknown): string[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim().toLowerCase())
+        .filter(Boolean);
+}
+
+function resolveModelCapabilityHints(item: any): string[] {
+    const hints = [
+        ...resolveStringArray(item?.modalities),
+        ...resolveStringArray(item?.input_modalities),
+        ...resolveStringArray(item?.output_modalities),
+        ...resolveStringArray(item?.supported_modalities),
+        ...resolveStringArray(item?.architecture?.modalities),
+        ...resolveStringArray(item?.architecture?.input_modalities),
+        ...resolveStringArray(item?.architecture?.output_modalities),
+        ...resolveStringArray(item?.capabilities?.modalities),
+        ...resolveStringArray(item?.capabilities?.input_modalities),
+        ...resolveStringArray(item?.capabilities?.output_modalities),
+    ];
+
+    return hints;
+}
+
+function resolveSupportedGenerationMethods(item: any): string[] {
+    return resolveStringArray(item?.supportedGenerationMethods);
+}
+
+function hasTextGenerationMethod(item: any): boolean {
+    const methods = resolveSupportedGenerationMethods(item);
+    if (methods.length === 0) {
+        return false;
+    }
+
+    return methods.some((method) => {
+        return (
+            method.includes("generatecontent") ||
+            method.includes("chat") ||
+            method.includes("message") ||
+            method.includes("completion")
+        );
+    });
+}
+
+function looksLikeNonTextModelIdentifier(modelId: string): boolean {
+    const normalized = modelId.trim().toLowerCase();
+    if (!normalized) {
+        return false;
+    }
+
+    return (
+        normalized.includes("whisper") ||
+        normalized.includes("transcribe") ||
+        normalized.includes("transcription") ||
+        normalized.includes("tts") ||
+        normalized.includes("text-to-speech") ||
+        normalized.includes("speech-to-text") ||
+        normalized.includes("embedding") ||
+        normalized.includes("moderation")
+    );
+}
+
+function isTextCapableModel(item: any): boolean {
+    const capabilityHints = resolveModelCapabilityHints(item);
+    if (capabilityHints.length > 0) {
+        const hasTextHint = capabilityHints.some((hint) => {
+            return (
+                hint === "text" ||
+                hint.includes("text") ||
+                hint.includes("chat") ||
+                hint.includes("language")
+            );
+        });
+
+        if (hasTextHint) {
+            return true;
+        }
+
+        const hasExplicitNonTextHint = capabilityHints.some((hint) => {
+            return (
+                hint.includes("audio") ||
+                hint.includes("speech") ||
+                hint.includes("transcription") ||
+                hint.includes("tts") ||
+                hint.includes("embedding") ||
+                hint.includes("moderation")
+            );
+        });
+
+        if (hasExplicitNonTextHint) {
+            return false;
+        }
+    }
+
+    if (hasTextGenerationMethod(item)) {
+        return true;
+    }
+
+    const modelId = resolveModelIdentifier(item);
+    if (modelId && looksLikeNonTextModelIdentifier(modelId)) {
+        return false;
+    }
+
+    return true;
+}
+
+function parseOpenAICompatibleModels(data: any): string[] {
+    const dataItems: any[] = Array.isArray(data?.data) ? data.data : [];
+
+    if (dataItems.length > 0) {
+        return normalizeModelList(
+            dataItems
+                .filter((item) => isTextCapableModel(item))
+                .map((item) => resolveModelIdentifier(item))
+                .filter((model): model is string => typeof model === "string"),
+        );
+    }
+
+    const modelItems: any[] = Array.isArray(data?.models) ? data.models : [];
+
+    return normalizeModelList(
+        modelItems
+            .filter((item) => isTextCapableModel(item))
+            .map((item) => resolveModelIdentifier(item))
+            .filter((model): model is string => typeof model === "string"),
+    );
+}
+
+function parseAnthropicModels(data: any): string[] {
+    const fromData: any[] = Array.isArray(data?.data) ? data.data : [];
+    return normalizeModelList(
+        fromData
+            .filter((item) => isTextCapableModel(item))
+            .map((item) => resolveModelIdentifier(item))
+            .filter((model): model is string => typeof model === "string"),
+    );
+}
+
+function parseGoogleModels(data: any): string[] {
+    const models = Array.isArray(data?.models) ? data.models : [];
+    const normalized = models
+        .filter((item: any) => {
+            const methods = resolveSupportedGenerationMethods(item);
+            if (methods.length > 0) {
+                return methods.includes("generatecontent");
+            }
+
+            return isTextCapableModel(item);
+        })
+        .map((item: any) => {
+            const name = resolveModelIdentifier(item);
+            return name.replace(/^models\//, "");
+        });
+    return normalizeModelList(normalized);
+}
+
+function buildModelsPathFromOpenAICompatibleEndpoint(pathname: string): string {
+    let path = pathname.replace(/\/+$/, "");
+    path = path.replace(/\/chat\/completions$/i, "");
+    path = path.replace(/\/completions$/i, "");
+    path = path.replace(/\/responses$/i, "");
+
+    if (!path || path === "/") {
+        path = "/v1";
+    }
+
+    if (!path.endsWith("/models")) {
+        path = `${path}/models`;
+    }
+
+    return path;
+}
+
+function buildModelsPathFromAnthropicEndpoint(pathname: string): string {
+    let path = pathname.replace(/\/+$/, "");
+    path = path.replace(/\/messages$/i, "");
+
+    if (!path || path === "/") {
+        path = "/v1";
+    }
+
+    if (!path.endsWith("/models")) {
+        path = `${path}/models`;
+    }
+
+    return path;
+}
+
+function buildModelsPathFromGoogleEndpoint(pathname: string): string {
+    let path = pathname.replace(/\/+$/, "");
+    path = path.replace(/\/models\/[^/]+:[^/]+$/i, "");
+
+    if (!path || path === "/") {
+        path = "/v1beta";
+    }
+
+    if (!path.endsWith("/models")) {
+        path = `${path}/models`;
+    }
+
+    return path;
+}
+
+function buildModelsUrl(
+    endpoint: string,
+    provider: Provider,
+    pathResolver: (pathname: string) => string,
+): string {
+    const fallbackEndpoint = PROVIDER_DEFAULTS[provider].apiEndpoint;
+    const endpointToUse = endpoint.trim() || fallbackEndpoint;
+
+    let parsed: URL;
+    try {
+        parsed = new URL(endpointToUse);
+    } catch {
+        return "";
+    }
+
+    parsed.hash = "";
+    parsed.search = "";
+    parsed.pathname = pathResolver(parsed.pathname || "/");
+    return parsed.toString();
+}
+
+function buildOpenAICompatibleModelsUrl(endpoint: string, provider: Provider): string {
+    return buildModelsUrl(
+        endpoint,
+        provider,
+        buildModelsPathFromOpenAICompatibleEndpoint,
+    );
+}
+
+function buildAnthropicModelsUrl(endpoint: string): string {
+    return buildModelsUrl(endpoint, "anthropic", buildModelsPathFromAnthropicEndpoint);
+}
+
+function buildGoogleModelsUrl(endpoint: string): string {
+    return buildModelsUrl(endpoint, "google", buildModelsPathFromGoogleEndpoint);
+}
+
+function getProviderDisplayName(provider: Provider): string {
+    const option = apiTypeSelect?.querySelector(`option[value="${provider}"]`);
+    const label = option?.textContent?.trim() || "";
+    return label || provider;
+}
+
+function resolveModelFetchSettings(provider: Provider): {
+    apiKey: string;
+    apiEndpoint: string;
+    modelName: string;
+} {
+    const settings = providerSettings[provider] || resolveProviderDefaults(provider);
+    const isActiveProvider = apiTypeSelect.value === provider;
+
+    return {
+        apiKey: isActiveProvider ? apiKeyInput.value.trim() : settings.apiKey || "",
+        apiEndpoint: isActiveProvider
+            ? apiEndpointInput.value.trim()
+            : settings.apiEndpoint || "",
+        modelName: isActiveProvider
+            ? canonicalizeProviderModelName(provider, modelNameInput.value.trim())
+            : canonicalizeProviderModelName(provider, settings.modelName || ""),
+    };
+}
+
+function resolveFallbackModels(provider: Provider, currentModel = ""): string[] {
+    const defaults = PROVIDER_DEFAULTS[provider]?.modelName || "";
+    const fallback = PROVIDER_FALLBACK_MODELS[provider] || [];
+    const canonicalCurrent = canonicalizeProviderModelName(provider, currentModel);
+    return normalizeModelList([...fallback, defaults, canonicalCurrent].filter(Boolean));
+}
+
+function setModelListStatus(message: string): void {
+    if (!modelListStatus) {
+        return;
+    }
+    modelListStatus.textContent = message;
+}
+
+function getModelOptionButtons(): HTMLButtonElement[] {
+    if (!modelOptionsList) {
+        return [];
+    }
+
+    return Array.from(
+        modelOptionsList.querySelectorAll<HTMLButtonElement>(".model-option-button"),
+    );
+}
+
+function setModelDropdownExpanded(isExpanded: boolean): void {
+    if (!modelNameInput) {
+        return;
+    }
+
+    modelNameInput.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+}
+
+function setActiveModelOption(index: number): void {
+    const buttons = getModelOptionButtons();
+    if (buttons.length === 0) {
+        activeModelOptionIndex = -1;
+        return;
+    }
+
+    let nextIndex = index;
+    if (nextIndex < 0) {
+        nextIndex = buttons.length - 1;
+    } else if (nextIndex >= buttons.length) {
+        nextIndex = 0;
+    }
+
+    activeModelOptionIndex = nextIndex;
+    for (let i = 0; i < buttons.length; i++) {
+        const isActive = i === activeModelOptionIndex;
+        buttons[i].classList.toggle("is-active", isActive);
+        buttons[i].setAttribute("aria-selected", isActive ? "true" : "false");
+    }
+
+    buttons[activeModelOptionIndex].scrollIntoView({ block: "nearest" });
+}
+
+function clearActiveModelOption(): void {
+    const buttons = getModelOptionButtons();
+    activeModelOptionIndex = -1;
+    for (const button of buttons) {
+        button.classList.remove("is-active");
+        button.setAttribute("aria-selected", "false");
+    }
+}
+
+function closeModelDropdown(): void {
+    isModelDropdownOpen = false;
+    clearActiveModelOption();
+    if (modelOptionsContainer) {
+        modelOptionsContainer.classList.add("hidden");
+    }
+    setModelDropdownExpanded(false);
+}
+
+function openModelDropdown(provider: Provider): void {
+    if (settingsMode !== SETTINGS_MODE_ADVANCED) {
+        return;
+    }
+
+    isModelDropdownOpen = true;
+    renderModelOptions(provider, modelNameInput.value);
+}
+
+function renderModelOptions(provider: Provider, query: string): void {
+    if (!modelOptionsContainer || !modelOptionsList || !modelOptionsEmpty) {
+        return;
+    }
+
+    const state = providerModelOptionsState[provider];
+    const options = state?.models || resolveFallbackModels(provider, query);
+    const trimmedQuery = query.trim();
+    const normalizedQuery = trimmedQuery.toLowerCase();
+    const filteredOptions = normalizedQuery
+        ? options.filter((model) => model.toLowerCase().includes(normalizedQuery))
+        : options;
+
+    modelOptionsList.textContent = "";
+    modelOptionsEmpty.textContent = "";
+    modelOptionsEmpty.classList.add("hidden");
+
+    if (filteredOptions.length > 0) {
+        for (const model of filteredOptions.slice(0, 100)) {
+            const item = document.createElement("li");
+            item.className = "model-options-item";
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "model-option-button";
+            button.textContent = model;
+            button.setAttribute("role", "option");
+            button.setAttribute("aria-selected", "false");
+            button.addEventListener("mouseenter", () => {
+                const buttons = getModelOptionButtons();
+                const index = buttons.indexOf(button);
+                if (index >= 0) {
+                    setActiveModelOption(index);
+                }
+            });
+            button.addEventListener("click", () => {
+                modelNameInput.value = model;
+                autoSaveSetting();
+                closeModelDropdown();
+            });
+            item.appendChild(button);
+            modelOptionsList.appendChild(item);
+        }
+
+        if (filteredOptions.length > 100) {
+            modelOptionsEmpty.textContent =
+                "Showing the first 100 models. Keep typing to narrow results.";
+            modelOptionsEmpty.classList.remove("hidden");
+        }
+    }
+
+    if (trimmedQuery) {
+        const item = document.createElement("li");
+        item.className = "model-options-item";
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "model-option-button is-custom";
+        button.textContent = `Use custom model name: "${trimmedQuery}"`;
+        button.setAttribute("role", "option");
+        button.setAttribute("aria-selected", "false");
+        button.addEventListener("click", () => {
+            modelNameInput.value = trimmedQuery;
+            autoSaveSetting();
+            closeModelDropdown();
+        });
+        item.appendChild(button);
+        modelOptionsList.appendChild(item);
+    }
+
+    if (!modelOptionsList.hasChildNodes()) {
+        modelOptionsEmpty.textContent = "No models available. Enter a custom model name.";
+        modelOptionsEmpty.classList.remove("hidden");
+    }
+
+    const shouldShowDropdown =
+        isModelDropdownOpen && settingsMode === SETTINGS_MODE_ADVANCED;
+    modelOptionsContainer.classList.toggle("hidden", !shouldShowDropdown);
+    setModelDropdownExpanded(shouldShowDropdown);
+
+    if (!shouldShowDropdown) {
+        clearActiveModelOption();
+        return;
+    }
+
+    const buttons = getModelOptionButtons();
+    if (buttons.length === 0) {
+        activeModelOptionIndex = -1;
+        return;
+    }
+
+    if (activeModelOptionIndex >= buttons.length) {
+        activeModelOptionIndex = buttons.length - 1;
+    }
+
+    if (activeModelOptionIndex >= 0) {
+        setActiveModelOption(activeModelOptionIndex);
+    } else {
+        clearActiveModelOption();
+    }
+}
+
+async function fetchProviderModels(
+    provider: Provider,
+    apiEndpoint: string,
+    apiKey: string,
+): Promise<string[]> {
+    if (provider === "ollama") {
+        return fetchOllamaModels(apiEndpoint || PROVIDER_DEFAULTS.ollama.apiEndpoint);
+    }
+
+    if (!apiKey) {
+        throw new Error("Add an API key to fetch live models.");
+    }
+
+    if (provider === "anthropic") {
+        const modelsUrl = buildAnthropicModelsUrl(apiEndpoint);
+        if (!modelsUrl) {
+            throw new Error("Invalid endpoint URL.");
+        }
+        const data = await fetchJsonOrThrow(modelsUrl, {
+            headers: {
+                "x-api-key": apiKey,
+                "anthropic-version": "2023-06-01",
+            },
+        });
+        return parseAnthropicModels(data);
+    }
+
+    if (provider === "google") {
+        const modelsUrl = buildGoogleModelsUrl(apiEndpoint);
+        if (!modelsUrl) {
+            throw new Error("Invalid endpoint URL.");
+        }
+        const url = new URL(modelsUrl);
+        url.searchParams.set("key", apiKey);
+        const data = await fetchJsonOrThrow(url.toString());
+        return parseGoogleModels(data);
+    }
+
+    if (OPENAI_COMPATIBLE_MODEL_ENDPOINT_PROVIDERS.has(provider)) {
+        const modelsUrl = buildOpenAICompatibleModelsUrl(apiEndpoint, provider);
+        if (!modelsUrl) {
+            throw new Error("Invalid endpoint URL.");
+        }
+        const data = await fetchJsonOrThrow(modelsUrl, {
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+            },
+        });
+        return parseOpenAICompatibleModels(data);
+    }
+
+    throw new Error(`Model fetching is not configured for ${provider}.`);
+}
+
+async function refreshModelOptionsForProvider(
+    provider: Provider,
+    forceRefresh = false,
+): Promise<void> {
+    const existingState = providerModelOptionsState[provider];
+    if (!forceRefresh && existingState) {
+        if (apiTypeSelect.value === provider) {
+            setModelListStatus(existingState.statusText);
+            renderModelOptions(provider, modelNameInput.value);
+            if (refreshModelsButton) {
+                refreshModelsButton.disabled = false;
+            }
+        }
+        return;
+    }
+
+    const requestId = ++activeModelFetchRequestId;
+    if (apiTypeSelect.value === provider) {
+        setModelListStatus("Loading models...");
+        if (refreshModelsButton) {
+            refreshModelsButton.disabled = true;
+        }
+    }
+
+    const settings = resolveModelFetchSettings(provider);
+    const fallbackModels = resolveFallbackModels(provider, settings.modelName);
+
+    let nextState: ProviderModelOptionsState;
+    try {
+        if (!MODEL_FETCHABLE_PROVIDERS.has(provider)) {
+            throw new Error("Live model discovery is not available for this provider.");
+        }
+
+        const dynamicModels = normalizeModelList(
+            (
+                await fetchProviderModels(provider, settings.apiEndpoint, settings.apiKey)
+            ).map((model) => canonicalizeProviderModelName(provider, model)),
+        );
+
+        if (dynamicModels.length === 0) {
+            throw new Error("Provider returned no models.");
+        }
+
+        nextState = {
+            models: normalizeModelList([...dynamicModels, settings.modelName]),
+            source: "dynamic",
+            statusText: `Loaded ${dynamicModels.length} model(s) from ${getProviderDisplayName(provider)}.`,
+        };
+    } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        nextState = {
+            models: fallbackModels,
+            source: "fallback",
+            statusText: fallbackModels.length
+                ? `${reason} Showing built-in suggestions.`
+                : `${reason} Enter a custom model name.`,
+        };
+        console.warn(
+            `options.ts: Falling back to built-in models for provider ${provider}:`,
+            reason,
+        );
+    }
+
+    providerModelOptionsState[provider] = nextState;
+
+    if (requestId !== activeModelFetchRequestId) {
+        return;
+    }
+
+    if (apiTypeSelect.value === provider) {
+        setModelListStatus(nextState.statusText);
+        renderModelOptions(provider, modelNameInput.value);
+        if (refreshModelsButton) {
+            refreshModelsButton.disabled = false;
+        }
+    }
+}
+
+function invalidateModelOptionsForProvider(provider: Provider): void {
+    delete providerModelOptionsState[provider];
 }
 
 function updateProviderDocsLink(provider: string): void {
@@ -361,68 +1025,39 @@ function updateProviderDocsLink(provider: string): void {
 function updateProviderUI(provider: string): void {
     updateProviderDocsLink(provider);
 
-    const isOllama = provider === "ollama";
-    const isCerebras = provider === "cerebras";
-    const isGroq = provider === "groq";
-
-    if (ollamaSettingsDiv) {
-        ollamaSettingsDiv.classList.toggle("hidden", !isOllama);
-    }
-
-    if (cerebrasSettingsDiv) {
-        cerebrasSettingsDiv.classList.toggle("hidden", !isCerebras);
-    }
-
-    if (groqSettingsDiv) {
-        groqSettingsDiv.classList.toggle("hidden", !isGroq);
-    }
+    const safeProvider: Provider =
+        provider && PROVIDERS.includes(provider as Provider)
+            ? (provider as Provider)
+            : "openai";
+    const isOllama = safeProvider === "ollama";
+    const isBasicMode = settingsMode === SETTINGS_MODE_BASIC;
 
     if (modelNameContainer) {
-        modelNameContainer.classList.toggle(
-            "hidden",
-            isOllama || isCerebras || isGroq || settingsMode === SETTINGS_MODE_BASIC,
-        );
+        modelNameContainer.classList.toggle("hidden", isBasicMode);
     }
 
     if (apiKeyContainer) {
-        apiKeyContainer.classList.toggle(
+        apiKeyContainer.classList.toggle("hidden", isOllama || isBasicMode);
+    }
+
+    if (ollamaModelNote) {
+        ollamaModelNote.classList.toggle("hidden", !isOllama || isBasicMode);
+    }
+
+    if (modelOptionsContainer) {
+        modelOptionsContainer.classList.toggle(
             "hidden",
-            isOllama || settingsMode === SETTINGS_MODE_BASIC,
+            isBasicMode || !isModelDropdownOpen,
         );
     }
 
-    if (isOllama) {
-        const settings =
-            providerSettings["ollama" as Provider] ||
-            resolveProviderDefaults("ollama" as Provider);
-        const baseUrl = settings.apiEndpoint || PROVIDER_DEFAULTS.ollama.apiEndpoint;
-
-        fetchOllamaModels(baseUrl)
-            .then((models) => {
-                populateOllamaModelDropdown(models, settings.modelName);
-            })
-            .catch((error) => {
-                displayStatus(`Could not fetch Ollama models: ${error.message}`, true);
-            });
+    if (isBasicMode) {
+        setModelListStatus("");
+        closeModelDropdown();
+        return;
     }
 
-    if (isCerebras && cerebrasModelSelect) {
-        const settings =
-            providerSettings["cerebras" as Provider] ||
-            resolveProviderDefaults("cerebras" as Provider);
-        const selectedModel =
-            settings.modelName && isSupportedCerebrasModel(settings.modelName)
-                ? settings.modelName
-                : PROVIDER_DEFAULTS.cerebras.modelName;
-        cerebrasModelSelect.value = selectedModel;
-    }
-
-    if (isGroq && groqModelSelect) {
-        const settings =
-            providerSettings["groq" as Provider] ||
-            resolveProviderDefaults("groq" as Provider);
-        groqModelSelect.value = settings.modelName || PROVIDER_DEFAULTS.groq.modelName;
-    }
+    void refreshModelOptionsForProvider(safeProvider, false);
 }
 
 function updateSettingsModeUI(): void {
@@ -587,9 +1222,12 @@ async function loadSettings(): Promise<void> {
                     PROVIDER_DEFAULTS[legacyProvider]?.apiEndpoint ||
                     "",
                 modelName:
-                    result.modelName ||
-                    PROVIDER_DEFAULTS[legacyProvider]?.modelName ||
-                    "",
+                    canonicalizeProviderModelName(
+                        legacyProvider,
+                        result.modelName ||
+                            PROVIDER_DEFAULTS[legacyProvider]?.modelName ||
+                            "",
+                    ) || "",
             };
             console.log(
                 "options.ts: Migrated legacy settings into providerSettings:",
@@ -608,31 +1246,32 @@ async function loadSettings(): Promise<void> {
                 providerSettings[provider] = resolveProviderDefaults(provider);
             } else {
                 const base = resolveProviderDefaults(provider);
+                const resolvedModelName =
+                    providerSettings[provider].modelName || base.modelName;
+                const canonicalModelName = canonicalizeProviderModelName(
+                    provider,
+                    resolvedModelName,
+                );
+                if (canonicalModelName !== resolvedModelName) {
+                    shouldPersistProviderSettingsNormalization = true;
+                }
+
                 providerSettings[provider] = {
                     apiKey: providerSettings[provider].apiKey || "",
                     apiEndpoint:
                         providerSettings[provider].apiEndpoint || base.apiEndpoint,
-                    modelName: providerSettings[provider].modelName || base.modelName,
+                    modelName: canonicalModelName,
                     translationInstructions:
                         providerSettings[provider].translationInstructions ||
                         DEFAULT_TRANSLATION_INSTRUCTIONS,
                 };
-            }
-
-            if (
-                provider === "cerebras" &&
-                !isSupportedCerebrasModel(providerSettings[provider].modelName)
-            ) {
-                providerSettings[provider].modelName =
-                    PROVIDER_DEFAULTS.cerebras.modelName;
-                shouldPersistProviderSettingsNormalization = true;
             }
         }
 
         if (shouldPersistProviderSettingsNormalization) {
             setStorage({ providerSettings }).catch((error) => {
                 console.error(
-                    "options.ts: Error persisting normalized provider settings:",
+                    "options.ts: Error persisting canonicalized provider settings:",
                     error,
                 );
             });
@@ -674,12 +1313,29 @@ async function loadSettings(): Promise<void> {
 
 function applyProviderToForm(provider: string): void {
     const settings = providerSettings[provider] || resolveProviderDefaults(provider);
+    const safeProvider: Provider =
+        provider && PROVIDERS.includes(provider as Provider)
+            ? (provider as Provider)
+            : "openai";
+    const normalizedModelName = canonicalizeProviderModelName(
+        safeProvider,
+        settings.modelName || "",
+    );
+
+    if (normalizedModelName && normalizedModelName !== settings.modelName) {
+        providerSettings[safeProvider] = {
+            ...settings,
+            modelName: normalizedModelName,
+        };
+    }
+
     console.log(`options.ts: Applying settings for provider ${provider}: `, settings);
 
     apiKeyInput.value = settings.apiKey || "";
     apiEndpointInput.value = settings.apiEndpoint || "";
-    modelNameInput.value = settings.modelName || "";
+    modelNameInput.value = normalizedModelName || settings.modelName || "";
 
+    renderModelOptions(safeProvider, modelNameInput.value);
     updateProviderUI(provider);
 }
 
@@ -767,7 +1423,15 @@ async function saveSetting(): Promise<void> {
     const currentProvider = apiTypeSelect.value;
     const apiKey = apiKeyInput.value.trim();
     const apiEndpoint = apiEndpointInput.value.trim();
-    const modelName = modelNameInput.value.trim();
+    const rawModelName = modelNameInput.value.trim();
+    const modelName = canonicalizeProviderModelName(
+        currentProvider as Provider,
+        rawModelName,
+    );
+
+    if (modelName !== rawModelName) {
+        modelNameInput.value = modelName;
+    }
 
     advancedTargetLanguage = resolveTargetLanguageFromControls(
         advancedTargetLanguageSelect,
@@ -874,7 +1538,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
             applyProviderToForm(activeProvider);
             applyBasicSettingsToUI(activeProvider);
-            updateProviderUI(activeProvider);
             updateSettingsModeUI();
 
             setStorage({
@@ -1051,12 +1714,46 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (apiKeyInput) {
-        apiKeyInput.addEventListener("input", autoSaveSetting);
+        apiKeyInput.addEventListener("input", () => {
+            autoSaveSetting();
+            if (settingsMode === SETTINGS_MODE_ADVANCED) {
+                const provider = apiTypeSelect.value as Provider;
+                invalidateModelOptionsForProvider(provider);
+                renderModelOptions(provider, modelNameInput.value);
+                setModelListStatus(
+                    "Credentials changed. Click Refresh Models to load live models.",
+                );
+            }
+        });
+        apiKeyInput.addEventListener("change", () => {
+            if (settingsMode !== SETTINGS_MODE_ADVANCED) {
+                return;
+            }
+            const provider = apiTypeSelect.value as Provider;
+            void refreshModelOptionsForProvider(provider, true);
+        });
         console.log("options.ts: Auto-save listener added to api-key input.");
     }
 
     if (apiEndpointInput) {
-        apiEndpointInput.addEventListener("input", autoSaveSetting);
+        apiEndpointInput.addEventListener("input", () => {
+            autoSaveSetting();
+            if (settingsMode === SETTINGS_MODE_ADVANCED) {
+                const provider = apiTypeSelect.value as Provider;
+                invalidateModelOptionsForProvider(provider);
+                renderModelOptions(provider, modelNameInput.value);
+                setModelListStatus(
+                    "Endpoint changed. Click Refresh Models to load models from this endpoint.",
+                );
+            }
+        });
+        apiEndpointInput.addEventListener("change", () => {
+            if (settingsMode !== SETTINGS_MODE_ADVANCED) {
+                return;
+            }
+            const provider = apiTypeSelect.value as Provider;
+            void refreshModelOptionsForProvider(provider, true);
+        });
         console.log("options.ts: Auto-save listener added to api-endpoint input.");
     }
 
@@ -1096,7 +1793,69 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (modelNameInput) {
-        modelNameInput.addEventListener("input", autoSaveSetting);
+        modelNameInput.addEventListener("input", () => {
+            autoSaveSetting();
+            const provider = apiTypeSelect.value as Provider;
+            openModelDropdown(provider);
+        });
+        modelNameInput.addEventListener("focus", () => {
+            const provider = apiTypeSelect.value as Provider;
+            openModelDropdown(provider);
+        });
+        modelNameInput.addEventListener("click", () => {
+            const provider = apiTypeSelect.value as Provider;
+            openModelDropdown(provider);
+        });
+        modelNameInput.addEventListener("keydown", (event) => {
+            if (settingsMode !== SETTINGS_MODE_ADVANCED) {
+                return;
+            }
+
+            const provider = apiTypeSelect.value as Provider;
+            const buttons = getModelOptionButtons();
+
+            if (event.key === "ArrowDown") {
+                event.preventDefault();
+                openModelDropdown(provider);
+                setActiveModelOption(
+                    activeModelOptionIndex < 0 ? 0 : activeModelOptionIndex + 1,
+                );
+                return;
+            }
+
+            if (event.key === "ArrowUp") {
+                event.preventDefault();
+                openModelDropdown(provider);
+                const dropdownButtons = getModelOptionButtons();
+                setActiveModelOption(
+                    activeModelOptionIndex < 0
+                        ? dropdownButtons.length - 1
+                        : activeModelOptionIndex - 1,
+                );
+                return;
+            }
+
+            if (event.key === "Enter" && isModelDropdownOpen) {
+                if (
+                    activeModelOptionIndex >= 0 &&
+                    activeModelOptionIndex < buttons.length
+                ) {
+                    event.preventDefault();
+                    buttons[activeModelOptionIndex].click();
+                    return;
+                }
+
+                if (modelNameInput.value.trim()) {
+                    closeModelDropdown();
+                }
+                return;
+            }
+
+            if (event.key === "Escape" && isModelDropdownOpen) {
+                event.preventDefault();
+                closeModelDropdown();
+            }
+        });
         console.log("options.ts: Auto-save listener added to model-name input.");
     }
 
@@ -1110,6 +1869,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 apiEndpointInput.value = defaults.apiEndpoint;
                 console.log(
                     `options.ts: Filled endpoint with default for ${selectedApiType}: ${defaults.apiEndpoint}`,
+                );
+                invalidateModelOptionsForProvider(selectedApiType as Provider);
+                setModelListStatus(
+                    "Endpoint reset to default. Click Refresh Models to load live models.",
                 );
                 autoSaveSetting();
             } else {
@@ -1140,6 +1903,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.log(
                     `options.ts: Filled model name with default for ${selectedApiType}: ${defaults.modelName}`,
                 );
+                renderModelOptions(selectedApiType as Provider, modelNameInput.value);
                 autoSaveSetting();
             } else {
                 console.warn(
@@ -1155,82 +1919,40 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error("options.ts: Could not find fill default model button element!");
     }
 
-    if (ollamaModelSelect) {
-        ollamaModelSelect.addEventListener("change", (event) => {
-            const selectedModel = (event.target as HTMLSelectElement).value;
-            console.log("options.ts: Ollama model selected:", selectedModel);
-
-            if (selectedModel && providerSettings["ollama"]) {
-                providerSettings["ollama"].modelName = selectedModel;
-                modelNameInput.value = selectedModel;
-                autoSaveSetting();
+    if (refreshModelsButton) {
+        refreshModelsButton.addEventListener("click", async () => {
+            if (settingsMode !== SETTINGS_MODE_ADVANCED) {
+                return;
             }
+
+            const provider = apiTypeSelect.value as Provider;
+            console.log(
+                "options.ts: Refresh models button clicked for provider:",
+                provider,
+            );
+            invalidateModelOptionsForProvider(provider);
+            await refreshModelOptionsForProvider(provider, true);
         });
-        console.log("options.ts: Change event listener added to Ollama model select.");
+        console.log("options.ts: Click event listener added to refresh models button.");
     }
 
-    if (refreshOllamaModelsButton) {
-        refreshOllamaModelsButton.addEventListener("click", async () => {
-            console.log("options.ts: Refresh Ollama models button clicked.");
+    document.addEventListener("mousedown", (event) => {
+        const target = event.target as Node | null;
+        if (!target || !modelNameCombobox || modelNameCombobox.contains(target)) {
+            return;
+        }
 
-            const settings =
-                providerSettings["ollama"] || resolveProviderDefaults("ollama");
-            const baseUrl =
-                apiEndpointInput.value.trim() ||
-                settings.apiEndpoint ||
-                PROVIDER_DEFAULTS.ollama.apiEndpoint;
+        closeModelDropdown();
+    });
 
-            displayStatus("Fetching models...", false);
+    document.addEventListener("focusin", (event) => {
+        const target = event.target as Node | null;
+        if (!target || !modelNameCombobox || modelNameCombobox.contains(target)) {
+            return;
+        }
 
-            try {
-                const models = await fetchOllamaModels(baseUrl);
-                populateOllamaModelDropdown(models, settings.modelName);
-                displayStatus(`Found ${models.length} model(s)`, false);
-            } catch (error) {
-                displayStatus(
-                    `Error: ${error instanceof Error ? error.message : String(error)}`,
-                    true,
-                );
-            }
-        });
-        console.log(
-            "options.ts: Click event listener added to refresh Ollama models button.",
-        );
-    }
-
-    if (cerebrasModelSelect) {
-        cerebrasModelSelect.addEventListener("change", (event) => {
-            const selectedModel = (event.target as HTMLSelectElement).value;
-            console.log("options.ts: Cerebras model selected:", selectedModel);
-
-            if (selectedModel) {
-                if (!providerSettings["cerebras"]) {
-                    providerSettings["cerebras"] = resolveProviderDefaults("cerebras");
-                }
-                providerSettings["cerebras"].modelName = selectedModel;
-                modelNameInput.value = selectedModel;
-                autoSaveSetting();
-            }
-        });
-        console.log("options.ts: Change event listener added to Cerebras model select.");
-    }
-
-    if (groqModelSelect) {
-        groqModelSelect.addEventListener("change", (event) => {
-            const selectedModel = (event.target as HTMLSelectElement).value;
-            console.log("options.ts: Groq model selected:", selectedModel);
-
-            if (selectedModel) {
-                if (!providerSettings["groq"]) {
-                    providerSettings["groq"] = resolveProviderDefaults("groq");
-                }
-                providerSettings["groq"].modelName = selectedModel;
-                modelNameInput.value = selectedModel;
-                autoSaveSetting();
-            }
-        });
-        console.log("options.ts: Change event listener added to Groq model select.");
-    }
+        closeModelDropdown();
+    });
 });
 
 console.log("options.ts: Script loaded.");
