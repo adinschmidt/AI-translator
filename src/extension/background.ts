@@ -28,6 +28,7 @@ import {
     SETTINGS_MODE_ADVANCED,
     BASIC_TARGET_LANGUAGE_DEFAULT,
     ADVANCED_TARGET_LANGUAGE_DEFAULT,
+    DEBUG_MODE_DEFAULT,
     DEFAULT_TRANSLATION_INSTRUCTIONS,
     DEFAULT_SYSTEM_PROMPT,
     INSTRUCT_SYSTEM_PROMPT,
@@ -415,6 +416,76 @@ function truncateLogString(value: string, maxLength: number = 800): string {
     return `${value.slice(0, maxLength)}…`;
 }
 
+function safeStringifyForDebug(value: unknown, maxLength: number = 1500): string {
+    if (value === undefined) {
+        return "";
+    }
+
+    try {
+        return truncateLogString(JSON.stringify(value, null, 2), maxLength);
+    } catch {
+        return truncateLogString(String(value), maxLength);
+    }
+}
+
+function getTranslationErrorMessage(error: unknown): string {
+    const rawMessage = (error as any)?.message;
+    if (typeof rawMessage === "string" && rawMessage.trim() !== "") {
+        return `Translation Error: ${rawMessage}`;
+    }
+
+    return "Translation Error: Unknown error";
+}
+
+function buildDebugErrorDetails(
+    error: unknown,
+    context: string,
+    meta: Record<string, unknown> = {},
+): string {
+    const e = error as any;
+    const lines: string[] = [`Context: ${context}`];
+
+    const filteredMeta = Object.fromEntries(
+        Object.entries(meta).filter(([, value]) => value !== undefined),
+    );
+    if (Object.keys(filteredMeta).length > 0) {
+        lines.push(`Meta: ${safeStringifyForDebug(filteredMeta, 700)}`);
+    }
+
+    if (e?.name) {
+        lines.push(`Name: ${String(e.name)}`);
+    }
+
+    if (e?.message) {
+        lines.push(`Message: ${String(e.message)}`);
+    } else {
+        lines.push(`Message: ${String(error || "Unknown error")}`);
+    }
+
+    if (e?.cause !== undefined) {
+        const cause = e.cause;
+        if (cause instanceof Error) {
+            if (cause.name) {
+                lines.push(`Cause Name: ${cause.name}`);
+            }
+            lines.push(`Cause Message: ${cause.message}`);
+            if (cause.stack) {
+                lines.push(
+                    `Cause Stack: ${truncateLogString(String(cause.stack), 1000)}`,
+                );
+            }
+        } else {
+            lines.push(`Cause: ${safeStringifyForDebug(cause, 1200)}`);
+        }
+    }
+
+    if (e?.stack) {
+        lines.push(`Stack: ${truncateLogString(String(e.stack), 1500)}`);
+    }
+
+    return truncateLogString(lines.join("\n"), 3500);
+}
+
 function summarizeApiError(error: unknown): {
     userMessage: string;
     debug: {
@@ -707,18 +778,34 @@ function notifyContentScript(
     isError: boolean = false,
     isLoading: boolean = false,
     requestId: string | null = null,
+    debugInfo: string | null = null,
 ): void {
-    const message: BackgroundToContentMessage & { requestId?: string } = {
-        action: isFullPage
-            ? isLoading
-                ? "showLoadingIndicator"
-                : "startElementTranslation"
-            : "displayTranslation",
-        text: text,
-        isStreaming: false,
-        isLoading: isLoading,
-        isError: isError,
-    };
+    const action = isFullPage
+        ? isLoading
+            ? "showLoadingIndicator"
+            : "startElementTranslation"
+        : "displayTranslation";
+    const message: any = { action };
+
+    if (action === "displayTranslation") {
+        message.text = text;
+        message.isStreaming = false;
+        message.isLoading = isLoading;
+        message.isError = isError;
+        if (debugInfo) {
+            message.debugInfo = debugInfo;
+        }
+    } else if (action === "startElementTranslation") {
+        message.isError = isError;
+        if (isError) {
+            message.errorMessage = text;
+            if (debugInfo) {
+                message.debugInfo = debugInfo;
+            }
+        }
+    } else if (action === "showLoadingIndicator") {
+        message.isFullPage = true;
+    }
 
     if (requestId) {
         message.requestId = requestId;
@@ -747,24 +834,38 @@ function notifyContentScriptWithDetection(
     detectedLanguageName: string | null,
     targetLanguageName: string | null,
     requestId: string | null = null,
+    debugInfo: string | null = null,
 ): void {
-    const message: BackgroundToContentMessage & {
-        requestId?: string;
-        detectedLanguageName?: string;
-        targetLanguageName?: string;
-    } = {
-        action: isFullPage
-            ? isLoading
-                ? "showLoadingIndicator"
-                : "startElementTranslation"
-            : "displayTranslation",
-        text: text,
-        isStreaming: false,
-        isLoading: isLoading,
-        isError: isError,
+    const action = isFullPage
+        ? isLoading
+            ? "showLoadingIndicator"
+            : "startElementTranslation"
+        : "displayTranslation";
+    const message: any = {
+        action,
         detectedLanguageName: detectedLanguageName || undefined,
         targetLanguageName: targetLanguageName || undefined,
     };
+
+    if (action === "displayTranslation") {
+        message.text = text;
+        message.isStreaming = false;
+        message.isLoading = isLoading;
+        message.isError = isError;
+        if (debugInfo) {
+            message.debugInfo = debugInfo;
+        }
+    } else if (action === "startElementTranslation") {
+        message.isError = isError;
+        if (isError) {
+            message.errorMessage = text;
+            if (debugInfo) {
+                message.debugInfo = debugInfo;
+            }
+        }
+    } else if (action === "showLoadingIndicator") {
+        message.isFullPage = true;
+    }
 
     if (requestId) {
         message.requestId = requestId;
@@ -1361,7 +1462,10 @@ async function getSettingsAndTranslate(
         STORAGE_KEYS.PROVIDER_SETTINGS,
         STORAGE_KEYS.SETTINGS_MODE,
         STORAGE_KEYS.BASIC_TARGET_LANGUAGE,
+        STORAGE_KEYS.DEBUG_MODE,
     ]);
+    const debugModeEnabled =
+        typeof storage.debugMode === "boolean" ? storage.debugMode : DEBUG_MODE_DEFAULT;
 
     const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
     const settings = getEffectiveProviderSettings(storage, mode);
@@ -1380,11 +1484,40 @@ async function getSettingsAndTranslate(
 
     const resolvedRequestId = requestId || createRequestId();
 
+    if (debugModeEnabled) {
+        console.log("[AI Translator Debug] Translation request", {
+            requestId: resolvedRequestId,
+            tabId,
+            isFullPage,
+            provider: finalType,
+            endpoint: finalEndpoint,
+            model: selectedModelName,
+            textLength: textToTranslate.length,
+        });
+    }
+
     if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
         const errorMsg =
             "Translation Error: API Key or Endpoint not set. Please configure in extension settings.";
         console.error(errorMsg);
-        notifyContentScript(tabId, errorMsg, isFullPage, true, false, resolvedRequestId);
+        const debugInfo = debugModeEnabled
+            ? buildDebugErrorDetails(new Error(errorMsg), "settings-validation", {
+                  tabId,
+                  isFullPage,
+                  provider: finalType,
+                  endpointConfigured: Boolean(finalEndpoint),
+                  hasApiKey: Boolean(finalKey),
+              })
+            : null;
+        notifyContentScript(
+            tabId,
+            errorMsg,
+            isFullPage,
+            true,
+            false,
+            resolvedRequestId,
+            debugInfo,
+        );
         return;
     }
 
@@ -1420,13 +1553,33 @@ async function getSettingsAndTranslate(
                 })
                 .catch((error) => {
                     console.error("Translation error:", error);
+                    const errorMsg = getTranslationErrorMessage(error);
+                    const debugInfo = debugModeEnabled
+                        ? buildDebugErrorDetails(error, "selected-translation", {
+                              tabId,
+                              provider: finalType,
+                              model: selectedModelName,
+                              isStreaming: false,
+                              mode,
+                          })
+                        : null;
+                    if (debugModeEnabled) {
+                        console.error(
+                            "[AI Translator Debug] Selected translation failed",
+                            {
+                                requestId: resolvedRequestId,
+                                debugInfo,
+                            },
+                        );
+                    }
                     notifyContentScript(
                         tabId,
-                        `Translation Error: ${(error as any).message}`,
+                        errorMsg,
                         false,
                         true,
                         false,
                         resolvedRequestId,
+                        debugInfo,
                     );
                 });
             return;
@@ -1495,13 +1648,33 @@ async function getSettingsAndTranslate(
                 }
 
                 console.error("Translation error:", error);
+                const errorMsg = getTranslationErrorMessage(error);
+                const debugInfo = debugModeEnabled
+                    ? buildDebugErrorDetails(error, "selected-translation-stream", {
+                          tabId,
+                          provider: finalType,
+                          model: selectedModelName,
+                          isStreaming: true,
+                          mode,
+                      })
+                    : null;
+                if (debugModeEnabled) {
+                    console.error(
+                        "[AI Translator Debug] Streaming selected translation failed",
+                        {
+                            requestId: resolvedRequestId,
+                            debugInfo,
+                        },
+                    );
+                }
                 notifyContentScript(
                     tabId,
-                    `Translation Error: ${(error as any).message}`,
+                    errorMsg,
                     false,
                     true,
                     false,
                     resolvedRequestId,
+                    debugInfo,
                 );
             });
         return;
@@ -1533,13 +1706,29 @@ async function getSettingsAndTranslate(
         })
         .catch((error) => {
             console.error("Translation error:", error);
+            const errorMsg = getTranslationErrorMessage(error);
+            const debugInfo = debugModeEnabled
+                ? buildDebugErrorDetails(error, "full-page-translation", {
+                      tabId,
+                      provider: finalType,
+                      model: selectedModelName,
+                      mode,
+                  })
+                : null;
+            if (debugModeEnabled) {
+                console.error("[AI Translator Debug] Full-page translation failed", {
+                    requestId: resolvedRequestId,
+                    debugInfo,
+                });
+            }
             notifyContentScript(
                 tabId,
-                `Translation Error: ${(error as any).message}`,
+                errorMsg,
                 isFullPage,
                 true,
                 false,
                 resolvedRequestId,
+                debugInfo,
             );
         });
 }
@@ -1570,7 +1759,10 @@ async function getSettingsAndTranslateWithDetection(
         STORAGE_KEYS.BASIC_TARGET_LANGUAGE,
         STORAGE_KEYS.ADVANCED_TARGET_LANGUAGE,
         STORAGE_KEYS.EXTRA_INSTRUCTIONS,
+        STORAGE_KEYS.DEBUG_MODE,
     ]);
+    const debugModeEnabled =
+        typeof storage.debugMode === "boolean" ? storage.debugMode : DEBUG_MODE_DEFAULT;
 
     const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
     const settings = getEffectiveProviderSettings(storage, mode);
@@ -1616,10 +1808,40 @@ async function getSettingsAndTranslateWithDetection(
 
     const resolvedRequestId = requestId || createRequestId();
 
+    if (debugModeEnabled) {
+        console.log("[AI Translator Debug] Translation request (detection)", {
+            requestId: resolvedRequestId,
+            tabId,
+            isFullPage,
+            provider: finalType,
+            endpoint: finalEndpoint,
+            model: selectedModelName,
+            detectedLanguage,
+            detectedLanguageName,
+            targetLanguageLabel,
+            textLength: textToTranslate.length,
+        });
+    }
+
     if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
         const errorMsg =
             "Translation Error: API Key or Endpoint not set. Please configure in extension settings.";
         console.error(errorMsg);
+        const debugInfo = debugModeEnabled
+            ? buildDebugErrorDetails(
+                  new Error(errorMsg),
+                  "settings-validation-detection",
+                  {
+                      tabId,
+                      isFullPage,
+                      provider: finalType,
+                      endpointConfigured: Boolean(finalEndpoint),
+                      hasApiKey: Boolean(finalKey),
+                      detectedLanguage,
+                      targetLanguageLabel,
+                  },
+              )
+            : null;
         notifyContentScriptWithDetection(
             tabId,
             errorMsg,
@@ -1629,6 +1851,7 @@ async function getSettingsAndTranslateWithDetection(
             detectedLanguageName,
             targetLanguageLabel,
             resolvedRequestId,
+            debugInfo,
         );
         return;
     }
@@ -1669,15 +1892,41 @@ async function getSettingsAndTranslateWithDetection(
                 })
                 .catch((error) => {
                     console.error("Translation error:", error);
+                    const errorMsg = getTranslationErrorMessage(error);
+                    const debugInfo = debugModeEnabled
+                        ? buildDebugErrorDetails(
+                              error,
+                              "selected-translation-detection",
+                              {
+                                  tabId,
+                                  provider: finalType,
+                                  model: selectedModelName,
+                                  isStreaming: false,
+                                  mode,
+                                  detectedLanguage,
+                                  targetLanguageLabel,
+                              },
+                          )
+                        : null;
+                    if (debugModeEnabled) {
+                        console.error(
+                            "[AI Translator Debug] Selected translation with detection failed",
+                            {
+                                requestId: resolvedRequestId,
+                                debugInfo,
+                            },
+                        );
+                    }
                     notifyContentScriptWithDetection(
                         tabId,
-                        `Translation Error: ${(error as any).message}`,
+                        errorMsg,
                         false,
                         true,
                         false,
                         detectedLanguageName,
                         targetLanguageLabel,
                         resolvedRequestId,
+                        debugInfo,
                     );
                 });
             return;
@@ -1752,15 +2001,41 @@ async function getSettingsAndTranslateWithDetection(
                 }
 
                 console.error("Translation error:", error);
+                const errorMsg = getTranslationErrorMessage(error);
+                const debugInfo = debugModeEnabled
+                    ? buildDebugErrorDetails(
+                          error,
+                          "selected-translation-stream-detection",
+                          {
+                              tabId,
+                              provider: finalType,
+                              model: selectedModelName,
+                              isStreaming: true,
+                              mode,
+                              detectedLanguage,
+                              targetLanguageLabel,
+                          },
+                      )
+                    : null;
+                if (debugModeEnabled) {
+                    console.error(
+                        "[AI Translator Debug] Streaming selected translation with detection failed",
+                        {
+                            requestId: resolvedRequestId,
+                            debugInfo,
+                        },
+                    );
+                }
                 notifyContentScriptWithDetection(
                     tabId,
-                    `Translation Error: ${(error as any).message}`,
+                    errorMsg,
                     false,
                     true,
                     false,
                     detectedLanguageName,
                     targetLanguageLabel,
                     resolvedRequestId,
+                    debugInfo,
                 );
             });
         return;
@@ -1795,15 +2070,36 @@ async function getSettingsAndTranslateWithDetection(
         })
         .catch((error) => {
             console.error("Translation error:", error);
+            const errorMsg = getTranslationErrorMessage(error);
+            const debugInfo = debugModeEnabled
+                ? buildDebugErrorDetails(error, "full-page-translation-detection", {
+                      tabId,
+                      provider: finalType,
+                      model: selectedModelName,
+                      mode,
+                      detectedLanguage,
+                      targetLanguageLabel,
+                  })
+                : null;
+            if (debugModeEnabled) {
+                console.error(
+                    "[AI Translator Debug] Full-page translation with detection failed",
+                    {
+                        requestId: resolvedRequestId,
+                        debugInfo,
+                    },
+                );
+            }
             notifyContentScriptWithDetection(
                 tabId,
-                `Translation Error: ${(error as any).message}`,
+                errorMsg,
                 isFullPage,
                 true,
                 false,
                 detectedLanguageName,
                 targetLanguageLabel,
                 resolvedRequestId,
+                debugInfo,
             );
         });
 }
@@ -2064,10 +2360,19 @@ const onConnect = (port: chrome.runtime.Port): void => {
 };
 
 chrome.runtime.onInstalled.addListener(() => {
-    getStorage([STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION]).then((result) => {
+    getStorage([
+        STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION,
+        STORAGE_KEYS.DEBUG_MODE,
+    ]).then((result) => {
         if (typeof result.showTranslateButtonOnSelection !== "boolean") {
             chrome.storage.sync.set({
                 [STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION]: true,
+            });
+        }
+
+        if (typeof result.debugMode !== "boolean") {
+            chrome.storage.sync.set({
+                [STORAGE_KEYS.DEBUG_MODE]: DEBUG_MODE_DEFAULT,
             });
         }
     });

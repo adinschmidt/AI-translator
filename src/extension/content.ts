@@ -1,9 +1,5 @@
-import {
-    STORAGE_KEYS,
-    getStorage,
-    onStorageChanged,
-    type StorageGetResult,
-} from "../shared/storage";
+import { STORAGE_KEYS, getStorage, onStorageChanged } from "../shared/storage";
+import { DEBUG_MODE_DEFAULT } from "../shared/constants/settings";
 import {
     type BackgroundToContentMessage,
     type ContentToBackgroundMessage,
@@ -20,16 +16,20 @@ declare global {
         lastMouseY?: number;
     }
 
-    var DOMPurify: {
-        sanitize: (html: string, config: any) => string;
-    } | undefined;
+    var DOMPurify:
+        | {
+              sanitize: (html: string, config: any) => string;
+          }
+        | undefined;
 
-    var ELD: {
-        detect: (text: string) => {
-            language: string;
-            isReliable: () => boolean;
-        };
-    } | undefined;
+    var ELD:
+        | {
+              detect: (text: string) => {
+                  language: string;
+                  isReliable: () => boolean;
+              };
+          }
+        | undefined;
 }
 
 if ((window as any).hasRun) {
@@ -153,7 +153,14 @@ if ((window as any).hasRun) {
         "wbr",
     ]);
 
-    const HTML_UNIT_ALLOWED_ATTRS = new Set(["href", "title", "lang", "dir", "datetime", "cite"]);
+    const HTML_UNIT_ALLOWED_ATTRS = new Set([
+        "href",
+        "title",
+        "lang",
+        "dir",
+        "datetime",
+        "cite",
+    ]);
 
     function htmlUnitNeedsSplitting(html: string): boolean {
         return html.length > MAX_HTML_UNIT_CHARS;
@@ -296,7 +303,10 @@ if ((window as any).hasRun) {
         nodeIndices: number[];
     }
 
-    function splitHTMLUnitByChildNodes(element: Element, maxChars: number = MAX_HTML_UNIT_CHARS): Chunk[] {
+    function splitHTMLUnitByChildNodes(
+        element: Element,
+        maxChars: number = MAX_HTML_UNIT_CHARS,
+    ): Chunk[] {
         const childNodes = Array.from(element.childNodes);
 
         if (childNodes.length === 0) {
@@ -329,7 +339,10 @@ if ((window as any).hasRun) {
                 }
 
                 if (child.nodeType === Node.TEXT_NODE) {
-                    const textChunks = splitTextNodeContent(child.textContent || "", maxChars);
+                    const textChunks = splitTextNodeContent(
+                        child.textContent || "",
+                        maxChars,
+                    );
                     for (const textChunk of textChunks) {
                         chunks.push({
                             html: textChunk,
@@ -337,7 +350,10 @@ if ((window as any).hasRun) {
                         });
                     }
                 } else if (child.nodeType === Node.ELEMENT_NODE) {
-                    const subChunks = splitHTMLUnitByChildNodes(child as Element, maxChars);
+                    const subChunks = splitHTMLUnitByChildNodes(
+                        child as Element,
+                        maxChars,
+                    );
                     for (const subChunk of subChunks) {
                         chunks.push({
                             html: subChunk.html,
@@ -348,7 +364,10 @@ if ((window as any).hasRun) {
                 continue;
             }
 
-            if (currentChunk.length + childLength > maxChars && currentChunk.parts.length > 0) {
+            if (
+                currentChunk.length + childLength > maxChars &&
+                currentChunk.parts.length > 0
+            ) {
                 chunks.push({
                     html: currentChunk.parts.join(""),
                     nodeIndices: currentChunk.nodeIndices,
@@ -576,7 +595,10 @@ if ((window as any).hasRun) {
      * @param maxChars Maximum characters per chunk (defaults to MAX_HTML_UNIT_CHARS)
      * @returns Array of chunks, each with HTML and node indices
      */
-    function splitRegionByNodes(region: Region, maxChars: number = MAX_HTML_UNIT_CHARS): Chunk[] {
+    function splitRegionByNodes(
+        region: Region,
+        maxChars: number = MAX_HTML_UNIT_CHARS,
+    ): Chunk[] {
         const nodes = region.nodes;
         const chunks: Chunk[] = [];
         let currentChunk: { parts: string[]; nodeIndices: number[]; length: number } = {
@@ -603,12 +625,18 @@ if ((window as any).hasRun) {
                 }
 
                 if (node.nodeType === Node.TEXT_NODE) {
-                    const textChunks = splitTextNodeContent(node.textContent || "", maxChars);
+                    const textChunks = splitTextNodeContent(
+                        node.textContent || "",
+                        maxChars,
+                    );
                     for (const textChunk of textChunks) {
                         chunks.push({ html: textChunk, nodeIndices: [i] });
                     }
                 } else if (node.nodeType === Node.ELEMENT_NODE) {
-                    const subChunks = splitHTMLUnitByChildNodes(node as Element, maxChars);
+                    const subChunks = splitHTMLUnitByChildNodes(
+                        node as Element,
+                        maxChars,
+                    );
                     for (const subChunk of subChunks) {
                         chunks.push({ html: subChunk.html, nodeIndices: [i] });
                     }
@@ -617,7 +645,10 @@ if ((window as any).hasRun) {
             }
 
             // Start new chunk if current would exceed limit
-            if (currentChunk.length + nodeLength > maxChars && currentChunk.parts.length > 0) {
+            if (
+                currentChunk.length + nodeLength > maxChars &&
+                currentChunk.parts.length > 0
+            ) {
                 chunks.push({
                     html: currentChunk.parts.join(""),
                     nodeIndices: currentChunk.nodeIndices,
@@ -703,7 +734,10 @@ if ((window as any).hasRun) {
      */
     function findMarkerComment(parent: Element, markerText: string): Comment | null {
         for (const child of Array.from(parent.childNodes)) {
-            if (child.nodeType === Node.COMMENT_NODE && child.textContent === markerText) {
+            if (
+                child.nodeType === Node.COMMENT_NODE &&
+                child.textContent === markerText
+            ) {
                 return child as Comment;
             }
         }
@@ -726,21 +760,28 @@ if ((window as any).hasRun) {
     function applyRegionTranslation(
         parentElement: Element,
         regionId: string,
-        translatedHtml: string
+        translatedHtml: string,
     ): boolean {
         // 1. Find markers
-        const startMarker = findMarkerComment(parentElement, `TR_REGION_START_${regionId}`);
+        const startMarker = findMarkerComment(
+            parentElement,
+            `TR_REGION_START_${regionId}`,
+        );
         const endMarker = findMarkerComment(parentElement, `TR_REGION_END_${regionId}`);
 
         if (!startMarker || !endMarker) {
-            console.warn(`applyRegionTranslation: markers not found for region ${regionId}`);
+            console.warn(
+                `applyRegionTranslation: markers not found for region ${regionId}`,
+            );
             return false; // Skip this region, don't modify DOM
         }
 
         // 2. Sanitize translated HTML
         const sanitized = sanitizeTranslatedHTML(translatedHtml);
         if (!sanitized || sanitized.trim().length === 0) {
-            console.warn(`applyRegionTranslation: empty sanitized result for region ${regionId}`);
+            console.warn(
+                `applyRegionTranslation: empty sanitized result for region ${regionId}`,
+            );
             // Decision: skip entirely to preserve original content
             return false;
         }
@@ -767,7 +808,7 @@ if ((window as any).hasRun) {
             parentElement.removeChild(endMarker);
 
             console.log(
-                `applyRegionTranslation: applied ${sanitized.length} chars to region ${regionId} in ${parentElement.tagName}`
+                `applyRegionTranslation: applied ${sanitized.length} chars to region ${regionId} in ${parentElement.tagName}`,
             );
             return true;
         } catch (error) {
@@ -788,7 +829,10 @@ if ((window as any).hasRun) {
         for (const child of Array.from(unitEl.childNodes)) {
             if (child.nodeType === Node.COMMENT_NODE) {
                 const text = child.textContent || "";
-                if (text.startsWith("TR_REGION_START_") || text.startsWith("TR_REGION_END_")) {
+                if (
+                    text.startsWith("TR_REGION_START_") ||
+                    text.startsWith("TR_REGION_END_")
+                ) {
                     markers.push(child as Comment);
                 }
             }
@@ -797,7 +841,9 @@ if ((window as any).hasRun) {
             unitEl.removeChild(marker);
         }
         if (markers.length > 0) {
-            console.log(`cleanupOrphanedMarkers: removed ${markers.length} orphaned markers from ${unitEl.tagName}`);
+            console.log(
+                `cleanupOrphanedMarkers: removed ${markers.length} orphaned markers from ${unitEl.tagName}`,
+            );
         }
     }
 
@@ -830,10 +876,16 @@ if ((window as any).hasRun) {
         if (INTERACTIVE_TAGS.has(el.tagName)) {
             return true;
         }
-        if (el.getAttribute("role") === "button" || el.getAttribute("contenteditable") === "true" || (el as any).isContentEditable) {
+        if (
+            el.getAttribute("role") === "button" ||
+            el.getAttribute("contenteditable") === "true" ||
+            (el as any).isContentEditable
+        ) {
             return true;
         }
-        const interactiveDescendant = el.querySelector('button, input, textarea, select, [role="button"], [contenteditable="true"]');
+        const interactiveDescendant = el.querySelector(
+            'button, input, textarea, select, [role="button"], [contenteditable="true"]',
+        );
         return interactiveDescendant !== null;
     }
 
@@ -973,7 +1025,11 @@ if ((window as any).hasRun) {
     }
 
     function escapeHtmlAttr(value: string): string {
-        return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        return value
+            .replace(/&/g, "&amp;")
+            .replace(/"/g, "&quot;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
     }
 
     interface HTMLTranslationUnit {
@@ -1019,8 +1075,13 @@ if ((window as any).hasRun) {
 
                 if (html.length > 0) {
                     if (htmlUnitNeedsSplitting(html)) {
-                        const chunks = splitHTMLUnitByChildNodes(root, MAX_HTML_UNIT_CHARS);
-                        console.log(`HTML unit split into ${chunks.length} chunks (original: ${html.length} chars)`);
+                        const chunks = splitHTMLUnitByChildNodes(
+                            root,
+                            MAX_HTML_UNIT_CHARS,
+                        );
+                        console.log(
+                            `HTML unit split into ${chunks.length} chunks (original: ${html.length} chars)`,
+                        );
                         for (let i = 0; i < chunks.length; i++) {
                             if (chunks[i].html.length > 0) {
                                 units.push({
@@ -1122,13 +1183,18 @@ if ((window as any).hasRun) {
         }
 
         if (typeof (window as any).DOMPurify === "undefined") {
-            console.warn("sanitizeTranslatedHTML: DOMPurify not available, stripping all HTML");
+            console.warn(
+                "sanitizeTranslatedHTML: DOMPurify not available, stripping all HTML",
+            );
             const temp = document.createElement("div");
             temp.innerHTML = html;
             return temp.textContent || "";
         }
 
-        const sanitized = (window as any).DOMPurify.sanitize(html, HTML_UNIT_DOMPURIFY_CONFIG);
+        const sanitized = (window as any).DOMPurify.sanitize(
+            html,
+            HTML_UNIT_DOMPURIFY_CONFIG,
+        );
         return sanitized;
     }
 
@@ -1161,7 +1227,9 @@ if ((window as any).hasRun) {
 
             element.appendChild(fragment.cloneNode(true));
 
-            console.log(`applyTranslatedHTML: applied ${sanitized.length} chars to ${element.tagName}`);
+            console.log(
+                `applyTranslatedHTML: applied ${sanitized.length} chars to ${element.tagName}`,
+            );
             return true;
         } catch (error) {
             console.error("applyTranslatedHTML error:", error);
@@ -1233,7 +1301,9 @@ if ((window as any).hasRun) {
     function getLanguageDisplayName(languageCode: string): string {
         if (!languageCode) return "Unknown";
         const normalizedCode = languageCode.toLowerCase().split("-")[0];
-        return LANGUAGE_NAMES[languageCode] || LANGUAGE_NAMES[normalizedCode] || languageCode;
+        return (
+            LANGUAGE_NAMES[languageCode] || LANGUAGE_NAMES[normalizedCode] || languageCode
+        );
     }
 
     interface LanguageDetectionResult {
@@ -1252,7 +1322,10 @@ if ((window as any).hasRun) {
             return null;
         }
 
-        const textToAnalyze = trimmedText.length > MAX_TEXT_SAMPLE_FOR_DETECTION ? trimmedText.substring(0, MAX_TEXT_SAMPLE_FOR_DETECTION) : trimmedText;
+        const textToAnalyze =
+            trimmedText.length > MAX_TEXT_SAMPLE_FOR_DETECTION
+                ? trimmedText.substring(0, MAX_TEXT_SAMPLE_FOR_DETECTION)
+                : trimmedText;
 
         try {
             const ELD = (window as any).ELD;
@@ -1299,13 +1372,37 @@ if ((window as any).hasRun) {
     const SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY =
         STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION;
     const KEEP_SELECTION_POPUP_OPEN_KEY = STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN;
+    const DEBUG_MODE_KEY = STORAGE_KEYS.DEBUG_MODE;
     let showTranslateButtonOnSelectionEnabled = true;
     let keepSelectionPopupOpenEnabled = false;
+    let debugModeEnabled = DEBUG_MODE_DEFAULT;
     let selectionTranslateButton: HTMLButtonElement | null = null;
     let selectionTranslateInProgress = false;
     let selectionListenerCleanup: (() => void) | null = null;
     let currentDetectedLanguage: string | null = null;
     let currentDetectedLanguageName: string | null = null;
+
+    function debugLog(message: string, payload?: unknown): void {
+        if (!debugModeEnabled) {
+            return;
+        }
+        if (payload === undefined) {
+            console.log("[AI Translator Debug]", message);
+            return;
+        }
+        console.log("[AI Translator Debug]", message, payload);
+    }
+
+    function debugError(message: string, payload?: unknown): void {
+        if (!debugModeEnabled) {
+            return;
+        }
+        if (payload === undefined) {
+            console.error("[AI Translator Debug]", message);
+            return;
+        }
+        console.error("[AI Translator Debug]", message, payload);
+    }
 
     interface ActiveHtmlTranslation {
         requestId: string;
@@ -1345,6 +1442,14 @@ if ((window as any).hasRun) {
                     hideSelectionTranslateButton();
                 }
 
+                if (req.isError) {
+                    debugError("Received translation error message", {
+                        requestId,
+                        text: req.text || "",
+                        debugInfo: req.debugInfo,
+                    });
+                }
+
                 displayPopup(
                     req.text || "",
                     req.isError,
@@ -1353,6 +1458,7 @@ if ((window as any).hasRun) {
                     req.targetLanguageName,
                     isStreaming,
                     requestId,
+                    req.debugInfo || null,
                 );
 
                 if (requestId && !req.isLoading && !isStreaming) {
@@ -1408,7 +1514,22 @@ if ((window as any).hasRun) {
             case "startElementTranslation":
                 removeLoadingIndicator();
                 if (req.isError) {
-                    displayPopup(`Translation Error: ${req.errorMessage || "Unknown error"}`, true);
+                    const errorText =
+                        req.errorMessage || "Translation Error: Unknown error";
+                    debugError("Received full-page translation error", {
+                        errorText,
+                        debugInfo: req.debugInfo,
+                    });
+                    displayPopup(
+                        errorText,
+                        true,
+                        false,
+                        null,
+                        null,
+                        false,
+                        req.requestId || null,
+                        req.debugInfo || null,
+                    );
                     console.error("Element translation failed:", req.errorMessage);
                 } else if (!isTranslated) {
                     console.log("Starting page translation (HTML-preserving).");
@@ -1428,7 +1549,9 @@ if ((window as any).hasRun) {
                 if (req.isFullPage) {
                     displayLoadingIndicator("Translating page...");
                 } else {
-                    console.log("Loading indicator request ignored for selected text (popup handles it).");
+                    console.log(
+                        "Loading indicator request ignored for selected text (popup handles it).",
+                    );
                 }
                 sendResponse({ status: "received" });
                 break;
@@ -1452,7 +1575,11 @@ if ((window as any).hasRun) {
         activeStreamPort = port;
 
         const portMessageListener: PortMessageListener = (message, port) => {
-            if (message && typeof message === "object" && (message as any).action === "streamTranslationUpdate") {
+            if (
+                message &&
+                typeof message === "object" &&
+                (message as any).action === "streamTranslationUpdate"
+            ) {
                 handleStreamUpdate(message as any);
             }
         };
@@ -1485,14 +1612,22 @@ if ((window as any).hasRun) {
     function startHtmlTranslation(
         units: TranslationRequestUnit[],
         targetLanguage: string | null = null,
-        onUpdate: ((results: HtmlTranslationResultItem[], batchInfo: HtmlTranslationOnUpdateMeta | null) => void) | null = null,
+        onUpdate:
+            | ((
+                  results: HtmlTranslationResultItem[],
+                  batchInfo: HtmlTranslationOnUpdateMeta | null,
+              ) => void)
+            | null = null,
     ): Promise<HtmlTranslationResultItem[]> {
         return new Promise((resolve, reject) => {
             if (activeHtmlTranslation?.port) {
                 try {
                     activeHtmlTranslation.port.disconnect();
                 } catch (error) {
-                    console.warn("Failed to close previous HTML translation port:", error);
+                    console.warn(
+                        "Failed to close previous HTML translation port:",
+                        error,
+                    );
                 }
             }
 
@@ -1501,7 +1636,10 @@ if ((window as any).hasRun) {
             let settled = false;
             const collectedResults: HtmlTranslationResultItem[] = [];
 
-            const handleResults = (results: HtmlTranslationResultItem[], batchInfo: HtmlTranslationOnUpdateMeta | null = null) => {
+            const handleResults = (
+                results: HtmlTranslationResultItem[],
+                batchInfo: HtmlTranslationOnUpdateMeta | null = null,
+            ) => {
                 if (!Array.isArray(results) || results.length === 0) {
                     return;
                 }
@@ -1515,7 +1653,10 @@ if ((window as any).hasRun) {
                 }
             };
 
-            const finalize = (error: Error | null, results: HtmlTranslationResultItem[] | null) => {
+            const finalize = (
+                error: Error | null,
+                results: HtmlTranslationResultItem[] | null,
+            ) => {
                 if (settled) {
                     return;
                 }
@@ -1529,12 +1670,19 @@ if ((window as any).hasRun) {
                 try {
                     port.disconnect();
                 } catch (disconnectError) {
-                    console.warn("Failed to disconnect HTML translation port:", disconnectError);
+                    console.warn(
+                        "Failed to disconnect HTML translation port:",
+                        disconnectError,
+                    );
                 }
             };
 
             port.onMessage.addListener((message) => {
-                if (message && typeof message === "object" && (message as any).action === "htmlTranslationResult") {
+                if (
+                    message &&
+                    typeof message === "object" &&
+                    (message as any).action === "htmlTranslationResult"
+                ) {
                     const msg = message as any;
                     if (msg.requestId !== requestId) {
                         return;
@@ -1545,14 +1693,19 @@ if ((window as any).hasRun) {
                     }
                     if (msg.results) {
                         const batchInfo: HtmlTranslationOnUpdateMeta | null =
-                            typeof msg.batchIndex === "number" && typeof msg.batchCount === "number"
+                            typeof msg.batchIndex === "number" &&
+                            typeof msg.batchCount === "number"
                                 ? {
                                       batchIndex: msg.batchIndex,
                                       batchCount: msg.batchCount,
                                       batchSize: msg.batchSize,
                                   }
                                 : null;
-                        if (batchInfo && typeof msg.subBatchIndex === "number" && typeof msg.subBatchCount === "number") {
+                        if (
+                            batchInfo &&
+                            typeof msg.subBatchIndex === "number" &&
+                            typeof msg.subBatchCount === "number"
+                        ) {
                             batchInfo.subBatchIndex = msg.subBatchIndex;
                             batchInfo.subBatchCount = msg.subBatchCount;
                             batchInfo.subBatchSize = msg.subBatchSize;
@@ -1572,7 +1725,10 @@ if ((window as any).hasRun) {
             });
 
             activeHtmlTranslation = { requestId, port };
-            console.log("startHtmlTranslation: sending request", { requestId, unitCount: units.length });
+            console.log("startHtmlTranslation: sending request", {
+                requestId,
+                unitCount: units.length,
+            });
             port.postMessage({
                 action: "startHTMLTranslation",
                 requestId,
@@ -1582,20 +1738,34 @@ if ((window as any).hasRun) {
         });
     }
 
-    getStorage([SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY, KEEP_SELECTION_POPUP_OPEN_KEY])
+    getStorage([
+        SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY,
+        KEEP_SELECTION_POPUP_OPEN_KEY,
+        DEBUG_MODE_KEY,
+    ])
         .then((result) => {
             const stored = result?.[SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY];
-            showTranslateButtonOnSelectionEnabled = typeof stored === "boolean" ? stored : true;
+            showTranslateButtonOnSelectionEnabled =
+                typeof stored === "boolean" ? stored : true;
             const keepPopupOpen = result?.[KEEP_SELECTION_POPUP_OPEN_KEY];
             keepSelectionPopupOpenEnabled =
                 typeof keepPopupOpen === "boolean" ? keepPopupOpen : false;
+            const debugMode = result?.[DEBUG_MODE_KEY];
+            debugModeEnabled =
+                typeof debugMode === "boolean" ? debugMode : DEBUG_MODE_DEFAULT;
             updateSelectionTranslateButtonState();
             syncPopupOutsideClickBehavior();
+            debugLog("Loaded content-script settings", {
+                showTranslateButtonOnSelectionEnabled,
+                keepSelectionPopupOpenEnabled,
+                debugModeEnabled,
+            });
         })
         .catch((error) => {
             console.warn("Error reading selection popup settings:", error);
             showTranslateButtonOnSelectionEnabled = true;
             keepSelectionPopupOpenEnabled = false;
+            debugModeEnabled = DEBUG_MODE_DEFAULT;
             updateSelectionTranslateButtonState();
             syncPopupOutsideClickBehavior();
         });
@@ -1619,6 +1789,14 @@ if ((window as any).hasRun) {
             keepSelectionPopupOpenEnabled =
                 typeof nextValue === "boolean" ? nextValue : false;
             syncPopupOutsideClickBehavior();
+        }
+
+        const debugModeChange = changes[DEBUG_MODE_KEY];
+        if (debugModeChange) {
+            const nextValue = debugModeChange.newValue;
+            debugModeEnabled =
+                typeof nextValue === "boolean" ? nextValue : DEBUG_MODE_DEFAULT;
+            debugLog("Updated debug mode from storage change", { debugModeEnabled });
         }
     });
 
@@ -1689,13 +1867,21 @@ if ((window as any).hasRun) {
             chrome.runtime.sendMessage(msg, (response) => {
                 if (chrome.runtime.lastError) {
                     selectionTranslateInProgress = false;
-                    displayPopup(`Translation Error: ${chrome.runtime.lastError.message}`, true, false);
+                    displayPopup(
+                        `Translation Error: ${chrome.runtime.lastError.message}`,
+                        true,
+                        false,
+                    );
                     return;
                 }
 
                 if (response?.status && response.status !== "ok") {
                     selectionTranslateInProgress = false;
-                    displayPopup(`Translation Error: ${response.message || "Unknown error"}`, true, false);
+                    displayPopup(
+                        `Translation Error: ${response.message || "Unknown error"}`,
+                        true,
+                        false,
+                    );
                 }
             });
         });
@@ -1735,7 +1921,10 @@ if ((window as any).hasRun) {
         };
 
         const onDocumentMouseDown = (event: MouseEvent) => {
-            if (selectionTranslateButton && selectionTranslateButton.contains(event.target as Node)) {
+            if (
+                selectionTranslateButton &&
+                selectionTranslateButton.contains(event.target as Node)
+            ) {
                 return;
             }
 
@@ -1757,7 +1946,11 @@ if ((window as any).hasRun) {
                 clearTimeout(debounceTimer);
                 debounceTimer = null;
             }
-            document.removeEventListener("selectionchange", onSelectionMaybeChanged, true);
+            document.removeEventListener(
+                "selectionchange",
+                onSelectionMaybeChanged,
+                true,
+            );
             document.removeEventListener("mouseup", onSelectionMaybeChanged, true);
             window.removeEventListener("resize", onResize, true);
             document.removeEventListener("keydown", onKeyDown, true);
@@ -1803,7 +1996,7 @@ if ((window as any).hasRun) {
 
         const selectionContainerEl = selection.anchorNode
             ? selection.anchorNode.nodeType === Node.ELEMENT_NODE
-                ? selection.anchorNode as Element
+                ? (selection.anchorNode as Element)
                 : selection.anchorNode.parentElement
             : null;
 
@@ -1842,19 +2035,26 @@ if ((window as any).hasRun) {
         const msg: ContentToBackgroundMessage = { action: "getTargetLanguage" };
         chrome.runtime.sendMessage(msg, (response) => {
             if (chrome.runtime.lastError) {
-                console.warn("Failed to get target language:", chrome.runtime.lastError.message);
+                console.warn(
+                    "Failed to get target language:",
+                    chrome.runtime.lastError.message,
+                );
                 hideSelectionTranslateButton();
                 return;
             }
 
             const targetLanguage = response?.targetLanguage || "en";
 
-            const detectedNormalized = detectionResult.language.toLowerCase().split("-")[0];
+            const detectedNormalized = detectionResult.language
+                .toLowerCase()
+                .split("-")[0];
             const targetNormalized = targetLanguage.toLowerCase().split("-")[0];
             const isSameLanguage = detectedNormalized === targetNormalized;
 
             if (isSameLanguage) {
-                console.log("Detected language matches target language, not showing button");
+                console.log(
+                    "Detected language matches target language, not showing button",
+                );
                 hideSelectionTranslateButton();
                 return;
             }
@@ -2109,13 +2309,19 @@ if ((window as any).hasRun) {
         const clonedBody = mainElement?.cloneNode(true) as Element;
 
         clonedBody
-            .querySelectorAll('script, style, nav, header, footer, aside, form, button, input, textarea, select, [aria-hidden="true"], noscript')
+            .querySelectorAll(
+                'script, style, nav, header, footer, aside, form, button, input, textarea, select, [aria-hidden="true"], noscript',
+            )
             .forEach((el) => el.remove());
 
         return clonedBody.innerHTML;
     }
 
-    function getTranslatableElements(): Array<{ element: Element; text: string; path: string }> {
+    function getTranslatableElements(): Array<{
+        element: Element;
+        text: string;
+        path: string;
+    }> {
         const elements: Array<{ element: Element; text: string; path: string }> = [];
 
         const walker = document.createTreeWalker(
@@ -2175,7 +2381,8 @@ if ((window as any).hasRun) {
         const parts: string[] = [];
         while (element && element !== document.body) {
             const part = element.tagName.toLowerCase();
-            const index = Array.from(element.parentNode?.children || []).indexOf(element) + 1;
+            const index =
+                Array.from(element.parentNode?.children || []).indexOf(element) + 1;
             parts.unshift(`${part}:nth-child(${index})`);
             element = element.parentElement!;
         }
@@ -2267,7 +2474,9 @@ if ((window as any).hasRun) {
             console.log(`Completed batch ${batchIndex + 1}/${batches.length}`);
         }
 
-        console.log(`Translation complete. ${completed} elements translated, ${errorCount} errors.`);
+        console.log(
+            `Translation complete. ${completed} elements translated, ${errorCount} errors.`,
+        );
 
         setTimeout(() => removeLoadingIndicator(), 1000);
     }
@@ -2280,9 +2489,16 @@ if ((window as any).hasRun) {
     ): string {
         const errorSuffix = errorCount > 0 ? ` (${errorCount} errors)` : "";
         let batchPrefix = "";
-        if (batchInfo && typeof batchInfo.batchIndex === "number" && typeof batchInfo.batchCount === "number") {
+        if (
+            batchInfo &&
+            typeof batchInfo.batchIndex === "number" &&
+            typeof batchInfo.batchCount === "number"
+        ) {
             batchPrefix = `Batch ${batchInfo.batchIndex}/${batchInfo.batchCount}`;
-            if (typeof batchInfo.subBatchIndex === "number" && typeof batchInfo.subBatchCount === "number") {
+            if (
+                typeof batchInfo.subBatchIndex === "number" &&
+                typeof batchInfo.subBatchCount === "number"
+            ) {
                 batchPrefix += ` part ${batchInfo.subBatchIndex}/${batchInfo.subBatchCount}`;
             }
             batchPrefix += " - ";
@@ -2315,10 +2531,14 @@ if ((window as any).hasRun) {
             html: unit.html,
         }));
 
-        displayLoadingIndicatorState(`Translating ${totalChunks} chunks...`, "translating", {
-            current: 0,
-            total: totalChunks,
-        });
+        displayLoadingIndicatorState(
+            `Translating ${totalChunks} chunks...`,
+            "translating",
+            {
+                current: 0,
+                total: totalChunks,
+            },
+        );
 
         // Track by regionId instead of element (multiple regions per element possible)
         interface RegionEntry {
@@ -2362,7 +2582,12 @@ if ((window as any).hasRun) {
 
         const updateChunkProgress = () => {
             displayLoadingIndicatorState(
-                getChunkProgressMessage(translatedChunks, totalChunks, errorCount, latestBatchInfo),
+                getChunkProgressMessage(
+                    translatedChunks,
+                    totalChunks,
+                    errorCount,
+                    latestBatchInfo,
+                ),
                 "translating",
                 {
                     current: translatedChunks,
@@ -2371,7 +2596,12 @@ if ((window as any).hasRun) {
             );
         };
 
-        const markRegionError = (regionId: string, entry: RegionEntry, message: string, logMessage?: string) => {
+        const markRegionError = (
+            regionId: string,
+            entry: RegionEntry,
+            message: string,
+            logMessage?: string,
+        ) => {
             if (entry.hasError) {
                 return;
             }
@@ -2407,7 +2637,9 @@ if ((window as any).hasRun) {
                 return;
             }
 
-            const missingChunk = orderedChunks.find((chunk) => !chunk.translatedHtml || !chunk.translatedHtml.trim());
+            const missingChunk = orderedChunks.find(
+                (chunk) => !chunk.translatedHtml || !chunk.translatedHtml.trim(),
+            );
             if (missingChunk) {
                 markRegionError(
                     regionId,
@@ -2418,7 +2650,9 @@ if ((window as any).hasRun) {
                 return;
             }
 
-            const combinedHtml = orderedChunks.map((chunk) => chunk.translatedHtml).join(" ");
+            const combinedHtml = orderedChunks
+                .map((chunk) => chunk.translatedHtml)
+                .join(" ");
 
             if (!combinedHtml.trim()) {
                 markRegionError(
@@ -2431,7 +2665,11 @@ if ((window as any).hasRun) {
             }
 
             // Use surgical region replacement instead of replacing all children
-            const applied = applyRegionTranslation(entry.parentElement, regionId, combinedHtml);
+            const applied = applyRegionTranslation(
+                entry.parentElement,
+                regionId,
+                combinedHtml,
+            );
             if (applied) {
                 successCount++;
                 entry.applied = true;
@@ -2440,26 +2678,39 @@ if ((window as any).hasRun) {
 
             // Fallback: if surgical apply failed but we have text, leave original content
             // (markers will be cleaned up later)
-            markRegionError(regionId, entry, "Region apply failed, preserving original content");
+            markRegionError(
+                regionId,
+                entry,
+                "Region apply failed, preserving original content",
+            );
         };
 
-        const handleTranslationResults = (results: HtmlTranslationResultItem[], batchInfo: HtmlTranslationOnUpdateMeta | null = null) => {
+        const handleTranslationResults = (
+            results: HtmlTranslationResultItem[],
+            batchInfo: HtmlTranslationOnUpdateMeta | null = null,
+        ) => {
             if (!Array.isArray(results) || results.length === 0) {
                 return;
             }
 
             if (batchInfo?.batchIndex && batchInfo?.batchCount) {
                 latestBatchInfo = batchInfo;
-                const batchSizeLabel = typeof batchInfo.batchSize === "number" ? `, ${batchInfo.batchSize} units` : "";
+                const batchSizeLabel =
+                    typeof batchInfo.batchSize === "number"
+                        ? `, ${batchInfo.batchSize} units`
+                        : "";
                 const subBatchLabel =
-                    typeof batchInfo.subBatchIndex === "number" && typeof batchInfo.subBatchCount === "number"
+                    typeof batchInfo.subBatchIndex === "number" &&
+                    typeof batchInfo.subBatchCount === "number"
                         ? ` part ${batchInfo.subBatchIndex}/${batchInfo.subBatchCount}`
                         : "";
                 console.log(
                     `translatePageV3: received batch ${batchInfo.batchIndex}/${batchInfo.batchCount}${subBatchLabel} (${results.length} results${batchSizeLabel})`,
                 );
             } else {
-                console.log(`translatePageV3: received ${results.length} translation results`);
+                console.log(
+                    `translatePageV3: received ${results.length} translation results`,
+                );
             }
 
             receivedResults += results.length;
@@ -2477,7 +2728,10 @@ if ((window as any).hasRun) {
                 }
 
                 const chunkIndex = unit.chunkIndex ?? 0;
-                const translatedHtml = typeof result.translatedHtml === "string" ? result.translatedHtml : "";
+                const translatedHtml =
+                    typeof result.translatedHtml === "string"
+                        ? result.translatedHtml
+                        : "";
                 const hasTranslation = translatedHtml.trim().length > 0;
 
                 if (hasTranslation && !entry.translatedChunkIndices.has(chunkIndex)) {
@@ -2531,7 +2785,9 @@ if ((window as any).hasRun) {
             }
 
             const summary =
-                errorCount > 0 ? `Done. ${successCount} regions translated, ${errorCount} errors` : `Done. ${successCount} regions translated`;
+                errorCount > 0
+                    ? `Done. ${successCount} regions translated, ${errorCount} errors`
+                    : `Done. ${successCount} regions translated`;
             const summaryState = errorCount > 0 ? "error" : "done";
             displayLoadingIndicatorState(summary, summaryState, {
                 current: translatedChunks,
@@ -2543,8 +2799,14 @@ if ((window as any).hasRun) {
         };
 
         try {
-            await startHtmlTranslation(unitsForTranslation, null, handleTranslationResults);
-            console.log(`translatePageV3: received ${receivedResults} translation results`);
+            await startHtmlTranslation(
+                unitsForTranslation,
+                null,
+                handleTranslationResults,
+            );
+            console.log(
+                `translatePageV3: received ${receivedResults} translation results`,
+            );
             finalizeTranslation();
         } catch (error) {
             console.error("translatePageV3 error:", error);
@@ -2565,14 +2827,23 @@ if ((window as any).hasRun) {
         console.log("Translation stopped");
     }
 
-    type LoadingIndicatorState = "preparing" | "translating" | "done" | "stopped" | "error";
+    type LoadingIndicatorState =
+        | "preparing"
+        | "translating"
+        | "done"
+        | "stopped"
+        | "error";
 
     interface LoadingProgress {
         current: number;
         total: number;
     }
 
-    function displayLoadingIndicatorState(message: string, state: LoadingIndicatorState = "translating", progress: LoadingProgress | null = null): void {
+    function displayLoadingIndicatorState(
+        message: string,
+        state: LoadingIndicatorState = "translating",
+        progress: LoadingProgress | null = null,
+    ): void {
         removeLoadingIndicator();
 
         loadingIndicator = document.createElement("div");
@@ -2597,7 +2868,11 @@ if ((window as any).hasRun) {
         textWrapper.style.alignItems = "flex-start";
         textWrapper.appendChild(progressText);
 
-        if (progress && typeof progress.current === "number" && typeof progress.total === "number") {
+        if (
+            progress &&
+            typeof progress.current === "number" &&
+            typeof progress.total === "number"
+        ) {
             const progressBar = document.createElement("div");
             const progressFill = document.createElement("div");
             const ratio = progress.total > 0 ? progress.current / progress.total : 0;
@@ -2690,7 +2965,11 @@ if ((window as any).hasRun) {
         }
     }
 
-    async function translateElement(elementData: { element: Element; text: string; path: string }): Promise<void> {
+    async function translateElement(elementData: {
+        element: Element;
+        text: string;
+        path: string;
+    }): Promise<void> {
         return new Promise((resolve, reject) => {
             chrome.runtime.sendMessage(
                 {
@@ -2719,9 +2998,15 @@ if ((window as any).hasRun) {
         });
     }
 
-    function updateElementTextInline(element: Element, originalText: string, translatedText: string): void {
+    function updateElementTextInline(
+        element: Element,
+        originalText: string,
+        translatedText: string,
+    ): void {
         try {
-            console.log(`Updating element ${element.tagName} with inline text replacement`);
+            console.log(
+                `Updating element ${element.tagName} with inline text replacement`,
+            );
             console.log(`Original: "${originalText.substring(0, 50)}..."`);
             console.log(`Translated: "${translatedText.substring(0, 50)}..."`);
 
@@ -2768,19 +3053,31 @@ if ((window as any).hasRun) {
         if ((req as any).translatedText && (req as any).elementPath) {
             const element = findElementByPath((req as any).elementPath);
             if (element) {
-                updateElementTextInline(element, (req as any).originalText, (req as any).translatedText);
+                updateElementTextInline(
+                    element,
+                    (req as any).originalText,
+                    (req as any).translatedText,
+                );
                 console.log(`Updated element at path ${(req as any).elementPath}`);
             } else {
-                console.warn(`Could not find element at path: ${(req as any).elementPath}`);
+                console.warn(
+                    `Could not find element at path: ${(req as any).elementPath}`,
+                );
             }
         }
     }
 
-    function updateLoadingProgress(completed: number, total: number, errors: number): void {
+    function updateLoadingProgress(
+        completed: number,
+        total: number,
+        errors: number,
+    ): void {
         if (loadingIndicator) {
             const progress = Math.round((completed / total) * 100);
             const errorText = errors > 0 ? ` (${errors} errors)` : "";
-            const progressText = loadingIndicator.querySelector(".progress-text") as HTMLElement;
+            const progressText = loadingIndicator.querySelector(
+                ".progress-text",
+            ) as HTMLElement;
             if (progressText) {
                 progressText.textContent = `Translating elements... ${completed}/${total} (${progress}%)${errorText}`;
             }
@@ -2936,11 +3233,16 @@ if ((window as any).hasRun) {
             }
         }
 
-        chrome.runtime.sendMessage({ action: "cancelTranslation", requestId } as ContentToBackgroundMessage);
+        chrome.runtime.sendMessage({
+            action: "cancelTranslation",
+            requestId,
+        } as ContentToBackgroundMessage);
     }
 
     function getAllTranslationPopups(): HTMLElement[] {
-        return Array.from(document.querySelectorAll(TRANSLATION_POPUP_SELECTOR)) as HTMLElement[];
+        return Array.from(
+            document.querySelectorAll(TRANSLATION_POPUP_SELECTOR),
+        ) as HTMLElement[];
     }
 
     function getPopupForRequestId(requestId: string | null): HTMLElement | null {
@@ -2989,7 +3291,8 @@ if ((window as any).hasRun) {
         }
         if (translationPopup === popup) {
             const remaining = getAllTranslationPopups();
-            translationPopup = remaining.length > 0 ? remaining[remaining.length - 1] : null;
+            translationPopup =
+                remaining.length > 0 ? remaining[remaining.length - 1] : null;
         }
     }
 
@@ -3012,10 +3315,7 @@ if ((window as any).hasRun) {
 
     function rectsOverlap(a: PopupRect, b: PopupRect): boolean {
         return (
-            a.left < b.right &&
-            a.right > b.left &&
-            a.top < b.bottom &&
-            a.bottom > b.top
+            a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
         );
     }
 
@@ -3040,7 +3340,10 @@ if ((window as any).hasRun) {
         let left = parseFloat(popup.style.left) || window.scrollX;
         let top = parseFloat(popup.style.top) || window.scrollY;
 
-        left = Math.min(Math.max(left, viewportLeft), Math.max(viewportLeft, viewportRight - popupWidth));
+        left = Math.min(
+            Math.max(left, viewportLeft),
+            Math.max(viewportLeft, viewportRight - popupWidth),
+        );
         top = Math.max(top, viewportTop);
 
         for (let attempt = 0; attempt < 30; attempt++) {
@@ -3092,6 +3395,56 @@ if ((window as any).hasRun) {
         setPopupOutsideClickDismissEnabled(shouldAutoDismiss);
     }
 
+    function renderFinalPopupContent(
+        popup: HTMLElement,
+        content: string,
+        isError: boolean,
+        detectedLanguageName: string | null,
+        targetLanguageName: string | null,
+        debugInfo: string | null,
+    ): void {
+        popup.classList.remove("is-streaming");
+        clearElement(popup);
+
+        if (!isError && detectedLanguageName && targetLanguageName) {
+            const headerDiv = document.createElement("div");
+            headerDiv.style.cssText =
+                "font-size: 11px; color: #666; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #ddd;";
+            headerDiv.textContent = `${detectedLanguageName} → ${targetLanguageName}`;
+            popup.appendChild(headerDiv);
+        }
+
+        const contentDiv = document.createElement("div");
+        const visibleMessage =
+            typeof content === "string" && content.trim() !== ""
+                ? content
+                : isError
+                  ? "Translation Error: Unknown error"
+                  : "";
+        const sanitized = (window as any).DOMPurify?.sanitize(visibleMessage) ?? "";
+        const fragment = htmlToFragment(sanitized);
+        contentDiv.appendChild(fragment);
+        popup.appendChild(contentDiv);
+
+        if (isError && debugModeEnabled && debugInfo) {
+            const debugHeading = document.createElement("div");
+            debugHeading.textContent = "Debug details";
+            debugHeading.style.cssText =
+                "margin-top: 10px; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: #991b1b;";
+            popup.appendChild(debugHeading);
+
+            const debugDetailsEl = document.createElement("pre");
+            debugDetailsEl.textContent = debugInfo;
+            debugDetailsEl.style.cssText =
+                "margin: 0; padding: 8px; border: 1px solid #fca5a5; background: #fff5f5; color: #991b1b; border-radius: 4px; font-size: 11px; line-height: 1.35; white-space: pre-wrap; max-height: 180px; overflow: auto;";
+            popup.appendChild(debugDetailsEl);
+        }
+
+        popup.style.backgroundColor = isError ? "#ffdddd" : "#f8f9fa";
+        popup.style.border = `1px solid ${isError ? "#dc3545" : "#28a745"}`;
+        popup.style.color = isError ? "#a00" : "#333";
+    }
+
     function displayPopup(
         content: string,
         isError: boolean = false,
@@ -3100,8 +3453,21 @@ if ((window as any).hasRun) {
         targetLanguageName: string | null = null,
         isStreaming: boolean = false,
         requestId: string | null = null,
+        debugInfo: string | null = null,
     ): void {
-        console.log("displayPopup called with:", { content, isError, isLoading, detectedLanguageName, targetLanguageName });
+        console.log("displayPopup called with:", {
+            content,
+            isError,
+            isLoading,
+            detectedLanguageName,
+            targetLanguageName,
+        });
+        if (isError && debugInfo) {
+            debugError("Rendering popup error with debug details", {
+                requestId,
+                debugInfo,
+            });
+        }
         let createdPopup = false;
         let existingPopup = getPopupForRequestId(requestId);
 
@@ -3124,13 +3490,15 @@ if ((window as any).hasRun) {
 
         if (existingPopup && !isLoading) {
             translationPopup = existingPopup;
-            existingPopup.classList.remove("is-streaming");
             console.log("Updating existing popup content.");
-            setSanitizedContent(existingPopup, content);
-            existingPopup.style.backgroundColor = isError ? "#fff0f0" : "white";
-            existingPopup.style.border = `1px solid ${isError ? "#f00" : "#ccc"}`;
-            existingPopup.style.color = isError ? "#a00" : "#333";
-
+            renderFinalPopupContent(
+                existingPopup,
+                content,
+                isError,
+                detectedLanguageName,
+                targetLanguageName,
+                debugInfo,
+            );
             addCloseButton(existingPopup);
             console.log("Existing popup updated:", existingPopup);
             syncPopupOutsideClickBehavior();
@@ -3213,7 +3581,10 @@ if ((window as any).hasRun) {
             popupElement.style.visibility = "visible";
             popupElement.style.opacity = "1";
 
-            console.log("Popup element created and styled (before content):", popupElement);
+            console.log(
+                "Popup element created and styled (before content):",
+                popupElement,
+            );
 
             try {
                 document.body.appendChild(popupElement);
@@ -3234,7 +3605,8 @@ if ((window as any).hasRun) {
             existingPopup.style.color = "#555";
 
             const spinnerContainer = document.createElement("div");
-            spinnerContainer.style.cssText = "display: flex; align-items: center; justify-content: center; height: 30px;";
+            spinnerContainer.style.cssText =
+                "display: flex; align-items: center; justify-content: center; height: 30px;";
 
             const spinner = document.createElement("div");
             spinner.className = "spinner";
@@ -3252,7 +3624,8 @@ if ((window as any).hasRun) {
             if (!document.getElementById("translation-spinner-style")) {
                 const style = document.createElement("style");
                 style.id = "translation-spinner-style";
-                style.textContent = "@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
+                style.textContent =
+                    "@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
                 document.head.appendChild(style);
             }
         } else if (isStreaming) {
@@ -3260,26 +3633,14 @@ if ((window as any).hasRun) {
             return;
         } else {
             console.log("Setting final content:", content);
-            existingPopup.classList.remove("is-streaming");
-            clearElement(existingPopup);
-
-            if (!isError && detectedLanguageName && targetLanguageName) {
-                const headerDiv = document.createElement("div");
-                headerDiv.style.cssText =
-                    "font-size: 11px; color: #666; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #ddd;";
-                headerDiv.textContent = `${detectedLanguageName} → ${targetLanguageName}`;
-                existingPopup.appendChild(headerDiv);
-            }
-
-            const contentDiv = document.createElement("div");
-            const sanitized = (window as any).DOMPurify?.sanitize(content ?? "") ?? "";
-            const fragment = htmlToFragment(sanitized);
-            contentDiv.appendChild(fragment);
-            existingPopup.appendChild(contentDiv);
-
-            existingPopup.style.backgroundColor = isError ? "#ffdddd" : "#f8f9fa";
-            existingPopup.style.border = `1px solid ${isError ? "#dc3545" : "#28a745"}`;
-            existingPopup.style.color = isError ? "#a00" : "#333";
+            renderFinalPopupContent(
+                existingPopup,
+                content,
+                isError,
+                detectedLanguageName,
+                targetLanguageName,
+                debugInfo,
+            );
         }
 
         addCloseButton(existingPopup);
@@ -3291,7 +3652,9 @@ if ((window as any).hasRun) {
     }
 
     function addCloseButton(popupElement: HTMLElement): void {
-        const existingButton = popupElement.querySelector(".translation-popup-close-button");
+        const existingButton = popupElement.querySelector(
+            ".translation-popup-close-button",
+        );
         if (existingButton) {
             existingButton.remove();
         }
@@ -3360,9 +3723,10 @@ if ((window as any).hasRun) {
     }
 
     function handleClickOutside(event: Event): void {
-        const popup = translationPopup && translationPopup.isConnected
-            ? translationPopup
-            : getAllTranslationPopups()[0] || null;
+        const popup =
+            translationPopup && translationPopup.isConnected
+                ? translationPopup
+                : getAllTranslationPopups()[0] || null;
         if (!popup || popup.contains(event.target as Node)) {
             return;
         }

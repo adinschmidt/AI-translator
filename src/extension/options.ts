@@ -2,7 +2,6 @@ import {
     getStorage,
     setStorage,
     STORAGE_KEYS,
-    type StorageGetResult,
     type ProviderSettingsMap,
 } from "../shared/storage";
 import {
@@ -18,6 +17,7 @@ import {
     BASIC_TARGET_LANGUAGE_DEFAULT,
     ADVANCED_TARGET_LANGUAGE_DEFAULT,
     KEEP_SELECTION_POPUP_OPEN_DEFAULT,
+    DEBUG_MODE_DEFAULT,
     DEFAULT_TRANSLATION_INSTRUCTIONS,
     type SettingsMode,
 } from "../shared/constants/settings";
@@ -35,7 +35,9 @@ const fillDefaultEndpointButton = document.getElementById(
     "fill-default-endpoint",
 ) as HTMLButtonElement;
 const modelNameInput = document.getElementById("model-name") as HTMLInputElement;
-const fillDefaultModelButton = document.getElementById("fill-default-model") as HTMLButtonElement;
+const fillDefaultModelButton = document.getElementById(
+    "fill-default-model",
+) as HTMLButtonElement;
 
 const advancedTargetLanguageSelect = document.getElementById(
     "advanced-target-language",
@@ -47,7 +49,9 @@ const extraInstructionsInput = document.getElementById(
 const settingsModeSelect = document.getElementById("settings-mode") as HTMLSelectElement;
 const basicSettingsDiv = document.getElementById("basic-settings") as HTMLElement;
 const advancedSettingsDiv = document.getElementById("advanced-settings") as HTMLElement;
-const basicProviderSelect = document.getElementById("basic-provider") as HTMLSelectElement;
+const basicProviderSelect = document.getElementById(
+    "basic-provider",
+) as HTMLSelectElement;
 const basicApiKeyInput = document.getElementById("basic-api-key") as HTMLInputElement;
 const basicTargetLanguageSelect = document.getElementById(
     "basic-target-language",
@@ -59,17 +63,26 @@ const showTranslateButtonOnSelectionInput = document.getElementById(
 const keepSelectionPopupOpenInput = document.getElementById(
     "keep-selection-popup-open",
 ) as HTMLInputElement;
+const debugModeInput = document.getElementById("debug-mode") as HTMLInputElement;
 
 const ollamaSettingsDiv = document.getElementById("ollama-settings") as HTMLElement;
-const ollamaModelSelect = document.getElementById("ollama-model-select") as HTMLSelectElement;
+const ollamaModelSelect = document.getElementById(
+    "ollama-model-select",
+) as HTMLSelectElement;
 const refreshOllamaModelsButton = document.getElementById(
     "refresh-ollama-models",
 ) as HTMLButtonElement;
-const apiKeyContainer = document.getElementById("api-key")?.closest(".mb-4") as HTMLElement;
-const modelNameContainer = document.getElementById("model-name")?.closest(".mb-4") as HTMLElement;
+const apiKeyContainer = document
+    .getElementById("api-key")
+    ?.closest(".mb-4") as HTMLElement;
+const modelNameContainer = document
+    .getElementById("model-name")
+    ?.closest(".mb-4") as HTMLElement;
 
 const cerebrasSettingsDiv = document.getElementById("cerebras-settings") as HTMLElement;
-const cerebrasModelSelect = document.getElementById("cerebras-model-select") as HTMLSelectElement;
+const cerebrasModelSelect = document.getElementById(
+    "cerebras-model-select",
+) as HTMLSelectElement;
 
 const groqSettingsDiv = document.getElementById("groq-settings") as HTMLElement;
 const groqModelSelect = document.getElementById("groq-model-select") as HTMLSelectElement;
@@ -79,6 +92,7 @@ let settingsMode: SettingsMode = SETTINGS_MODE_BASIC;
 let basicTargetLanguage = BASIC_TARGET_LANGUAGE_DEFAULT;
 let advancedTargetLanguage = ADVANCED_TARGET_LANGUAGE_DEFAULT;
 let extraInstructions = "";
+let debugModeEnabled = DEBUG_MODE_DEFAULT;
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -182,7 +196,9 @@ function updateProviderUI(provider: string): void {
     }
 
     if (isOllama) {
-        const settings = providerSettings["ollama" as Provider] || resolveProviderDefaults("ollama" as Provider);
+        const settings =
+            providerSettings["ollama" as Provider] ||
+            resolveProviderDefaults("ollama" as Provider);
         const baseUrl = settings.apiEndpoint || PROVIDER_DEFAULTS.ollama.apiEndpoint;
 
         fetchOllamaModels(baseUrl)
@@ -195,12 +211,17 @@ function updateProviderUI(provider: string): void {
     }
 
     if (isCerebras && cerebrasModelSelect) {
-        const settings = providerSettings["cerebras" as Provider] || resolveProviderDefaults("cerebras" as Provider);
-        cerebrasModelSelect.value = settings.modelName || PROVIDER_DEFAULTS.cerebras.modelName;
+        const settings =
+            providerSettings["cerebras" as Provider] ||
+            resolveProviderDefaults("cerebras" as Provider);
+        cerebrasModelSelect.value =
+            settings.modelName || PROVIDER_DEFAULTS.cerebras.modelName;
     }
 
     if (isGroq && groqModelSelect) {
-        const settings = providerSettings["groq" as Provider] || resolveProviderDefaults("groq" as Provider);
+        const settings =
+            providerSettings["groq" as Provider] ||
+            resolveProviderDefaults("groq" as Provider);
         groqModelSelect.value = settings.modelName || PROVIDER_DEFAULTS.groq.modelName;
     }
 }
@@ -234,20 +255,24 @@ async function loadSettings(): Promise<void> {
             STORAGE_KEYS.EXTRA_INSTRUCTIONS,
             STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION,
             STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN,
+            STORAGE_KEYS.DEBUG_MODE,
         ]);
 
         console.log("options.ts: Raw settings loaded from storage:", result);
 
         settingsMode = (result.settingsMode as SettingsMode) || SETTINGS_MODE_BASIC;
         basicTargetLanguage = result.basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
-        advancedTargetLanguage = result.advancedTargetLanguage || ADVANCED_TARGET_LANGUAGE_DEFAULT;
+        advancedTargetLanguage =
+            result.advancedTargetLanguage || ADVANCED_TARGET_LANGUAGE_DEFAULT;
         extraInstructions = result.extraInstructions || "";
 
         if (result.translationInstructions && !result.extraInstructions) {
             const oldInstructions = result.translationInstructions;
             if (!oldInstructions.startsWith("Translate the following text to")) {
                 extraInstructions = oldInstructions;
-                console.log("options.ts: Migrated old translationInstructions to extraInstructions");
+                console.log(
+                    "options.ts: Migrated old translationInstructions to extraInstructions",
+                );
             }
         }
 
@@ -270,10 +295,15 @@ async function loadSettings(): Promise<void> {
                 ? result.keepSelectionPopupOpen
                 : KEEP_SELECTION_POPUP_OPEN_DEFAULT;
 
+        const needsPersistDebugModeSetting = typeof result.debugMode !== "boolean";
+        debugModeEnabled =
+            typeof result.debugMode === "boolean" ? result.debugMode : DEBUG_MODE_DEFAULT;
+
         if (
             shouldPersistModeMigration ||
             needsPersistShowButtonSetting ||
-            needsPersistKeepPopupSetting
+            needsPersistKeepPopupSetting ||
+            needsPersistDebugModeSetting
         ) {
             setStorage({
                 [STORAGE_KEYS.SETTINGS_MODE]: settingsMode,
@@ -282,6 +312,7 @@ async function loadSettings(): Promise<void> {
                 [STORAGE_KEYS.EXTRA_INSTRUCTIONS]: extraInstructions,
                 [STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION]: showButtonSetting,
                 [STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN]: keepPopupSetting,
+                [STORAGE_KEYS.DEBUG_MODE]: debugModeEnabled,
             }).catch((error) => {
                 console.error("options.ts: Error persisting mode migration:", error);
             });
@@ -322,6 +353,10 @@ async function loadSettings(): Promise<void> {
                     : KEEP_SELECTION_POPUP_OPEN_DEFAULT;
         }
 
+        if (debugModeInput) {
+            debugModeInput.checked = debugModeEnabled;
+        }
+
         providerSettings = result.providerSettings || {};
 
         if (
@@ -345,7 +380,10 @@ async function loadSettings(): Promise<void> {
                 providerSettings,
             );
             setStorage({ providerSettings }).catch((error) => {
-                console.error("options.ts: Error persisting provider settings migration:", error);
+                console.error(
+                    "options.ts: Error persisting provider settings migration:",
+                    error,
+                );
             });
         }
 
@@ -470,6 +508,7 @@ async function saveSetting(): Promise<void> {
                 apiType: provider,
                 [STORAGE_KEYS.SETTINGS_MODE]: settingsMode,
                 [STORAGE_KEYS.BASIC_TARGET_LANGUAGE]: basicTargetLanguage,
+                [STORAGE_KEYS.DEBUG_MODE]: debugModeInput?.checked ?? debugModeEnabled,
             });
             displayStatus("Settings saved!", false);
         } catch (error) {
@@ -488,7 +527,8 @@ async function saveSetting(): Promise<void> {
     const apiEndpoint = apiEndpointInput.value.trim();
     const modelName = modelNameInput.value.trim();
 
-    advancedTargetLanguage = advancedTargetLanguageSelect?.value || ADVANCED_TARGET_LANGUAGE_DEFAULT;
+    advancedTargetLanguage =
+        advancedTargetLanguageSelect?.value || ADVANCED_TARGET_LANGUAGE_DEFAULT;
     extraInstructions = extraInstructionsInput?.value.trim() || "";
 
     console.log(
@@ -526,6 +566,7 @@ async function saveSetting(): Promise<void> {
             [STORAGE_KEYS.BASIC_TARGET_LANGUAGE]: basicTargetLanguage,
             [STORAGE_KEYS.ADVANCED_TARGET_LANGUAGE]: advancedTargetLanguage,
             [STORAGE_KEYS.EXTRA_INSTRUCTIONS]: extraInstructions,
+            [STORAGE_KEYS.DEBUG_MODE]: debugModeInput?.checked ?? debugModeEnabled,
         });
         console.log("options.ts: Provider settings saved successfully.");
         displayStatus("Settings saved!", false);
@@ -563,7 +604,9 @@ document.addEventListener("DOMContentLoaded", () => {
         settingsModeSelect.addEventListener("change", (event) => {
             const value = (event.target as HTMLSelectElement).value;
             settingsMode =
-                value === SETTINGS_MODE_ADVANCED ? SETTINGS_MODE_ADVANCED : SETTINGS_MODE_BASIC;
+                value === SETTINGS_MODE_ADVANCED
+                    ? SETTINGS_MODE_ADVANCED
+                    : SETTINGS_MODE_BASIC;
 
             const isBasic = settingsMode === SETTINGS_MODE_BASIC;
 
@@ -574,7 +617,9 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             if (basicProviderSelect) {
-                basicProviderSelect.value = BASIC_PROVIDERS.includes(activeProvider as any)
+                basicProviderSelect.value = BASIC_PROVIDERS.includes(
+                    activeProvider as any,
+                )
                     ? activeProvider
                     : "openai";
             }
@@ -592,6 +637,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 [STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN]:
                     keepSelectionPopupOpenInput?.checked ??
                     KEEP_SELECTION_POPUP_OPEN_DEFAULT,
+                [STORAGE_KEYS.DEBUG_MODE]: debugModeInput?.checked ?? debugModeEnabled,
             }).catch((error) => {
                 console.error("options.ts: Error saving settings mode:", error);
             });
@@ -621,7 +667,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (basicTargetLanguageSelect) {
         basicTargetLanguageSelect.addEventListener("change", (event) => {
             basicTargetLanguage =
-                (event.target as HTMLSelectElement).value || BASIC_TARGET_LANGUAGE_DEFAULT;
+                (event.target as HTMLSelectElement).value ||
+                BASIC_TARGET_LANGUAGE_DEFAULT;
             autoSaveSetting();
         });
     }
@@ -629,10 +676,13 @@ document.addEventListener("DOMContentLoaded", () => {
     if (advancedTargetLanguageSelect) {
         advancedTargetLanguageSelect.addEventListener("change", (event) => {
             advancedTargetLanguage =
-                (event.target as HTMLSelectElement).value || ADVANCED_TARGET_LANGUAGE_DEFAULT;
+                (event.target as HTMLSelectElement).value ||
+                ADVANCED_TARGET_LANGUAGE_DEFAULT;
             autoSaveSetting();
         });
-        console.log("options.ts: Change listener added to advanced-target-language select.");
+        console.log(
+            "options.ts: Change listener added to advanced-target-language select.",
+        );
     }
 
     if (extraInstructionsInput) {
@@ -661,7 +711,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 [STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN]:
                     keepSelectionPopupOpenInput.checked,
             }).catch((error) => {
-                console.error("options.ts: Error saving popup persistence setting:", error);
+                console.error(
+                    "options.ts: Error saving popup persistence setting:",
+                    error,
+                );
+            });
+            displayStatus("Settings saved!", false);
+        });
+    }
+
+    if (debugModeInput) {
+        debugModeInput.addEventListener("change", () => {
+            debugModeEnabled = debugModeInput.checked;
+            setStorage({
+                [STORAGE_KEYS.DEBUG_MODE]: debugModeEnabled,
+            }).catch((error) => {
+                console.error("options.ts: Error saving debug mode setting:", error);
             });
             displayStatus("Settings saved!", false);
         });
@@ -683,7 +748,8 @@ document.addEventListener("DOMContentLoaded", () => {
             console.log("options.ts: Provider changed to:", selectedApiType);
 
             if (!providerSettings[selectedApiType]) {
-                providerSettings[selectedApiType] = resolveProviderDefaults(selectedApiType);
+                providerSettings[selectedApiType] =
+                    resolveProviderDefaults(selectedApiType);
             }
 
             applyProviderToForm(selectedApiType);
@@ -700,10 +766,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     displayStatus("Provider switched.", false);
                 })
                 .catch((error) => {
-                    console.error(
-                        "options.ts: Error saving apiType on change:",
-                        error,
-                    );
+                    console.error("options.ts: Error saving apiType on change:", error);
                     displayStatus(
                         `Error saving provider selection: ${error instanceof Error ? error.message : String(error)}`,
                         true,

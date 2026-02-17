@@ -19,6 +19,7 @@ export const STORAGE_KEYS = {
     EXTRA_INSTRUCTIONS: "extraInstructions",
     SHOW_TRANSLATE_BUTTON_ON_SELECTION: "showTranslateButtonOnSelection",
     KEEP_SELECTION_POPUP_OPEN: "keepSelectionPopupOpen",
+    DEBUG_MODE: "debugMode",
     API_KEY: "apiKey",
     API_ENDPOINT: "apiEndpoint",
     API_TYPE: "apiType",
@@ -40,6 +41,7 @@ export interface SyncStorage {
     extraInstructions: string;
     showTranslateButtonOnSelection: boolean;
     keepSelectionPopupOpen: boolean;
+    debugMode: boolean;
     apiKey: string;
     apiEndpoint: string;
     apiType: Provider;
@@ -59,6 +61,7 @@ export interface StorageGetResult {
     extraInstructions?: string;
     showTranslateButtonOnSelection?: boolean;
     keepSelectionPopupOpen?: boolean;
+    debugMode?: boolean;
     apiKey?: string;
     apiEndpoint?: string;
     apiType?: Provider;

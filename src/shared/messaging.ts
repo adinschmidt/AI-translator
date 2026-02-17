@@ -68,6 +68,7 @@ export interface DisplayTranslationMessage extends BaseMessage {
     isStreaming?: boolean;
     isLoading?: boolean;
     isError?: boolean;
+    debugInfo?: string;
     detectedLanguageName?: string;
     targetLanguageName?: string;
 }
@@ -89,6 +90,7 @@ export interface StartElementTranslationMessage extends BaseMessage {
     action: "startElementTranslation";
     isError?: boolean;
     errorMessage?: string;
+    debugInfo?: string;
     translatedHtml?: string;
     requestId?: string;
 }
