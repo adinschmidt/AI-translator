@@ -87,6 +87,24 @@ const cerebrasModelSelect = document.getElementById(
 
 const groqSettingsDiv = document.getElementById("groq-settings") as HTMLElement;
 const groqModelSelect = document.getElementById("groq-model-select") as HTMLSelectElement;
+const providerKeyDocsLink = document.getElementById(
+    "provider-key-docs-link",
+) as HTMLAnchorElement | null;
+
+const PROVIDERS_DOCS_BASE_URL = "https://adinschmidt.com/AI-translator/providers";
+const PROVIDER_DOC_ANCHORS: Record<Provider, string> = {
+    openai: "openai",
+    anthropic: "anthropic-claude",
+    google: "google-gemini",
+    groq: "groq",
+    grok: "grok-xai",
+    openrouter: "openrouter",
+    deepseek: "deepseek",
+    mistral: "mistral-ai",
+    qwen: "qwen-alibaba-dashscope",
+    cerebras: "cerebras",
+    ollama: "ollama-local",
+};
 
 let providerSettings: ProviderSettingsMap = {};
 let settingsMode: SettingsMode = SETTINGS_MODE_BASIC;
@@ -165,7 +183,18 @@ function populateOllamaModelDropdown(models: string[], selectedModel = ""): void
     }
 }
 
+function updateProviderDocsLink(provider: string): void {
+    if (!providerKeyDocsLink) {
+        return;
+    }
+
+    const anchor = PROVIDER_DOC_ANCHORS[provider as Provider] || "general-setup";
+    providerKeyDocsLink.href = `${PROVIDERS_DOCS_BASE_URL}#${anchor}`;
+}
+
 function updateProviderUI(provider: string): void {
+    updateProviderDocsLink(provider);
+
     const isOllama = provider === "ollama";
     const isCerebras = provider === "cerebras";
     const isGroq = provider === "groq";
