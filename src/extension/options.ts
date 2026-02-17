@@ -8,6 +8,7 @@ import {
     PROVIDERS,
     PROVIDER_DEFAULTS,
     BASIC_PROVIDERS,
+    isSupportedCerebrasModel,
     resolveProviderDefaults,
     type Provider,
 } from "../shared/constants/providers";
@@ -214,8 +215,11 @@ function updateProviderUI(provider: string): void {
         const settings =
             providerSettings["cerebras" as Provider] ||
             resolveProviderDefaults("cerebras" as Provider);
-        cerebrasModelSelect.value =
-            settings.modelName || PROVIDER_DEFAULTS.cerebras.modelName;
+        const selectedModel =
+            settings.modelName && isSupportedCerebrasModel(settings.modelName)
+                ? settings.modelName
+                : PROVIDER_DEFAULTS.cerebras.modelName;
+        cerebrasModelSelect.value = selectedModel;
     }
 
     if (isGroq && groqModelSelect) {
@@ -358,6 +362,7 @@ async function loadSettings(): Promise<void> {
         }
 
         providerSettings = result.providerSettings || {};
+        let shouldPersistProviderSettingsNormalization = false;
 
         if (
             !result.providerSettings &&
@@ -402,6 +407,24 @@ async function loadSettings(): Promise<void> {
                         DEFAULT_TRANSLATION_INSTRUCTIONS,
                 };
             }
+
+            if (
+                provider === "cerebras" &&
+                !isSupportedCerebrasModel(providerSettings[provider].modelName)
+            ) {
+                providerSettings[provider].modelName =
+                    PROVIDER_DEFAULTS.cerebras.modelName;
+                shouldPersistProviderSettingsNormalization = true;
+            }
+        }
+
+        if (shouldPersistProviderSettingsNormalization) {
+            setStorage({ providerSettings }).catch((error) => {
+                console.error(
+                    "options.ts: Error persisting normalized provider settings:",
+                    error,
+                );
+            });
         }
 
         let initialProvider: Provider =

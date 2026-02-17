@@ -18,6 +18,13 @@ export const BASIC_PROVIDERS = ["openai", "anthropic", "google"] as const;
 
 export type BasicProvider = (typeof BASIC_PROVIDERS)[number];
 
+export const CEREBRAS_SUPPORTED_MODELS = [
+    "llama3.1-8b",
+    "gpt-oss-120b",
+    "qwen-3-235b-a22b-instruct-2507",
+    "zai-glm-4.7",
+] as const;
+
 export const PROVIDER_DEFAULTS = {
     openai: {
         apiEndpoint: "https://api.openai.com/v1/chat/completions",
@@ -58,7 +65,7 @@ export const PROVIDER_DEFAULTS = {
     },
     cerebras: {
         apiEndpoint: "https://api.cerebras.ai/v1/chat/completions",
-        modelName: "qwen-3-32b",
+        modelName: "llama3.1-8b",
     },
     ollama: {
         apiEndpoint: "http://localhost:11434",
@@ -73,6 +80,10 @@ export type ProviderSettings = {
     translationInstructions?: string;
     apiType?: string;
 };
+
+export function isSupportedCerebrasModel(modelName: string): boolean {
+    return (CEREBRAS_SUPPORTED_MODELS as readonly string[]).includes(modelName);
+}
 
 export function resolveProviderDefaults(provider: string): ProviderSettings {
     const defaults = PROVIDER_DEFAULTS[provider as Provider] || {};

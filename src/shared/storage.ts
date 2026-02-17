@@ -1,6 +1,10 @@
 import type { Provider, ProviderSettings } from "./constants/providers";
 import type { SettingsMode } from "./constants/settings";
-import { PROVIDERS, PROVIDER_DEFAULTS } from "./constants/providers";
+import {
+    PROVIDERS,
+    PROVIDER_DEFAULTS,
+    isSupportedCerebrasModel,
+} from "./constants/providers";
 import {
     DEFAULT_TRANSLATION_INSTRUCTIONS,
     BASIC_TARGET_LANGUAGE_DEFAULT,
@@ -153,6 +157,14 @@ export interface EffectiveProviderSettings {
     apiType: Provider;
 }
 
+function normalizeProviderModelName(provider: Provider, modelName: string): string {
+    if (provider === "cerebras" && !isSupportedCerebrasModel(modelName)) {
+        return PROVIDER_DEFAULTS.cerebras.modelName;
+    }
+
+    return modelName;
+}
+
 export function getEffectiveProviderSettings(
     storage: StorageGetResult,
     mode: SettingsMode,
@@ -176,10 +188,12 @@ export function getEffectiveProviderSettings(
                 perProvider.apiEndpoint ||
                 PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
                 "",
-            modelName:
+            modelName: normalizeProviderModelName(
+                activeProvider,
                 perProvider.modelName ||
-                PROVIDER_DEFAULTS[activeProvider]?.modelName ||
-                "",
+                    PROVIDER_DEFAULTS[activeProvider]?.modelName ||
+                    "",
+            ),
             translationInstructions:
                 perProvider.translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS,
             apiType: activeProvider,
@@ -202,8 +216,10 @@ export function getEffectiveProviderSettings(
         apiKey: storage.apiKey || "",
         apiEndpoint:
             storage.apiEndpoint || PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || "",
-        modelName:
+        modelName: normalizeProviderModelName(
+            activeProvider,
             storage.modelName || PROVIDER_DEFAULTS[activeProvider]?.modelName || "",
+        ),
         translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
         apiType: activeProvider,
     };
