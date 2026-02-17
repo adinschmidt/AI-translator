@@ -29,6 +29,7 @@ import {
     BASIC_TARGET_LANGUAGE_DEFAULT,
     ADVANCED_TARGET_LANGUAGE_DEFAULT,
     DEBUG_MODE_DEFAULT,
+    UI_THEME_DEFAULT,
     DEFAULT_TRANSLATION_INSTRUCTIONS,
     DEFAULT_SYSTEM_PROMPT,
     INSTRUCT_SYSTEM_PROMPT,
@@ -2363,6 +2364,7 @@ chrome.runtime.onInstalled.addListener(() => {
     getStorage([
         STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION,
         STORAGE_KEYS.DEBUG_MODE,
+        STORAGE_KEYS.UI_THEME,
     ]).then((result) => {
         if (typeof result.showTranslateButtonOnSelection !== "boolean") {
             chrome.storage.sync.set({
@@ -2373,6 +2375,16 @@ chrome.runtime.onInstalled.addListener(() => {
         if (typeof result.debugMode !== "boolean") {
             chrome.storage.sync.set({
                 [STORAGE_KEYS.DEBUG_MODE]: DEBUG_MODE_DEFAULT,
+            });
+        }
+
+        if (
+            result.uiTheme !== "light" &&
+            result.uiTheme !== "dark" &&
+            result.uiTheme !== "system"
+        ) {
+            chrome.storage.sync.set({
+                [STORAGE_KEYS.UI_THEME]: UI_THEME_DEFAULT,
             });
         }
     });

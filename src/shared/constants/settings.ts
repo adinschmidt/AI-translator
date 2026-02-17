@@ -5,16 +5,27 @@ export const EXTRA_INSTRUCTIONS_KEY = "extraInstructions";
 export const SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY = "showTranslateButtonOnSelection";
 export const KEEP_SELECTION_POPUP_OPEN_KEY = "keepSelectionPopupOpen";
 export const DEBUG_MODE_KEY = "debugMode";
+export const UI_THEME_KEY = "uiTheme";
 
 export const SETTINGS_MODE_BASIC = "basic";
 export const SETTINGS_MODE_ADVANCED = "advanced";
 
 export type SettingsMode = typeof SETTINGS_MODE_BASIC | typeof SETTINGS_MODE_ADVANCED;
 
+export const UI_THEME_LIGHT = "light";
+export const UI_THEME_DARK = "dark";
+export const UI_THEME_SYSTEM = "system";
+
+export type UITheme =
+    | typeof UI_THEME_LIGHT
+    | typeof UI_THEME_DARK
+    | typeof UI_THEME_SYSTEM;
+
 export const BASIC_TARGET_LANGUAGE_DEFAULT = "en";
 export const ADVANCED_TARGET_LANGUAGE_DEFAULT = "en";
 export const KEEP_SELECTION_POPUP_OPEN_DEFAULT = false;
 export const DEBUG_MODE_DEFAULT = false;
+export const UI_THEME_DEFAULT = UI_THEME_SYSTEM;
 
 export const DEFAULT_TRANSLATION_INSTRUCTIONS =
     "Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations.";

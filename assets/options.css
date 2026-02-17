@@ -1,34 +1,187 @@
 /* options.css - Styles for the options page */
 
+:root {
+    --options-page-bg: #f3f4f6;
+    --options-card-bg: #ffffff;
+    --options-text-primary: #1f2937;
+    --options-text-muted: #4b5563;
+    --options-text-subtle: #6b7280;
+    --options-border: #d1d5db;
+    --options-input-bg: #ffffff;
+    --options-input-text: #111827;
+    --options-input-placeholder: #6b7280;
+    --options-link: #4f46e5;
+    --options-muted-bg: #e5e7eb;
+    --options-muted-bg-hover: #d1d5db;
+    --options-muted-text: #374151;
+    --options-ring: rgba(79, 70, 229, 0.28);
+    --options-theme-tile-bg: #f9fafb;
+    --options-theme-tile-border: #d1d5db;
+    --options-theme-tile-selected-bg: #eef2ff;
+    --options-theme-tile-selected-text: #3730a3;
+    --options-theme-tile-selected-border: #4f46e5;
+    --options-footer-bg: #e5e7eb;
+    --options-footer-border: #d1d5db;
+}
+
+html[data-resolved-theme="dark"] {
+    --options-page-bg: #0f172a;
+    --options-card-bg: #111827;
+    --options-text-primary: #f3f4f6;
+    --options-text-muted: #d1d5db;
+    --options-text-subtle: #9ca3af;
+    --options-border: #374151;
+    --options-input-bg: #0b1220;
+    --options-input-text: #e5e7eb;
+    --options-input-placeholder: #6b7280;
+    --options-link: #93c5fd;
+    --options-muted-bg: #1f2937;
+    --options-muted-bg-hover: #374151;
+    --options-muted-text: #e5e7eb;
+    --options-ring: rgba(96, 165, 250, 0.35);
+    --options-theme-tile-bg: #0b1220;
+    --options-theme-tile-border: #374151;
+    --options-theme-tile-selected-bg: #172554;
+    --options-theme-tile-selected-text: #bfdbfe;
+    --options-theme-tile-selected-border: #60a5fa;
+    --options-footer-bg: #111827;
+    --options-footer-border: #374151;
+}
+
 body {
-    /* Use Tailwind's default sans-serif stack or specify system fonts */
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-        Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-    /* Or keep Inter if you plan to host it locally later */
-    /* font-family: 'Inter', sans-serif; */
+    font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Oxygen,
+        Ubuntu,
+        Cantarell,
+        "Open Sans",
+        "Helvetica Neue",
+        sans-serif;
+    background-color: var(--options-page-bg) !important;
+    color: var(--options-text-primary);
+}
+
+#settings-card {
+    background-color: var(--options-card-bg) !important;
+    color: var(--options-text-primary);
 }
 
 .feedback {
     transition: opacity 0.5s ease-out;
 }
 
-/* Toggle switch styling using Tailwind classes where possible */
-/* The :checked pseudo-class will target Tailwind classes */
-#auto-translate:checked ~ .toggle-bg {
-    background-color: #4f46e5; /* Tailwind indigo-600 */
-    border-color: #4f46e5;
+.theme-toggle-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
 }
 
-#auto-translate:checked ~ .dot {
-    transform: translateX(100%);
+.theme-option {
+    position: relative;
 }
 
-.dot {
-    transition: transform 0.2s ease-in-out;
+.theme-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
 }
 
-.toggle-bg {
-    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+.theme-option-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--options-theme-tile-border);
+    border-radius: 10px;
+    background: var(--options-theme-tile-bg);
+    color: var(--options-text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+    transition:
+        border-color 0.15s ease,
+        color 0.15s ease,
+        background-color 0.15s ease,
+        box-shadow 0.15s ease;
 }
 
-/* Add any other custom styles you had in the <style> block here */
+.theme-option-content svg {
+    width: 16px;
+    height: 16px;
+}
+
+.theme-option input:checked + .theme-option-content {
+    border-color: var(--options-theme-tile-selected-border);
+    background: var(--options-theme-tile-selected-bg);
+    color: var(--options-theme-tile-selected-text);
+    box-shadow: 0 0 0 2px var(--options-ring);
+}
+
+.theme-option input:focus-visible + .theme-option-content {
+    outline: 2px solid var(--options-theme-tile-selected-border);
+    outline-offset: 2px;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="url"],
+select,
+textarea {
+    background-color: var(--options-input-bg) !important;
+    color: var(--options-input-text) !important;
+    border-color: var(--options-border) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: var(--options-input-placeholder);
+}
+
+button.bg-gray-200 {
+    background-color: var(--options-muted-bg) !important;
+    color: var(--options-muted-text) !important;
+}
+
+button.bg-gray-200:hover {
+    background-color: var(--options-muted-bg-hover) !important;
+}
+
+code {
+    background: var(--options-muted-bg) !important;
+    color: var(--options-muted-text);
+}
+
+a.text-indigo-600,
+a.text-blue-600 {
+    color: var(--options-link) !important;
+}
+
+body > div.fixed.bottom-0.left-0.right-0 {
+    background-color: var(--options-footer-bg) !important;
+    border-color: var(--options-footer-border) !important;
+    color: var(--options-text-subtle) !important;
+}
+
+html[data-resolved-theme="dark"] .text-gray-800 {
+    color: var(--options-text-primary) !important;
+}
+
+html[data-resolved-theme="dark"] .text-gray-700 {
+    color: var(--options-text-muted) !important;
+}
+
+html[data-resolved-theme="dark"] .text-gray-600,
+html[data-resolved-theme="dark"] .text-gray-500 {
+    color: var(--options-text-subtle) !important;
+}
+
+html[data-resolved-theme="dark"] .text-amber-600 {
+    color: #fbbf24 !important;
+}

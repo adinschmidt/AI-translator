@@ -1,15 +1,14 @@
-/* styles.css - Optional CSS for the popup */
+/* styles.css - Content script UI styles */
 
-#translation-popup-extension {
-    position: absolute; /* Required for positioning near selection */
-    z-index: 2147483647 !important; /* High z-index to stay on top; !important might be needed */
-    background-color: white;
+.translation-popup-extension {
+    position: absolute;
+    z-index: 2147483647 !important;
     border: 1px solid #ccc;
-    border-radius: 6px; /* Slightly more rounded */
-    padding: 12px 25px 12px 15px; /* Adjust padding (Right padding for close button) */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15); /* Softer shadow */
-    max-width: 350px; /* Max width */
-    min-width: 150px; /* Min width */
+    border-radius: 6px;
+    padding: 12px 25px 12px 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    max-width: 350px;
+    min-width: 150px;
     font-family:
         system-ui,
         -apple-system,
@@ -21,47 +20,168 @@
         Cantarell,
         "Open Sans",
         "Helvetica Neue",
-        sans-serif; /* System font */
+        sans-serif;
     font-size: 14px;
-    color: #222; /* Darker text */
     line-height: 1.5;
-    /* Add a subtle animation */
-    opacity: 0;
-    transform: translateY(5px);
-    transition:
-        opacity 0.2s ease-out,
-        transform 0.2s ease-out;
-    pointer-events: auto; /* Make sure it's interactive */
-}
-
-/* State for when the popup is visible */
-#translation-popup-extension.visible {
     opacity: 1;
     transform: translateY(0);
+    transition:
+        opacity 0.2s ease-out,
+        transform 0.2s ease-out,
+        background-color 0.2s ease-out,
+        border-color 0.2s ease-out,
+        color 0.2s ease-out;
+    pointer-events: auto;
+
+    --popup-default-bg: #f8f9fa;
+    --popup-default-border: #28a745;
+    --popup-default-text: #333333;
+    --popup-loading-bg: #f3f4f6;
+    --popup-loading-border: #f59e0b;
+    --popup-loading-text: #555555;
+    --popup-streaming-bg: #fffbeb;
+    --popup-streaming-border: #f59e0b;
+    --popup-streaming-text: #333333;
+    --popup-error-bg: #ffdddd;
+    --popup-error-border: #dc3545;
+    --popup-error-text: #a00000;
+    --popup-header-text: #666666;
+    --popup-header-border: #d1d5db;
+    --popup-close-color: #888888;
+    --popup-close-hover: #555555;
+    --popup-spinner-track: #e5e7eb;
+    --popup-spinner-head: #555555;
+    --popup-debug-heading: #991b1b;
+    --popup-debug-border: #fca5a5;
+    --popup-debug-bg: #fff5f5;
+    --popup-debug-text: #991b1b;
 }
 
-/* Style for the close button */
-#translation-popup-extension button {
+.translation-popup-extension.translation-popup-theme-dark {
+    --popup-default-bg: #111827;
+    --popup-default-border: #34d399;
+    --popup-default-text: #e5e7eb;
+    --popup-loading-bg: #0f172a;
+    --popup-loading-border: #f59e0b;
+    --popup-loading-text: #e5e7eb;
+    --popup-streaming-bg: #1f2937;
+    --popup-streaming-border: #f59e0b;
+    --popup-streaming-text: #e5e7eb;
+    --popup-error-bg: #2b1114;
+    --popup-error-border: #f87171;
+    --popup-error-text: #fecaca;
+    --popup-header-text: #9ca3af;
+    --popup-header-border: #374151;
+    --popup-close-color: #9ca3af;
+    --popup-close-hover: #f3f4f6;
+    --popup-spinner-track: #334155;
+    --popup-spinner-head: #cbd5e1;
+    --popup-debug-heading: #fca5a5;
+    --popup-debug-border: #7f1d1d;
+    --popup-debug-bg: #3a1414;
+    --popup-debug-text: #fecaca;
+}
+
+.translation-popup-extension.popup-state-default {
+    background-color: var(--popup-default-bg);
+    border-color: var(--popup-default-border);
+    color: var(--popup-default-text);
+}
+
+.translation-popup-extension.popup-state-loading {
+    background-color: var(--popup-loading-bg);
+    border: 2px solid var(--popup-loading-border);
+    color: var(--popup-loading-text);
+}
+
+.translation-popup-extension.popup-state-error {
+    background-color: var(--popup-error-bg);
+    border-color: var(--popup-error-border);
+    color: var(--popup-error-text);
+}
+
+.translation-popup-extension.popup-state-streaming,
+.translation-popup-extension.is-streaming {
+    background-color: var(--popup-streaming-bg);
+    border-color: var(--popup-streaming-border);
+    color: var(--popup-streaming-text);
+}
+
+.translation-popup-header {
+    font-size: 11px;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--popup-header-border);
+    color: var(--popup-header-text);
+}
+
+.translation-popup-debug-heading {
+    margin-top: 10px;
+    margin-bottom: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--popup-debug-heading);
+}
+
+.translation-popup-debug-details {
+    margin: 0;
+    padding: 8px;
+    border: 1px solid var(--popup-debug-border);
+    background: var(--popup-debug-bg);
+    color: var(--popup-debug-text);
+    border-radius: 4px;
+    font-size: 11px;
+    line-height: 1.35;
+    white-space: pre-wrap;
+    max-height: 180px;
+    overflow: auto;
+}
+
+.translation-popup-close-button {
     position: absolute;
-    top: 5px; /* Position from top */
-    right: 7px; /* Position from right */
+    top: 2px;
+    right: 5px;
     background: none;
     border: none;
-    font-size: 20px; /* Larger 'x' */
-    font-weight: bold;
+    font-size: 18px;
     line-height: 1;
     cursor: pointer;
-    color: #aaa; /* Grey color */
-    padding: 2px; /* Add slight padding for easier clicking */
-    transition: color 0.15s ease; /* Smooth color transition on hover */
+    color: var(--popup-close-color);
+    padding: 2px;
+    transition: color 0.15s ease;
 }
 
-/* Hover effect for the close button */
-#translation-popup-extension button:hover {
-    color: #555; /* Darker color on hover */
+.translation-popup-close-button:hover {
+    color: var(--popup-close-hover);
 }
 
-/* Ensure body allows absolute positioning */
+.translation-popup-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    gap: 8px;
+}
+
+.translation-popup-spinner {
+    border: 3px solid var(--popup-spinner-track);
+    border-top: 3px solid var(--popup-spinner-head);
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    animation: translation-popup-spin 1s linear infinite;
+}
+
+@keyframes translation-popup-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
 body {
     position: relative;
 }
@@ -94,6 +214,9 @@ body {
     line-height: 1;
     cursor: pointer;
     user-select: none;
+    transition:
+        background-color 0.15s ease,
+        box-shadow 0.15s ease;
 }
 
 #ai-translator-selection-translate-button:hover {
@@ -110,12 +233,18 @@ body {
     fill: currentColor;
 }
 
-#translation-popup-extension.is-streaming {
-    background-color: #fffbeb;
-    border-color: #f59e0b;
+#ai-translator-selection-translate-button.selection-theme-dark {
+    background: #1d4ed8;
+    color: #eff6ff;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
 }
 
-#translation-popup-extension .translation-streaming-badge {
+#ai-translator-selection-translate-button.selection-theme-dark:hover {
+    background: #1e40af;
+}
+
+#translation-popup-extension .translation-streaming-badge,
+.translation-popup-extension .translation-streaming-badge {
     display: inline-flex;
     align-items: center;
     gap: 4px;

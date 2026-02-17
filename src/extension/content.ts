@@ -1,5 +1,12 @@
 import { STORAGE_KEYS, getStorage, onStorageChanged } from "../shared/storage";
-import { DEBUG_MODE_DEFAULT } from "../shared/constants/settings";
+import {
+    DEBUG_MODE_DEFAULT,
+    UI_THEME_DARK,
+    UI_THEME_DEFAULT,
+    UI_THEME_LIGHT,
+    UI_THEME_SYSTEM,
+    type UITheme,
+} from "../shared/constants/settings";
 import {
     type BackgroundToContentMessage,
     type ContentToBackgroundMessage,
@@ -1373,9 +1380,14 @@ if ((window as any).hasRun) {
         STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION;
     const KEEP_SELECTION_POPUP_OPEN_KEY = STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN;
     const DEBUG_MODE_KEY = STORAGE_KEYS.DEBUG_MODE;
+    const UI_THEME_KEY = STORAGE_KEYS.UI_THEME;
+    type ResolvedUITheme = typeof UI_THEME_LIGHT | typeof UI_THEME_DARK;
+    type PopupVisualState = "default" | "loading" | "streaming" | "error";
     let showTranslateButtonOnSelectionEnabled = true;
     let keepSelectionPopupOpenEnabled = false;
     let debugModeEnabled = DEBUG_MODE_DEFAULT;
+    let uiTheme: UITheme = UI_THEME_DEFAULT;
+    let systemThemeMediaQuery: MediaQueryList | null = null;
     let selectionTranslateButton: HTMLButtonElement | null = null;
     let selectionTranslateInProgress = false;
     let selectionListenerCleanup: (() => void) | null = null;
@@ -1402,6 +1414,86 @@ if ((window as any).hasRun) {
             return;
         }
         console.error("[AI Translator Debug]", message, payload);
+    }
+
+    function normalizeUITheme(value: unknown): UITheme {
+        return value === UI_THEME_LIGHT ||
+            value === UI_THEME_DARK ||
+            value === UI_THEME_SYSTEM
+            ? value
+            : UI_THEME_DEFAULT;
+    }
+
+    function resolveUITheme(theme: UITheme): ResolvedUITheme {
+        if (theme === UI_THEME_SYSTEM) {
+            return window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? UI_THEME_DARK
+                : UI_THEME_LIGHT;
+        }
+        return theme;
+    }
+
+    function applyPopupThemeClass(popup: HTMLElement): void {
+        const resolvedTheme = resolveUITheme(uiTheme);
+        popup.classList.remove(
+            "translation-popup-theme-light",
+            "translation-popup-theme-dark",
+        );
+        popup.classList.add(
+            resolvedTheme === UI_THEME_DARK
+                ? "translation-popup-theme-dark"
+                : "translation-popup-theme-light",
+        );
+    }
+
+    function applySelectionButtonThemeClass(): void {
+        if (!selectionTranslateButton) {
+            return;
+        }
+        selectionTranslateButton.classList.toggle(
+            "selection-theme-dark",
+            resolveUITheme(uiTheme) === UI_THEME_DARK,
+        );
+    }
+
+    function setPopupVisualState(popup: HTMLElement, state: PopupVisualState): void {
+        popup.dataset.popupState = state;
+        popup.classList.remove(
+            "popup-state-default",
+            "popup-state-loading",
+            "popup-state-streaming",
+            "popup-state-error",
+        );
+        popup.classList.add(`popup-state-${state}`);
+    }
+
+    function applyThemeToExistingUI(): void {
+        for (const popup of getAllTranslationPopups()) {
+            applyPopupThemeClass(popup);
+        }
+        applySelectionButtonThemeClass();
+    }
+
+    function ensureSystemThemeWatcher(): void {
+        if (systemThemeMediaQuery || !window.matchMedia) {
+            return;
+        }
+
+        systemThemeMediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+        const onSystemThemeChange = () => {
+            if (uiTheme === UI_THEME_SYSTEM) {
+                applyThemeToExistingUI();
+            }
+        };
+
+        if (typeof systemThemeMediaQuery.addEventListener === "function") {
+            systemThemeMediaQuery.addEventListener("change", onSystemThemeChange);
+            return;
+        }
+
+        if (typeof systemThemeMediaQuery.addListener === "function") {
+            systemThemeMediaQuery.addListener(onSystemThemeChange);
+        }
     }
 
     interface ActiveHtmlTranslation {
@@ -1742,6 +1834,7 @@ if ((window as any).hasRun) {
         SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY,
         KEEP_SELECTION_POPUP_OPEN_KEY,
         DEBUG_MODE_KEY,
+        UI_THEME_KEY,
     ])
         .then((result) => {
             const stored = result?.[SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY];
@@ -1753,12 +1846,16 @@ if ((window as any).hasRun) {
             const debugMode = result?.[DEBUG_MODE_KEY];
             debugModeEnabled =
                 typeof debugMode === "boolean" ? debugMode : DEBUG_MODE_DEFAULT;
+            uiTheme = normalizeUITheme(result?.[UI_THEME_KEY]);
+            ensureSystemThemeWatcher();
             updateSelectionTranslateButtonState();
             syncPopupOutsideClickBehavior();
+            applyThemeToExistingUI();
             debugLog("Loaded content-script settings", {
                 showTranslateButtonOnSelectionEnabled,
                 keepSelectionPopupOpenEnabled,
                 debugModeEnabled,
+                uiTheme,
             });
         })
         .catch((error) => {
@@ -1766,8 +1863,11 @@ if ((window as any).hasRun) {
             showTranslateButtonOnSelectionEnabled = true;
             keepSelectionPopupOpenEnabled = false;
             debugModeEnabled = DEBUG_MODE_DEFAULT;
+            uiTheme = UI_THEME_DEFAULT;
+            ensureSystemThemeWatcher();
             updateSelectionTranslateButtonState();
             syncPopupOutsideClickBehavior();
+            applyThemeToExistingUI();
         });
 
     onStorageChanged((changes, areaName) => {
@@ -1797,6 +1897,12 @@ if ((window as any).hasRun) {
             debugModeEnabled =
                 typeof nextValue === "boolean" ? nextValue : DEBUG_MODE_DEFAULT;
             debugLog("Updated debug mode from storage change", { debugModeEnabled });
+        }
+
+        const uiThemeChange = changes[UI_THEME_KEY];
+        if (uiThemeChange) {
+            uiTheme = normalizeUITheme(uiThemeChange.newValue);
+            applyThemeToExistingUI();
         }
     });
 
@@ -1886,6 +1992,7 @@ if ((window as any).hasRun) {
             });
         });
 
+        applySelectionButtonThemeClass();
         document.body.appendChild(selectionTranslateButton);
     }
 
@@ -3176,10 +3283,9 @@ if ((window as any).hasRun) {
         }
 
         clearElement(popup);
+        applyPopupThemeClass(popup);
+        setPopupVisualState(popup, "streaming");
         popup.classList.add("is-streaming");
-        popup.style.backgroundColor = "white";
-        popup.style.border = "1px solid #ccc";
-        popup.style.color = "#333";
 
         setSanitizedContent(popup, content || "");
         addCloseButton(popup);
@@ -3404,12 +3510,13 @@ if ((window as any).hasRun) {
         debugInfo: string | null,
     ): void {
         popup.classList.remove("is-streaming");
+        applyPopupThemeClass(popup);
+        setPopupVisualState(popup, isError ? "error" : "default");
         clearElement(popup);
 
         if (!isError && detectedLanguageName && targetLanguageName) {
             const headerDiv = document.createElement("div");
-            headerDiv.style.cssText =
-                "font-size: 11px; color: #666; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #ddd;";
+            headerDiv.className = "translation-popup-header";
             headerDiv.textContent = `${detectedLanguageName} → ${targetLanguageName}`;
             popup.appendChild(headerDiv);
         }
@@ -3429,20 +3536,14 @@ if ((window as any).hasRun) {
         if (isError && debugModeEnabled && debugInfo) {
             const debugHeading = document.createElement("div");
             debugHeading.textContent = "Debug details";
-            debugHeading.style.cssText =
-                "margin-top: 10px; margin-bottom: 4px; font-size: 12px; font-weight: 600; color: #991b1b;";
+            debugHeading.className = "translation-popup-debug-heading";
             popup.appendChild(debugHeading);
 
             const debugDetailsEl = document.createElement("pre");
             debugDetailsEl.textContent = debugInfo;
-            debugDetailsEl.style.cssText =
-                "margin: 0; padding: 8px; border: 1px solid #fca5a5; background: #fff5f5; color: #991b1b; border-radius: 4px; font-size: 11px; line-height: 1.35; white-space: pre-wrap; max-height: 180px; overflow: auto;";
+            debugDetailsEl.className = "translation-popup-debug-details";
             popup.appendChild(debugDetailsEl);
         }
-
-        popup.style.backgroundColor = isError ? "#ffdddd" : "#f8f9fa";
-        popup.style.border = `1px solid ${isError ? "#dc3545" : "#28a745"}`;
-        popup.style.color = isError ? "#a00" : "#333";
     }
 
     function displayPopup(
@@ -3508,9 +3609,9 @@ if ((window as any).hasRun) {
         if (existingPopup && isLoading) {
             translationPopup = existingPopup;
             existingPopup.classList.remove("is-streaming");
+            applyPopupThemeClass(existingPopup);
+            setPopupVisualState(existingPopup, "loading");
             console.log("Popup already exists in loading state.");
-            syncPopupOutsideClickBehavior();
-            return;
         }
 
         if (!existingPopup) {
@@ -3554,6 +3655,8 @@ if ((window as any).hasRun) {
                 ? createPopupElementId(requestId)
                 : TRANSLATION_POPUP_BASE_ID;
             popupElement.classList.add("translation-popup-extension");
+            applyPopupThemeClass(popupElement);
+            setPopupVisualState(popupElement, isError ? "error" : "default");
             registerPopup(popupElement, requestId);
             existingPopup = popupElement;
             createdPopup = true;
@@ -3567,15 +3670,11 @@ if ((window as any).hasRun) {
             popupElement.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
             popupElement.style.width = `${popupWidth}px`;
             popupElement.style.maxWidth = `${maxWidth}px`;
-            popupElement.style.fontFamily = "Arial, sans-serif";
             popupElement.style.fontSize = "14px";
             popupElement.style.lineHeight = "1.4";
             popupElement.style.pointerEvents = "auto";
 
             popupElement.style.display = "block";
-            popupElement.style.backgroundColor = isError ? "#fff0f0" : "white";
-            popupElement.style.border = `1px solid ${isError ? "#f00" : "#ccc"}`;
-            popupElement.style.color = isError ? "#a00" : "#333";
             popupElement.style.minWidth = `${minWidth}px`;
             popupElement.style.minHeight = "20px";
             popupElement.style.visibility = "visible";
@@ -3598,36 +3697,23 @@ if ((window as any).hasRun) {
 
         if (isLoading) {
             existingPopup.classList.remove("is-streaming");
+            applyPopupThemeClass(existingPopup);
+            setPopupVisualState(existingPopup, "loading");
             clearElement(existingPopup);
             console.log("Setting loading content.");
-            existingPopup.style.backgroundColor = "#f0f0f0";
-            existingPopup.style.border = "3px solid orange";
-            existingPopup.style.color = "#555";
 
             const spinnerContainer = document.createElement("div");
-            spinnerContainer.style.cssText =
-                "display: flex; align-items: center; justify-content: center; height: 30px;";
+            spinnerContainer.className = "translation-popup-loading";
 
             const spinner = document.createElement("div");
-            spinner.className = "spinner";
-            spinner.style.cssText =
-                "border: 3px solid #f3f3f3; border-top: 3px solid #555; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite;";
+            spinner.className = "translation-popup-spinner";
 
             const spinnerText = document.createElement("span");
-            spinnerText.style.marginLeft = "8px";
             spinnerText.textContent = "Translating...";
 
             spinnerContainer.appendChild(spinner);
             spinnerContainer.appendChild(spinnerText);
             existingPopup.appendChild(spinnerContainer);
-
-            if (!document.getElementById("translation-spinner-style")) {
-                const style = document.createElement("style");
-                style.id = "translation-spinner-style";
-                style.textContent =
-                    "@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }";
-                document.head.appendChild(style);
-            }
         } else if (isStreaming) {
             updateStreamingPopup(existingPopup, content);
             return;
@@ -3660,16 +3746,9 @@ if ((window as any).hasRun) {
         }
 
         const closeButton = document.createElement("button");
+        closeButton.type = "button";
         closeButton.textContent = "×";
         closeButton.className = "translation-popup-close-button";
-        closeButton.style.position = "absolute";
-        closeButton.style.top = "2px";
-        closeButton.style.right = "5px";
-        closeButton.style.background = "none";
-        closeButton.style.border = "none";
-        closeButton.style.fontSize = "18px";
-        closeButton.style.cursor = "pointer";
-        closeButton.style.color = "#888";
         closeButton.onclick = (event) => {
             event.preventDefault();
             event.stopPropagation();

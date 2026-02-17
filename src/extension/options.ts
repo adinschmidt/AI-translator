@@ -19,8 +19,13 @@ import {
     ADVANCED_TARGET_LANGUAGE_DEFAULT,
     KEEP_SELECTION_POPUP_OPEN_DEFAULT,
     DEBUG_MODE_DEFAULT,
+    UI_THEME_LIGHT,
+    UI_THEME_DARK,
+    UI_THEME_SYSTEM,
+    UI_THEME_DEFAULT,
     DEFAULT_TRANSLATION_INSTRUCTIONS,
     type SettingsMode,
+    type UITheme,
 } from "../shared/constants/settings";
 import {
     BASIC_TARGET_LANGUAGES,
@@ -48,6 +53,9 @@ const extraInstructionsInput = document.getElementById(
 ) as HTMLTextAreaElement;
 
 const settingsModeSelect = document.getElementById("settings-mode") as HTMLSelectElement;
+const uiThemeInputs = Array.from(
+    document.querySelectorAll<HTMLInputElement>('input[name="ui-theme"]'),
+);
 const basicSettingsDiv = document.getElementById("basic-settings") as HTMLElement;
 const advancedSettingsDiv = document.getElementById("advanced-settings") as HTMLElement;
 const basicProviderSelect = document.getElementById(
@@ -112,8 +120,63 @@ let basicTargetLanguage = BASIC_TARGET_LANGUAGE_DEFAULT;
 let advancedTargetLanguage = ADVANCED_TARGET_LANGUAGE_DEFAULT;
 let extraInstructions = "";
 let debugModeEnabled = DEBUG_MODE_DEFAULT;
+let uiTheme: UITheme = UI_THEME_DEFAULT;
+let systemThemeMediaQuery: MediaQueryList | null = null;
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function normalizeUITheme(value: unknown): UITheme {
+    return value === UI_THEME_LIGHT ||
+        value === UI_THEME_DARK ||
+        value === UI_THEME_SYSTEM
+        ? value
+        : UI_THEME_DEFAULT;
+}
+
+function resolveUITheme(theme: UITheme): typeof UI_THEME_LIGHT | typeof UI_THEME_DARK {
+    if (theme === UI_THEME_SYSTEM) {
+        return window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? UI_THEME_DARK
+            : UI_THEME_LIGHT;
+    }
+
+    return theme;
+}
+
+function applyTheme(theme: UITheme): void {
+    const resolvedTheme = resolveUITheme(theme);
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.resolvedTheme = resolvedTheme;
+}
+
+function updateThemeSelectionUI(theme: UITheme): void {
+    for (const input of uiThemeInputs) {
+        input.checked = input.value === theme;
+    }
+}
+
+function ensureSystemThemeWatcher(): void {
+    if (systemThemeMediaQuery || !window.matchMedia) {
+        return;
+    }
+
+    systemThemeMediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+    const onSystemThemeChange = () => {
+        if (uiTheme === UI_THEME_SYSTEM) {
+            applyTheme(uiTheme);
+        }
+    };
+
+    if (typeof systemThemeMediaQuery.addEventListener === "function") {
+        systemThemeMediaQuery.addEventListener("change", onSystemThemeChange);
+        return;
+    }
+
+    if (typeof systemThemeMediaQuery.addListener === "function") {
+        systemThemeMediaQuery.addListener(onSystemThemeChange);
+    }
+}
 
 function populateBasicLanguageDropdown(): void {
     if (!basicTargetLanguageSelect) return;
@@ -289,6 +352,7 @@ async function loadSettings(): Promise<void> {
             STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION,
             STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN,
             STORAGE_KEYS.DEBUG_MODE,
+            STORAGE_KEYS.UI_THEME,
         ]);
 
         console.log("options.ts: Raw settings loaded from storage:", result);
@@ -298,6 +362,9 @@ async function loadSettings(): Promise<void> {
         advancedTargetLanguage =
             result.advancedTargetLanguage || ADVANCED_TARGET_LANGUAGE_DEFAULT;
         extraInstructions = result.extraInstructions || "";
+        uiTheme = normalizeUITheme(result.uiTheme);
+        applyTheme(uiTheme);
+        updateThemeSelectionUI(uiTheme);
 
         if (result.translationInstructions && !result.extraInstructions) {
             const oldInstructions = result.translationInstructions;
@@ -331,12 +398,15 @@ async function loadSettings(): Promise<void> {
         const needsPersistDebugModeSetting = typeof result.debugMode !== "boolean";
         debugModeEnabled =
             typeof result.debugMode === "boolean" ? result.debugMode : DEBUG_MODE_DEFAULT;
+        const needsPersistUIThemeSetting =
+            normalizeUITheme(result.uiTheme) !== result.uiTheme;
 
         if (
             shouldPersistModeMigration ||
             needsPersistShowButtonSetting ||
             needsPersistKeepPopupSetting ||
-            needsPersistDebugModeSetting
+            needsPersistDebugModeSetting ||
+            needsPersistUIThemeSetting
         ) {
             setStorage({
                 [STORAGE_KEYS.SETTINGS_MODE]: settingsMode,
@@ -346,6 +416,7 @@ async function loadSettings(): Promise<void> {
                 [STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION]: showButtonSetting,
                 [STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN]: keepPopupSetting,
                 [STORAGE_KEYS.DEBUG_MODE]: debugModeEnabled,
+                [STORAGE_KEYS.UI_THEME]: uiTheme,
             }).catch((error) => {
                 console.error("options.ts: Error persisting mode migration:", error);
             });
@@ -561,6 +632,7 @@ async function saveSetting(): Promise<void> {
                 [STORAGE_KEYS.SETTINGS_MODE]: settingsMode,
                 [STORAGE_KEYS.BASIC_TARGET_LANGUAGE]: basicTargetLanguage,
                 [STORAGE_KEYS.DEBUG_MODE]: debugModeInput?.checked ?? debugModeEnabled,
+                [STORAGE_KEYS.UI_THEME]: uiTheme,
             });
             displayStatus("Settings saved!", false);
         } catch (error) {
@@ -619,6 +691,7 @@ async function saveSetting(): Promise<void> {
             [STORAGE_KEYS.ADVANCED_TARGET_LANGUAGE]: advancedTargetLanguage,
             [STORAGE_KEYS.EXTRA_INSTRUCTIONS]: extraInstructions,
             [STORAGE_KEYS.DEBUG_MODE]: debugModeInput?.checked ?? debugModeEnabled,
+            [STORAGE_KEYS.UI_THEME]: uiTheme,
         });
         console.log("options.ts: Provider settings saved successfully.");
         displayStatus("Settings saved!", false);
@@ -647,6 +720,10 @@ function displayStatus(message: string, isError = false): void {
 
 document.addEventListener("DOMContentLoaded", () => {
     console.log("options.ts: DOMContentLoaded event fired.");
+
+    ensureSystemThemeWatcher();
+    applyTheme(uiTheme);
+    updateThemeSelectionUI(uiTheme);
 
     populateBasicLanguageDropdown();
     populateAdvancedLanguageDropdown();
@@ -690,6 +767,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     keepSelectionPopupOpenInput?.checked ??
                     KEEP_SELECTION_POPUP_OPEN_DEFAULT,
                 [STORAGE_KEYS.DEBUG_MODE]: debugModeInput?.checked ?? debugModeEnabled,
+                [STORAGE_KEYS.UI_THEME]: uiTheme,
             }).catch((error) => {
                 console.error("options.ts: Error saving settings mode:", error);
             });
@@ -784,6 +862,28 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
+    if (uiThemeInputs.length > 0) {
+        for (const input of uiThemeInputs) {
+            input.addEventListener("change", () => {
+                if (!input.checked) {
+                    return;
+                }
+
+                uiTheme = normalizeUITheme(input.value);
+                applyTheme(uiTheme);
+                updateThemeSelectionUI(uiTheme);
+
+                setStorage({
+                    [STORAGE_KEYS.UI_THEME]: uiTheme,
+                }).catch((error) => {
+                    console.error("options.ts: Error saving theme setting:", error);
+                });
+
+                displayStatus("Theme updated!", false);
+            });
+        }
+    }
+
     if (apiKeyInput) {
         apiKeyInput.addEventListener("input", autoSaveSetting);
         console.log("options.ts: Auto-save listener added to api-key input.");
@@ -812,6 +912,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 apiType: selectedApiType as Provider,
                 [STORAGE_KEYS.SETTINGS_MODE]: settingsMode,
                 [STORAGE_KEYS.BASIC_TARGET_LANGUAGE]: basicTargetLanguage,
+                [STORAGE_KEYS.UI_THEME]: uiTheme,
             })
                 .then(() => {
                     console.log("options.ts: Provider selection saved.");
