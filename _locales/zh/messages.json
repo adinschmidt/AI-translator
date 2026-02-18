@@ -1,0 +1,317 @@
+{
+    "extensionName": {
+        "message": "AI Translator"
+    },
+    "extensionDescription": {
+        "message": "使用可自定义的 AI 模型翻译文本和网页。"
+    },
+    "actionDefaultTitle": {
+        "message": "AI Translator 设置"
+    },
+    "contextMenuTranslateSelectedText": {
+        "message": "翻译所选文本"
+    },
+    "contextMenuTranslateEntirePage": {
+        "message": "翻译整个页面"
+    },
+    "errorCouldNotExtractSelectedContent": {
+        "message": "无法提取所选内容"
+    },
+    "errorCouldNotExtractSelectedHtml": {
+        "message": "无法提取选定的 HTML"
+    },
+    "errorApiKeyOrEndpointNotSet": {
+        "message": "翻译错误：未设置 API 密钥或端点。请在扩展设置中配置。"
+    },
+    "contentTranslating": {
+        "message": "翻译中..."
+    },
+    "contentTranslatingPage": {
+        "message": "正在翻译页面..."
+    },
+    "contentTranslateSelectionAriaLabel": {
+        "message": "翻译所选内容"
+    },
+    "contentTranslateButtonLabel": {
+        "message": "翻译"
+    },
+    "contentTranslateFromLabel": {
+        "message": "从 $1 翻译"
+    },
+    "contentTranslationErrorPrefix": {
+        "message": "翻译错误：$1"
+    },
+    "contentTranslationErrorUnknown": {
+        "message": "翻译错误：未知错误"
+    },
+    "contentTranslationStoppedByUser": {
+        "message": "翻译被用户停止。"
+    },
+    "contentPreparing": {
+        "message": "准备中..."
+    },
+    "contentNoTranslatableContentFound": {
+        "message": "找不到可翻译的内容"
+    },
+    "contentTranslatingChunksCount": {
+        "message": "正在翻译 $1 块..."
+    },
+    "contentProgressBatchPrefix": {
+        "message": "批次$1/$2"
+    },
+    "contentProgressPartSuffix": {
+        "message": "部分$1/$2"
+    },
+    "contentProgressTranslatedChunks": {
+        "message": "翻译的 $1/$2 块"
+    },
+    "contentProgressErrorSuffix": {
+        "message": "（$1 错误）"
+    },
+    "contentSummaryDoneWithErrors": {
+        "message": "完毕。 $1 区域已翻译，$2 错误"
+    },
+    "contentSummaryDone": {
+        "message": "完毕。 $1 已翻译区域"
+    },
+    "contentErrorPrefix": {
+        "message": "错误：$1"
+    },
+    "contentStopButton": {
+        "message": "停止"
+    },
+    "contentTranslationErrorMarker": {
+        "message": "[翻译错误]"
+    },
+    "contentTranslationFailed": {
+        "message": "翻译失败"
+    },
+    "contentNoTranslationReceived": {
+        "message": "未收到翻译"
+    },
+    "contentTranslatingElementsCount": {
+        "message": "翻译 $1 元素..."
+    },
+    "contentTranslatingElementsProgress": {
+        "message": "翻译元素... $1/$2 ($3%)$4"
+    },
+    "contentLoading": {
+        "message": "加载中..."
+    },
+    "contentDebugDetails": {
+        "message": "调试详情"
+    },
+    "optionsPageTitle": {
+        "message": "AI Translator 设置"
+    },
+    "optionsHeading": {
+        "message": "AI Translator 设置"
+    },
+    "optionsNeedHelp": {
+        "message": "需要帮助吗？"
+    },
+    "optionsUiLanguageLabel": {
+        "message": "用户界面语言："
+    },
+    "optionsUiLanguageHelp": {
+        "message": "默认遵循您的浏览器语言。"
+    },
+    "optionsUiLanguageDefaultOption": {
+        "message": "默认（浏览器语言）"
+    },
+    "optionsDocumentation": {
+        "message": "文档 →"
+    },
+    "optionsThemeLegend": {
+        "message": "主题："
+    },
+    "optionsThemeLight": {
+        "message": "浅色"
+    },
+    "optionsThemeDark": {
+        "message": "深色"
+    },
+    "optionsThemeSystem": {
+        "message": "系统"
+    },
+    "optionsThemeSystemHint": {
+        "message": "系统主题会跟随浏览器或操作系统配色方案。"
+    },
+    "optionsAdvancedModeLabel": {
+        "message": "高级模式"
+    },
+    "optionsAdvancedModeHelp": {
+        "message": "开启后可编辑端点、模型和自定义提示词。"
+    },
+    "optionsProviderLabel": {
+        "message": "提供商："
+    },
+    "optionsBasicProviderHelp": {
+        "message": "在基本模式下，模型和端点是自动配置的。"
+    },
+    "optionsApiKeyLabel": {
+        "message": "API 密钥："
+    },
+    "optionsApiKeyPlaceholder": {
+        "message": "输入你的 API 密钥"
+    },
+    "optionsApiKeyHelp": {
+        "message": "您的密钥安全地存储在本地浏览器存储中。"
+    },
+    "optionsTargetLanguageLabel": {
+        "message": "目标语言："
+    },
+    "optionsCustomTargetLanguageLabel": {
+        "message": "自定义目标语言："
+    },
+    "optionsCustomTargetLanguagePlaceholder": {
+        "message": "例如：克林贡语、拉丁语或 pt-BR"
+    },
+    "optionsBasicTargetLanguageHelpHtml": {
+        "message": "语言名称以该语言显示。选择<strong>自定义…</strong> 输入您自己的。"
+    },
+    "optionsAdvancedProviderHelp": {
+        "message": "选择您的端点期望的格式。"
+    },
+    "optionsHowToGetKey": {
+        "message": "如何获取密钥 →"
+    },
+    "optionsModelNameLabel": {
+        "message": "模型名称："
+    },
+    "optionsModelNamePlaceholder": {
+        "message": "例如，gpt-4o"
+    },
+    "optionsRefreshModelsButton": {
+        "message": "刷新模型"
+    },
+    "optionsFillDefaultButton": {
+        "message": "填入默认值"
+    },
+    "optionsModelFilterHelp": {
+        "message": "键入以过滤模型。如果您的模型未列出，请继续输入以使用自定义模型名称。"
+    },
+    "optionsOllamaNoteHtml": {
+        "message": "<strong>注意：</strong> Ollama 可能需要以 <code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code> 启动，以允许来自 Chrome 扩展程序的请求。"
+    },
+    "optionsApiEndpointLabel": {
+        "message": "API 端点 URL："
+    },
+    "optionsApiEndpointPlaceholder": {
+        "message": "例如，https://api.openai.com/v1/chat/completions"
+    },
+    "optionsAdvancedTargetLanguageHelpHtml": {
+        "message": "将文本翻译成的语言。选择<strong>自定义…</strong> 输入您自己的。"
+    },
+    "optionsExtraInstructionsLabel": {
+        "message": "额外说明（可选）："
+    },
+    "optionsExtraInstructionsPlaceholder": {
+        "message": "例如，使用正式语气，保留技术术语"
+    },
+    "optionsExtraInstructionsHelp": {
+        "message": "针对人工智能翻译器的附加说明（语气、风格、术语偏好）。"
+    },
+    "optionsShowTranslateButtonLabel": {
+        "message": "选中文本时显示翻译按钮"
+    },
+    "optionsShowTranslateButtonHelp": {
+        "message": "当您在任何页面上选择文本时，都会显示一个小翻译按钮。需要所有页面上的站点访问权限。"
+    },
+    "optionsKeepPopupOpenLabel": {
+        "message": "保持选择翻译窗口打开"
+    },
+    "optionsKeepPopupOpenHelp": {
+        "message": "添加 X 关闭按钮，并防止单击页面上其他位置时关闭选择翻译窗口。"
+    },
+    "optionsDebugModeLabel": {
+        "message": "启用调试模式"
+    },
+    "optionsDebugModeHelp": {
+        "message": "将详细日志添加到浏览器/扩展控制台，并在翻译弹出窗口中显示详细错误信息。"
+    },
+    "optionsFooterCreditPrefix": {
+        "message": "图标由 Pixel Perfect 制作，来自"
+    },
+    "optionsCustomOptionLabel": {
+        "message": "自定义…"
+    },
+    "optionsStatusSettingsSaved": {
+        "message": "设置已保存！"
+    },
+    "optionsStatusThemeUpdated": {
+        "message": "主题已更新！"
+    },
+    "optionsStatusLanguageUpdated": {
+        "message": "语言已更新！"
+    },
+    "optionsStatusProviderSwitched": {
+        "message": "提供商已切换。"
+    },
+    "optionsStatusErrorLoadingSettings": {
+        "message": "加载设置时出错：$1"
+    },
+    "optionsStatusErrorSaving": {
+        "message": "保存时出错：$1"
+    },
+    "optionsStatusInvalidEndpointFormat": {
+        "message": "API 端点 URL 格式无效。"
+    },
+    "optionsStatusErrorSavingProviderSelection": {
+        "message": "保存提供商选择时出错：$1"
+    },
+    "optionsStatusErrorSavingLanguage": {
+        "message": "保存语言设置时出错：$1"
+    },
+    "optionsStatusNoDefaultEndpointForProvider": {
+        "message": "$1 没有可用的默认端点。"
+    },
+    "optionsStatusNoDefaultModelForProvider": {
+        "message": "$1 没有可用的默认模型。"
+    },
+    "optionsModelStatusShowingFirstN": {
+        "message": "显示第一批$1 模型。继续输入以缩小结果范围。"
+    },
+    "optionsModelStatusUseCustomModelName": {
+        "message": "使用自定义模型名称：“$1”"
+    },
+    "optionsModelStatusNoModelsAvailable": {
+        "message": "无可用模型。输入自定义模型名称。"
+    },
+    "optionsModelErrorAddApiKey": {
+        "message": "添加 API 密钥以获取实时模型。"
+    },
+    "optionsModelErrorInvalidEndpointUrl": {
+        "message": "端点 URL 无效。"
+    },
+    "optionsModelErrorLiveDiscoveryUnavailable": {
+        "message": "此提供商无法使用实时模型发现。"
+    },
+    "optionsModelErrorProviderReturnedNoModels": {
+        "message": "提供商未返回任何模型。"
+    },
+    "optionsModelErrorNotConfiguredForProvider": {
+        "message": "没有为 $1 配置模型获取。"
+    },
+    "optionsModelStatusLoadingModels": {
+        "message": "正在加载模型..."
+    },
+    "optionsModelStatusLoadedFromProvider": {
+        "message": "已从 $2 加载 $1 模型。"
+    },
+    "optionsModelStatusFallbackWithSuggestions": {
+        "message": "$1 显示内置建议。"
+    },
+    "optionsModelStatusFallbackCustomOnly": {
+        "message": "$1 输入自定义模型名称。"
+    },
+    "optionsModelStatusCredentialsChanged": {
+        "message": "凭证发生变化。单击“刷新模型”以加载实时模型。"
+    },
+    "optionsModelStatusEndpointChanged": {
+        "message": "端点已更改。单击“刷新模型”以从此端点加载模型。"
+    },
+    "optionsModelStatusEndpointResetDefault": {
+        "message": "端点重置为默认值。单击“刷新模型”以加载实时模型。"
+    }
+}

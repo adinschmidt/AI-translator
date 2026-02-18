@@ -1,0 +1,317 @@
+{
+    "extensionName": {
+        "message": "AI Translator"
+    },
+    "extensionDescription": {
+        "message": "Переводите текст и страницы с настраиваемыми ИИ-моделями."
+    },
+    "actionDefaultTitle": {
+        "message": "Настройки AI Translator"
+    },
+    "contextMenuTranslateSelectedText": {
+        "message": "Перевести выделенный текст"
+    },
+    "contextMenuTranslateEntirePage": {
+        "message": "Перевести всю страницу"
+    },
+    "errorCouldNotExtractSelectedContent": {
+        "message": "Не удалось извлечь выбранный контент"
+    },
+    "errorCouldNotExtractSelectedHtml": {
+        "message": "Не удалось извлечь выбранный HTML-код."
+    },
+    "errorApiKeyOrEndpointNotSet": {
+        "message": "Ошибка перевода: не задан API-ключ или endpoint. Укажите их в настройках расширения."
+    },
+    "contentTranslating": {
+        "message": "Перевод..."
+    },
+    "contentTranslatingPage": {
+        "message": "Перевод страницы..."
+    },
+    "contentTranslateSelectionAriaLabel": {
+        "message": "Перевести выделение"
+    },
+    "contentTranslateButtonLabel": {
+        "message": "Перевести"
+    },
+    "contentTranslateFromLabel": {
+        "message": "Перевести с $1"
+    },
+    "contentTranslationErrorPrefix": {
+        "message": "Ошибка перевода: $1"
+    },
+    "contentTranslationErrorUnknown": {
+        "message": "Ошибка перевода: неизвестная ошибка"
+    },
+    "contentTranslationStoppedByUser": {
+        "message": "Перевод остановлен пользователем."
+    },
+    "contentPreparing": {
+        "message": "Подготовка..."
+    },
+    "contentNoTranslatableContentFound": {
+        "message": "Переводимого контента не найдено"
+    },
+    "contentTranslatingChunksCount": {
+        "message": "Перевод фрагментов $1..."
+    },
+    "contentProgressBatchPrefix": {
+        "message": "Пакет $1/$2"
+    },
+    "contentProgressPartSuffix": {
+        "message": "часть $1/$2"
+    },
+    "contentProgressTranslatedChunks": {
+        "message": "Переведенные фрагменты $1/$2"
+    },
+    "contentProgressErrorSuffix": {
+        "message": "($1 ошибки)"
+    },
+    "contentSummaryDoneWithErrors": {
+        "message": "Готово. Переведено $1 областей, $2 ошибок"
+    },
+    "contentSummaryDone": {
+        "message": "Готово. $1 областей переведено"
+    },
+    "contentErrorPrefix": {
+        "message": "Ошибка: $1"
+    },
+    "contentStopButton": {
+        "message": "Стоп"
+    },
+    "contentTranslationErrorMarker": {
+        "message": "[ошибка перевода]"
+    },
+    "contentTranslationFailed": {
+        "message": "Перевод не выполнен"
+    },
+    "contentNoTranslationReceived": {
+        "message": "Перевод не получен"
+    },
+    "contentTranslatingElementsCount": {
+        "message": "Перевод элементов $1..."
+    },
+    "contentTranslatingElementsProgress": {
+        "message": "Перевод элементов... $1/$2 ($3%)$4"
+    },
+    "contentLoading": {
+        "message": "Загрузка..."
+    },
+    "contentDebugDetails": {
+        "message": "Подробности отладки"
+    },
+    "optionsPageTitle": {
+        "message": "Настройки AI Translator"
+    },
+    "optionsHeading": {
+        "message": "Настройки AI Translator"
+    },
+    "optionsNeedHelp": {
+        "message": "Нужна помощь?"
+    },
+    "optionsUiLanguageLabel": {
+        "message": "Язык пользовательского интерфейса:"
+    },
+    "optionsUiLanguageHelp": {
+        "message": "По умолчанию используется язык вашего браузера."
+    },
+    "optionsUiLanguageDefaultOption": {
+        "message": "По умолчанию (язык браузера)"
+    },
+    "optionsDocumentation": {
+        "message": "Документация →"
+    },
+    "optionsThemeLegend": {
+        "message": "Тема:"
+    },
+    "optionsThemeLight": {
+        "message": "Светлая"
+    },
+    "optionsThemeDark": {
+        "message": "Тёмная"
+    },
+    "optionsThemeSystem": {
+        "message": "Системная"
+    },
+    "optionsThemeSystemHint": {
+        "message": "Системная тема следует цветовой схеме браузера или ОС."
+    },
+    "optionsAdvancedModeLabel": {
+        "message": "Расширенный режим"
+    },
+    "optionsAdvancedModeHelp": {
+        "message": "Включите, чтобы редактировать endpoint, модели и пользовательские промпты."
+    },
+    "optionsProviderLabel": {
+        "message": "Провайдер:"
+    },
+    "optionsBasicProviderHelp": {
+        "message": "В базовом режиме модели и конечные точки настраиваются автоматически."
+    },
+    "optionsApiKeyLabel": {
+        "message": "API-ключ:"
+    },
+    "optionsApiKeyPlaceholder": {
+        "message": "Введите API-ключ"
+    },
+    "optionsApiKeyHelp": {
+        "message": "Ваш ключ надежно хранится в локальном хранилище браузера."
+    },
+    "optionsTargetLanguageLabel": {
+        "message": "Целевой язык:"
+    },
+    "optionsCustomTargetLanguageLabel": {
+        "message": "Пользовательский целевой язык:"
+    },
+    "optionsCustomTargetLanguagePlaceholder": {
+        "message": "напр., клингонский, латынь или pt-BR"
+    },
+    "optionsBasicTargetLanguageHelpHtml": {
+        "message": "Названия языков отображаются на этом языке. Выберите <strong>Custom…</strong>, чтобы ввести свой собственный."
+    },
+    "optionsAdvancedProviderHelp": {
+        "message": "Выберите формат, который ожидает ваша конечная точка."
+    },
+    "optionsHowToGetKey": {
+        "message": "Как получить ключ →"
+    },
+    "optionsModelNameLabel": {
+        "message": "Название модели:"
+    },
+    "optionsModelNamePlaceholder": {
+        "message": "например, gpt-4o"
+    },
+    "optionsRefreshModelsButton": {
+        "message": "Обновить модели"
+    },
+    "optionsFillDefaultButton": {
+        "message": "Подставить по умолчанию"
+    },
+    "optionsModelFilterHelp": {
+        "message": "Введите, чтобы отфильтровать модели. Если вашей модели нет в списке, продолжайте вводить текст, чтобы использовать собственное имя модели."
+    },
+    "optionsOllamaNoteHtml": {
+        "message": "<strong>Примечание:</strong> Возможно, потребуется запустить Ollama с помощью <code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code>, чтобы разрешить запросы от расширений Chrome."
+    },
+    "optionsApiEndpointLabel": {
+        "message": "URL API endpoint:"
+    },
+    "optionsApiEndpointPlaceholder": {
+        "message": "например, https://api.openai.com/v1/chat/completions"
+    },
+    "optionsAdvancedTargetLanguageHelpHtml": {
+        "message": "Язык, на который нужно перевести текст. Выберите <strong>Custom…</strong>, чтобы ввести свой собственный."
+    },
+    "optionsExtraInstructionsLabel": {
+        "message": "Дополнительные инструкции (необязательно):"
+    },
+    "optionsExtraInstructionsPlaceholder": {
+        "message": "например, используйте формальный тон, сохраняйте технические термины"
+    },
+    "optionsExtraInstructionsHelp": {
+        "message": "Дополнительные инструкции для ИИ-переводчика (тон, стиль, терминологические предпочтения)."
+    },
+    "optionsShowTranslateButtonLabel": {
+        "message": "Показывать кнопку «Перевести» при выделении"
+    },
+    "optionsShowTranslateButtonHelp": {
+        "message": "Показывает небольшую кнопку «Перевести» при выделении текста на любой странице. Требуется доступ к сайту на всех страницах."
+    },
+    "optionsKeepPopupOpenLabel": {
+        "message": "Оставлять окно перевода выделения открытым"
+    },
+    "optionsKeepPopupOpenHelp": {
+        "message": "Добавляет кнопку закрытия X и предотвращает закрытие окна перевода выбора при щелчке в другом месте страницы."
+    },
+    "optionsDebugModeLabel": {
+        "message": "Включить режим отладки"
+    },
+    "optionsDebugModeHelp": {
+        "message": "Добавляет подробные журналы в консоли браузера/расширения и отображает подробную информацию об ошибках во всплывающих окнах перевода."
+    },
+    "optionsFooterCreditPrefix": {
+        "message": "Иконка от Pixel Perfect с"
+    },
+    "optionsCustomOptionLabel": {
+        "message": "Пользовательский…"
+    },
+    "optionsStatusSettingsSaved": {
+        "message": "Настройки сохранены!"
+    },
+    "optionsStatusThemeUpdated": {
+        "message": "Тема обновлена!"
+    },
+    "optionsStatusLanguageUpdated": {
+        "message": "Язык обновлен!"
+    },
+    "optionsStatusProviderSwitched": {
+        "message": "Провайдер сменился."
+    },
+    "optionsStatusErrorLoadingSettings": {
+        "message": "Ошибка загрузки настроек: $1."
+    },
+    "optionsStatusErrorSaving": {
+        "message": "Ошибка сохранения: $1"
+    },
+    "optionsStatusInvalidEndpointFormat": {
+        "message": "Неверный формат URL-адреса конечной точки API."
+    },
+    "optionsStatusErrorSavingProviderSelection": {
+        "message": "Ошибка при сохранении выбора поставщика: $1."
+    },
+    "optionsStatusErrorSavingLanguage": {
+        "message": "Ошибка сохранения настройки языка: $1."
+    },
+    "optionsStatusNoDefaultEndpointForProvider": {
+        "message": "Для $1 конечная точка по умолчанию недоступна."
+    },
+    "optionsStatusNoDefaultModelForProvider": {
+        "message": "Для $1 модель по умолчанию недоступна."
+    },
+    "optionsModelStatusShowingFirstN": {
+        "message": "Показаны первые модели $1. Продолжайте вводить текст, чтобы сузить результаты."
+    },
+    "optionsModelStatusUseCustomModelName": {
+        "message": "Используйте собственное имя модели: «$1»"
+    },
+    "optionsModelStatusNoModelsAvailable": {
+        "message": "Нет доступных моделей. Введите собственное название модели."
+    },
+    "optionsModelErrorAddApiKey": {
+        "message": "Добавьте ключ API для получения живых моделей."
+    },
+    "optionsModelErrorInvalidEndpointUrl": {
+        "message": "Неверный URL-адрес конечной точки."
+    },
+    "optionsModelErrorLiveDiscoveryUnavailable": {
+        "message": "Обнаружение моделей в реальном времени недоступно для этого поставщика."
+    },
+    "optionsModelErrorProviderReturnedNoModels": {
+        "message": "Поставщик не вернул ни одной модели."
+    },
+    "optionsModelErrorNotConfiguredForProvider": {
+        "message": "Получение модели не настроено для $1."
+    },
+    "optionsModelStatusLoadingModels": {
+        "message": "Загрузка моделей..."
+    },
+    "optionsModelStatusLoadedFromProvider": {
+        "message": "Загружены модели $1 из $2."
+    },
+    "optionsModelStatusFallbackWithSuggestions": {
+        "message": "$1 Показаны встроенные предложения."
+    },
+    "optionsModelStatusFallbackCustomOnly": {
+        "message": "$1 Введите название пользовательской модели."
+    },
+    "optionsModelStatusCredentialsChanged": {
+        "message": "Учетные данные изменены. Нажмите «Обновить модели», чтобы загрузить живые модели."
+    },
+    "optionsModelStatusEndpointChanged": {
+        "message": "Конечная точка изменена. Нажмите «Обновить модели», чтобы загрузить модели из этой конечной точки."
+    },
+    "optionsModelStatusEndpointResetDefault": {
+        "message": "Конечная точка сброшена до значения по умолчанию. Нажмите «Обновить модели», чтобы загрузить живые модели."
+    }
+}

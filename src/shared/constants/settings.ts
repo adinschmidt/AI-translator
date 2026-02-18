@@ -6,6 +6,7 @@ export const SHOW_TRANSLATE_BUTTON_ON_SELECTION_KEY = "showTranslateButtonOnSele
 export const KEEP_SELECTION_POPUP_OPEN_KEY = "keepSelectionPopupOpen";
 export const DEBUG_MODE_KEY = "debugMode";
 export const UI_THEME_KEY = "uiTheme";
+export const UI_LANGUAGE_KEY = "uiLanguage";
 
 export const SETTINGS_MODE_BASIC = "basic";
 export const SETTINGS_MODE_ADVANCED = "advanced";
@@ -26,6 +27,7 @@ export const ADVANCED_TARGET_LANGUAGE_DEFAULT = "en";
 export const KEEP_SELECTION_POPUP_OPEN_DEFAULT = false;
 export const DEBUG_MODE_DEFAULT = false;
 export const UI_THEME_DEFAULT = UI_THEME_SYSTEM;
+export const UI_LANGUAGE_DEFAULT = "default";
 
 export const DEFAULT_TRANSLATION_INSTRUCTIONS =
     "Translate the following text to English. Keep the same meaning and tone. DO NOT add any additional text or explanations.";

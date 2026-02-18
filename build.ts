@@ -5,6 +5,7 @@ import { join } from "path";
 const ROOT = import.meta.dir;
 const DIST = join(ROOT, "dist");
 const SRC_EXTENSION = join(ROOT, "src", "extension");
+const LOCALES_DIR = join(ROOT, "_locales");
 
 // Entry points to bundle
 const ENTRYPOINTS = {
@@ -35,13 +36,23 @@ async function clean() {
     }
 }
 
+async function checkI18nCompleteness() {
+    const checkProc = Bun.spawn(["bun", "run", "scripts/check-i18n.ts"], {
+        cwd: ROOT,
+        stdout: "inherit",
+        stderr: "inherit",
+    });
+
+    const exitCode = await checkProc.exited;
+    if (exitCode !== 0) {
+        throw new Error("i18n completeness check failed.");
+    }
+}
+
 /**
  * Bundle a single entry point using Bun.build
  */
-async function bundleEntrypoint(
-    entrypoint: string,
-    outfile: string,
-): Promise<void> {
+async function bundleEntrypoint(entrypoint: string, outfile: string): Promise<void> {
     const result = await Bun.build({
         entrypoints: [entrypoint],
         outdir: join(DIST, "temp"),
@@ -66,10 +77,7 @@ async function bundleEntrypoint(
     await writeFile(outfile, bundledContent);
 }
 
-async function buildExtension(
-    target: "chrome" | "firefox",
-    manifestSource: string,
-) {
+async function buildExtension(target: "chrome" | "firefox", manifestSource: string) {
     const targetDir = join(DIST, target);
     await mkdir(join(targetDir, "images"), { recursive: true });
 
@@ -87,6 +95,10 @@ async function buildExtension(
     for (const file of IMAGE_FILES) {
         const destPath = file.replace("assets/", "");
         await cp(join(ROOT, file), join(targetDir, destPath));
+    }
+
+    if (existsSync(LOCALES_DIR)) {
+        await cp(LOCALES_DIR, join(targetDir, "_locales"), { recursive: true });
     }
 
     console.log(`Built ${target} extension -> dist/${target}/`);
@@ -130,6 +142,9 @@ async function createZips() {
 
 async function main() {
     const shouldZip = process.argv.includes("--zip");
+
+    console.log("Checking i18n locale completeness...");
+    await checkI18nCompleteness();
 
     console.log("Cleaning dist/...");
     await clean();

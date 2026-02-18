@@ -1,0 +1,317 @@
+{
+    "extensionName": {
+        "message": "AI Translator"
+    },
+    "extensionDescription": {
+        "message": "कस्टमाइज़ किए जा सकने वाले AI मॉडल से टेक्स्ट और पेज का अनुवाद करें।"
+    },
+    "actionDefaultTitle": {
+        "message": "AI Translator सेटिंग्स"
+    },
+    "contextMenuTranslateSelectedText": {
+        "message": "चयनित टेक्स्ट का अनुवाद करें"
+    },
+    "contextMenuTranslateEntirePage": {
+        "message": "पूरे पेज का अनुवाद करें"
+    },
+    "errorCouldNotExtractSelectedContent": {
+        "message": "चयनित सामग्री नहीं निकाली जा सकी"
+    },
+    "errorCouldNotExtractSelectedHtml": {
+        "message": "चयनित HTML नहीं निकाला जा सका"
+    },
+    "errorApiKeyOrEndpointNotSet": {
+        "message": "अनुवाद त्रुटि: API कुंजी या एंडपॉइंट सेट नहीं है। कृपया एक्सटेंशन सेटिंग्स में कॉन्फ़िगर करें।"
+    },
+    "contentTranslating": {
+        "message": "अनुवाद हो रहा है..."
+    },
+    "contentTranslatingPage": {
+        "message": "पेज का अनुवाद हो रहा है..."
+    },
+    "contentTranslateSelectionAriaLabel": {
+        "message": "चयन का अनुवाद करें"
+    },
+    "contentTranslateButtonLabel": {
+        "message": "अनुवाद करें"
+    },
+    "contentTranslateFromLabel": {
+        "message": "$1 से अनुवाद करें"
+    },
+    "contentTranslationErrorPrefix": {
+        "message": "अनुवाद त्रुटि: $1"
+    },
+    "contentTranslationErrorUnknown": {
+        "message": "अनुवाद त्रुटि: अज्ञात त्रुटि"
+    },
+    "contentTranslationStoppedByUser": {
+        "message": "उपयोगकर्ता द्वारा अनुवाद रोक दिया गया."
+    },
+    "contentPreparing": {
+        "message": "तैयारी हो रही है..."
+    },
+    "contentNoTranslatableContentFound": {
+        "message": "कोई अनुवाद योग्य सामग्री नहीं मिली"
+    },
+    "contentTranslatingChunksCount": {
+        "message": "$1 खंडों का अनुवाद किया जा रहा है..."
+    },
+    "contentProgressBatchPrefix": {
+        "message": "बैच $1/$2"
+    },
+    "contentProgressPartSuffix": {
+        "message": "भाग $1/$2"
+    },
+    "contentProgressTranslatedChunks": {
+        "message": "अनुवादित $1/$2 खंड"
+    },
+    "contentProgressErrorSuffix": {
+        "message": "($1 त्रुटियाँ)"
+    },
+    "contentSummaryDoneWithErrors": {
+        "message": "हो गया। $1 क्षेत्रों का अनुवाद, $2 त्रुटियाँ"
+    },
+    "contentSummaryDone": {
+        "message": "हो गया। $1 क्षेत्रों का अनुवाद किया गया"
+    },
+    "contentErrorPrefix": {
+        "message": "त्रुटि: $1"
+    },
+    "contentStopButton": {
+        "message": "रोकें"
+    },
+    "contentTranslationErrorMarker": {
+        "message": "[अनुवाद त्रुटि]"
+    },
+    "contentTranslationFailed": {
+        "message": "अनुवाद विफल"
+    },
+    "contentNoTranslationReceived": {
+        "message": "कोई अनुवाद प्राप्त नहीं हुआ"
+    },
+    "contentTranslatingElementsCount": {
+        "message": "$1 तत्वों का अनुवाद किया जा रहा है..."
+    },
+    "contentTranslatingElementsProgress": {
+        "message": "तत्वों का अनुवाद... $1/$2 ($3%)$4"
+    },
+    "contentLoading": {
+        "message": "लोड हो रहा है..."
+    },
+    "contentDebugDetails": {
+        "message": "डीबग विवरण"
+    },
+    "optionsPageTitle": {
+        "message": "AI Translator सेटिंग्स"
+    },
+    "optionsHeading": {
+        "message": "AI Translator सेटिंग्स"
+    },
+    "optionsNeedHelp": {
+        "message": "मदद चाहिए?"
+    },
+    "optionsUiLanguageLabel": {
+        "message": "यूआई भाषा:"
+    },
+    "optionsUiLanguageHelp": {
+        "message": "डिफ़ॉल्ट आपके ब्राउज़र की भाषा का अनुसरण करता है."
+    },
+    "optionsUiLanguageDefaultOption": {
+        "message": "डिफ़ॉल्ट (ब्राउज़र भाषा)"
+    },
+    "optionsDocumentation": {
+        "message": "दस्तावेज़ →"
+    },
+    "optionsThemeLegend": {
+        "message": "थीम:"
+    },
+    "optionsThemeLight": {
+        "message": "हल्का"
+    },
+    "optionsThemeDark": {
+        "message": "गहरा"
+    },
+    "optionsThemeSystem": {
+        "message": "सिस्टम"
+    },
+    "optionsThemeSystemHint": {
+        "message": "सिस्टम आपके ब्राउज़र या OS की रंग योजना का पालन करता है।"
+    },
+    "optionsAdvancedModeLabel": {
+        "message": "एडवांस्ड मोड"
+    },
+    "optionsAdvancedModeHelp": {
+        "message": "एंडपॉइंट, मॉडल और कस्टम प्रॉम्प्ट संपादित करने के लिए इसे चालू करें।"
+    },
+    "optionsProviderLabel": {
+        "message": "प्रदाता:"
+    },
+    "optionsBasicProviderHelp": {
+        "message": "बेसिक मोड में, मॉडल और एंडपॉइंट स्वचालित रूप से कॉन्फ़िगर किए जाते हैं।"
+    },
+    "optionsApiKeyLabel": {
+        "message": "API कुंजी:"
+    },
+    "optionsApiKeyPlaceholder": {
+        "message": "अपनी API कुंजी दर्ज करें"
+    },
+    "optionsApiKeyHelp": {
+        "message": "आपकी कुंजी स्थानीय ब्राउज़र संग्रहण में सुरक्षित रूप से संग्रहीत है।"
+    },
+    "optionsTargetLanguageLabel": {
+        "message": "लक्ष्य भाषा:"
+    },
+    "optionsCustomTargetLanguageLabel": {
+        "message": "कस्टम लक्ष्य भाषा:"
+    },
+    "optionsCustomTargetLanguagePlaceholder": {
+        "message": "उदा., Klingon, Latin, या pt-BR"
+    },
+    "optionsBasicTargetLanguageHelpHtml": {
+        "message": "भाषा के नाम उसी भाषा में दर्शाए गए हैं। अपना खुद का टाइप करने के लिए <strong>Custom…</strong> चुनें।"
+    },
+    "optionsAdvancedProviderHelp": {
+        "message": "वह प्रारूप चुनें जिसकी आपका एंडपॉइंट अपेक्षा करता है।"
+    },
+    "optionsHowToGetKey": {
+        "message": "कुंजी कैसे प्राप्त करें →"
+    },
+    "optionsModelNameLabel": {
+        "message": "मॉडल नाम:"
+    },
+    "optionsModelNamePlaceholder": {
+        "message": "जैसे, gpt-4o"
+    },
+    "optionsRefreshModelsButton": {
+        "message": "मॉडल रीफ़्रेश करें"
+    },
+    "optionsFillDefaultButton": {
+        "message": "डिफ़ॉल्ट भरें"
+    },
+    "optionsModelFilterHelp": {
+        "message": "मॉडल फ़िल्टर करने के लिए टाइप करें. यदि आपका मॉडल सूचीबद्ध नहीं है, तो कस्टम मॉडल नाम का उपयोग करने के लिए टाइप करते रहें।"
+    },
+    "optionsOllamaNoteHtml": {
+        "message": "<strong>नोट:</strong> Chrome एक्सटेंशन से अनुरोधों को अनुमति देने के लिए Ollama को <code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code> से प्रारंभ करने की आवश्यकता हो सकती है।"
+    },
+    "optionsApiEndpointLabel": {
+        "message": "API एंडपॉइंट URL:"
+    },
+    "optionsApiEndpointPlaceholder": {
+        "message": "उदाहरण के लिए, https://api.openai.com/v1/chat/completions"
+    },
+    "optionsAdvancedTargetLanguageHelpHtml": {
+        "message": "पाठ का अनुवाद करने की भाषा. अपना खुद का टाइप करने के लिए <strong>Custom…</strong> चुनें।"
+    },
+    "optionsExtraInstructionsLabel": {
+        "message": "अतिरिक्त निर्देश (वैकल्पिक):"
+    },
+    "optionsExtraInstructionsPlaceholder": {
+        "message": "उदाहरण के लिए, औपचारिक स्वर का प्रयोग करें, तकनीकी शब्दों को सुरक्षित रखें"
+    },
+    "optionsExtraInstructionsHelp": {
+        "message": "एआई अनुवादक के लिए अतिरिक्त निर्देश (स्वर, शैली, शब्दावली प्राथमिकताएं)।"
+    },
+    "optionsShowTranslateButtonLabel": {
+        "message": "चयन पर अनुवाद बटन दिखाएं"
+    },
+    "optionsShowTranslateButtonHelp": {
+        "message": "जब आप किसी पृष्ठ पर पाठ का चयन करते हैं तो एक छोटा अनुवाद बटन दिखाता है। सभी पृष्ठों पर साइट पहुंच की आवश्यकता है।"
+    },
+    "optionsKeepPopupOpenLabel": {
+        "message": "चयन अनुवाद विंडो खुली रखें"
+    },
+    "optionsKeepPopupOpenHelp": {
+        "message": "एक X क्लोज़ बटन जोड़ता है और पृष्ठ पर कहीं और क्लिक करने पर चयन अनुवाद विंडो को बंद होने से रोकता है।"
+    },
+    "optionsDebugModeLabel": {
+        "message": "डिबग मोड सक्षम करें"
+    },
+    "optionsDebugModeHelp": {
+        "message": "ब्राउज़र/एक्सटेंशन कंसोल में विस्तृत लॉग जोड़ता है और अनुवाद पॉपअप में विस्तृत त्रुटि जानकारी दिखाता है।"
+    },
+    "optionsFooterCreditPrefix": {
+        "message": "Pixel Perfect द्वारा बनाया गया आइकन"
+    },
+    "optionsCustomOptionLabel": {
+        "message": "कस्टम…"
+    },
+    "optionsStatusSettingsSaved": {
+        "message": "सेटिंग्स सेव हो गईं!"
+    },
+    "optionsStatusThemeUpdated": {
+        "message": "थीम अपडेट की गई!"
+    },
+    "optionsStatusLanguageUpdated": {
+        "message": "भाषा अद्यतन!"
+    },
+    "optionsStatusProviderSwitched": {
+        "message": "प्रदाता स्विच किया गया."
+    },
+    "optionsStatusErrorLoadingSettings": {
+        "message": "सेटिंग लोड करने में त्रुटि: $1"
+    },
+    "optionsStatusErrorSaving": {
+        "message": "सहेजने में त्रुटि: $1"
+    },
+    "optionsStatusInvalidEndpointFormat": {
+        "message": "अमान्य एपीआई एंडपॉइंट यूआरएल प्रारूप।"
+    },
+    "optionsStatusErrorSavingProviderSelection": {
+        "message": "प्रदाता चयन सहेजने में त्रुटि: $1"
+    },
+    "optionsStatusErrorSavingLanguage": {
+        "message": "भाषा सेटिंग सहेजने में त्रुटि: $1"
+    },
+    "optionsStatusNoDefaultEndpointForProvider": {
+        "message": "$1 के लिए कोई डिफ़ॉल्ट एंडपॉइंट उपलब्ध नहीं है।"
+    },
+    "optionsStatusNoDefaultModelForProvider": {
+        "message": "$1 के लिए कोई डिफ़ॉल्ट मॉडल उपलब्ध नहीं है।"
+    },
+    "optionsModelStatusShowingFirstN": {
+        "message": "पहला $1 मॉडल दिखाया जा रहा है। परिणामों को सीमित करने के लिए टाइप करते रहें।"
+    },
+    "optionsModelStatusUseCustomModelName": {
+        "message": "कस्टम मॉडल नाम का उपयोग करें: \"$1\""
+    },
+    "optionsModelStatusNoModelsAvailable": {
+        "message": "कोई मॉडल उपलब्ध नहीं. एक कस्टम मॉडल नाम दर्ज करें."
+    },
+    "optionsModelErrorAddApiKey": {
+        "message": "लाइव मॉडल लाने के लिए एक एपीआई कुंजी जोड़ें।"
+    },
+    "optionsModelErrorInvalidEndpointUrl": {
+        "message": "अमान्य एंडपॉइंट URL."
+    },
+    "optionsModelErrorLiveDiscoveryUnavailable": {
+        "message": "इस प्रदाता के लिए लाइव मॉडल खोज उपलब्ध नहीं है।"
+    },
+    "optionsModelErrorProviderReturnedNoModels": {
+        "message": "प्रदाता ने कोई मॉडल नहीं लौटाया."
+    },
+    "optionsModelErrorNotConfiguredForProvider": {
+        "message": "मॉडल फ़ेचिंग $1 के लिए कॉन्फ़िगर नहीं किया गया है।"
+    },
+    "optionsModelStatusLoadingModels": {
+        "message": "मॉडल लोड हो रहे हैं..."
+    },
+    "optionsModelStatusLoadedFromProvider": {
+        "message": "$2 से $1 मॉडल लोड किया गया।"
+    },
+    "optionsModelStatusFallbackWithSuggestions": {
+        "message": "$1 अंतर्निहित सुझाव दिखा रहा है।"
+    },
+    "optionsModelStatusFallbackCustomOnly": {
+        "message": "$1 एक कस्टम मॉडल नाम दर्ज करें।"
+    },
+    "optionsModelStatusCredentialsChanged": {
+        "message": "क्रेडेंशियल्स बदल गए. लाइव मॉडल लोड करने के लिए मॉडल ताज़ा करें पर क्लिक करें।"
+    },
+    "optionsModelStatusEndpointChanged": {
+        "message": "एंडपॉइंट बदल गया. इस एंडपॉइंट से मॉडल लोड करने के लिए मॉडल ताज़ा करें पर क्लिक करें।"
+    },
+    "optionsModelStatusEndpointResetDefault": {
+        "message": "एंडपॉइंट डिफ़ॉल्ट पर रीसेट हो गया। लाइव मॉडल लोड करने के लिए मॉडल ताज़ा करें पर क्लिक करें।"
+    }
+}

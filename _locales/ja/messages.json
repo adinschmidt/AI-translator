@@ -1,0 +1,317 @@
+{
+    "extensionName": {
+        "message": "AI Translator"
+    },
+    "extensionDescription": {
+        "message": "カスタマイズ可能なAIモデルでテキストとページを翻訳します。"
+    },
+    "actionDefaultTitle": {
+        "message": "AI Translator 設定"
+    },
+    "contextMenuTranslateSelectedText": {
+        "message": "選択したテキストを翻訳"
+    },
+    "contextMenuTranslateEntirePage": {
+        "message": "ページ全体を翻訳"
+    },
+    "errorCouldNotExtractSelectedContent": {
+        "message": "選択したコンテンツを抽出できませんでした"
+    },
+    "errorCouldNotExtractSelectedHtml": {
+        "message": "選択した HTML を抽出できませんでした"
+    },
+    "errorApiKeyOrEndpointNotSet": {
+        "message": "翻訳エラー: APIキーまたはエンドポイントが未設定です。拡張機能の設定で構成してください。"
+    },
+    "contentTranslating": {
+        "message": "翻訳中..."
+    },
+    "contentTranslatingPage": {
+        "message": "ページを翻訳中..."
+    },
+    "contentTranslateSelectionAriaLabel": {
+        "message": "選択範囲を翻訳"
+    },
+    "contentTranslateButtonLabel": {
+        "message": "翻訳"
+    },
+    "contentTranslateFromLabel": {
+        "message": "$1 から翻訳"
+    },
+    "contentTranslationErrorPrefix": {
+        "message": "翻訳エラー: $1"
+    },
+    "contentTranslationErrorUnknown": {
+        "message": "翻訳エラー: 不明なエラー"
+    },
+    "contentTranslationStoppedByUser": {
+        "message": "ユーザーによって翻訳が停止されました。"
+    },
+    "contentPreparing": {
+        "message": "準備中..."
+    },
+    "contentNoTranslatableContentFound": {
+        "message": "翻訳可能なコンテンツが見つかりませんでした"
+    },
+    "contentTranslatingChunksCount": {
+        "message": "$1 チャンクを翻訳中..."
+    },
+    "contentProgressBatchPrefix": {
+        "message": "バッチ $1/$2"
+    },
+    "contentProgressPartSuffix": {
+        "message": "パート $1/$2"
+    },
+    "contentProgressTranslatedChunks": {
+        "message": "$1/$2 チャンクを翻訳しました"
+    },
+    "contentProgressErrorSuffix": {
+        "message": "($1 エラー)"
+    },
+    "contentSummaryDoneWithErrors": {
+        "message": "完了。$1 箇所を翻訳しました、$2 件のエラー"
+    },
+    "contentSummaryDone": {
+        "message": "完了。$1 箇所を翻訳しました"
+    },
+    "contentErrorPrefix": {
+        "message": "エラー: $1"
+    },
+    "contentStopButton": {
+        "message": "停止"
+    },
+    "contentTranslationErrorMarker": {
+        "message": "[翻訳エラー]"
+    },
+    "contentTranslationFailed": {
+        "message": "翻訳に失敗しました"
+    },
+    "contentNoTranslationReceived": {
+        "message": "翻訳を受信できませんでした"
+    },
+    "contentTranslatingElementsCount": {
+        "message": "$1 要素を翻訳しています..."
+    },
+    "contentTranslatingElementsProgress": {
+        "message": "要素を翻訳中... $1/$2 ($3%)$4"
+    },
+    "contentLoading": {
+        "message": "読み込み中..."
+    },
+    "contentDebugDetails": {
+        "message": "デバッグの詳細"
+    },
+    "optionsPageTitle": {
+        "message": "AI Translator 設定"
+    },
+    "optionsHeading": {
+        "message": "AI Translator 設定"
+    },
+    "optionsNeedHelp": {
+        "message": "ヘルプが必要ですか？"
+    },
+    "optionsUiLanguageLabel": {
+        "message": "UI言語:"
+    },
+    "optionsUiLanguageHelp": {
+        "message": "デフォルトはブラウザの言語に従います。"
+    },
+    "optionsUiLanguageDefaultOption": {
+        "message": "デフォルト (ブラウザ言語)"
+    },
+    "optionsDocumentation": {
+        "message": "ドキュメント →"
+    },
+    "optionsThemeLegend": {
+        "message": "テーマ:"
+    },
+    "optionsThemeLight": {
+        "message": "ライト"
+    },
+    "optionsThemeDark": {
+        "message": "ダーク"
+    },
+    "optionsThemeSystem": {
+        "message": "システム"
+    },
+    "optionsThemeSystemHint": {
+        "message": "システムはブラウザまたはOSの配色に従います。"
+    },
+    "optionsAdvancedModeLabel": {
+        "message": "詳細モード"
+    },
+    "optionsAdvancedModeHelp": {
+        "message": "有効にすると、エンドポイント、モデル、カスタムプロンプトを編集できます。"
+    },
+    "optionsProviderLabel": {
+        "message": "プロバイダー:"
+    },
+    "optionsBasicProviderHelp": {
+        "message": "基本モードでは、モデルとエンドポイントが自動的に構成されます。"
+    },
+    "optionsApiKeyLabel": {
+        "message": "APIキー:"
+    },
+    "optionsApiKeyPlaceholder": {
+        "message": "APIキーを入力"
+    },
+    "optionsApiKeyHelp": {
+        "message": "キーはローカルブラウザストレージに安全に保存されます。"
+    },
+    "optionsTargetLanguageLabel": {
+        "message": "翻訳先言語:"
+    },
+    "optionsCustomTargetLanguageLabel": {
+        "message": "カスタム翻訳先言語:"
+    },
+    "optionsCustomTargetLanguagePlaceholder": {
+        "message": "例: クリンゴン語、ラテン語、pt-BR"
+    },
+    "optionsBasicTargetLanguageHelpHtml": {
+        "message": "言語名はその言語で表示されます。<strong>カスタム…</strong>を選択して独自の言語を入力できます。"
+    },
+    "optionsAdvancedProviderHelp": {
+        "message": "エンドポイントが期待する形式を選択します。"
+    },
+    "optionsHowToGetKey": {
+        "message": "鍵の入手方法→"
+    },
+    "optionsModelNameLabel": {
+        "message": "モデル名:"
+    },
+    "optionsModelNamePlaceholder": {
+        "message": "例: gpt-4o"
+    },
+    "optionsRefreshModelsButton": {
+        "message": "モデルを更新"
+    },
+    "optionsFillDefaultButton": {
+        "message": "デフォルトを入力"
+    },
+    "optionsModelFilterHelp": {
+        "message": "モデルをフィルタリングするために入力します。お使いのモデルがリストにない場合は、入力を続けてカスタム モデル名を使用します。"
+    },
+    "optionsOllamaNoteHtml": {
+        "message": "<strong>注:</strong> Chrome 拡張機能からのリクエストを許可するには、<code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code> で Ollama を起動する必要がある場合があります。"
+    },
+    "optionsApiEndpointLabel": {
+        "message": "APIエンドポイントURL:"
+    },
+    "optionsApiEndpointPlaceholder": {
+        "message": "例: https://api.openai.com/v1/chat/completions"
+    },
+    "optionsAdvancedTargetLanguageHelpHtml": {
+        "message": "テキストを翻訳する言語。<strong>カスタム…</strong>を選択して独自の言語を入力できます。"
+    },
+    "optionsExtraInstructionsLabel": {
+        "message": "追加指示（任意）:"
+    },
+    "optionsExtraInstructionsPlaceholder": {
+        "message": "例: フォーマルな口調を使用し、専門用語を保持する"
+    },
+    "optionsExtraInstructionsHelp": {
+        "message": "AI 翻訳者に関する追加の指示 (トーン、スタイル、用語の設定)。"
+    },
+    "optionsShowTranslateButtonLabel": {
+        "message": "選択時に翻訳ボタンを表示"
+    },
+    "optionsShowTranslateButtonHelp": {
+        "message": "任意のページでテキストを選択すると、小さな [翻訳] ボタンが表示されます。すべてのページでサイトへのアクセスが必要です。"
+    },
+    "optionsKeepPopupOpenLabel": {
+        "message": "選択翻訳ウィンドウを開いたままにする"
+    },
+    "optionsKeepPopupOpenHelp": {
+        "message": "X 閉じるボタンを追加し、ページ上の他の場所をクリックしたときに選択翻訳ウィンドウが閉じないようにします。"
+    },
+    "optionsDebugModeLabel": {
+        "message": "デバッグモードを有効化"
+    },
+    "optionsDebugModeHelp": {
+        "message": "詳細なログをブラウザ/拡張機能のコンソールに追加し、翻訳ポップアップに詳細なエラー情報を表示します。"
+    },
+    "optionsFooterCreditPrefix": {
+        "message": "アイコンはピクセルパーフェクトが作成しました"
+    },
+    "optionsCustomOptionLabel": {
+        "message": "カスタム…"
+    },
+    "optionsStatusSettingsSaved": {
+        "message": "設定を保存しました！"
+    },
+    "optionsStatusThemeUpdated": {
+        "message": "テーマが更新されました！"
+    },
+    "optionsStatusLanguageUpdated": {
+        "message": "言語が更新されました!"
+    },
+    "optionsStatusProviderSwitched": {
+        "message": "プロバイダーが切り替わりました。"
+    },
+    "optionsStatusErrorLoadingSettings": {
+        "message": "設定の読み込みエラー: $1"
+    },
+    "optionsStatusErrorSaving": {
+        "message": "保存エラー: $1"
+    },
+    "optionsStatusInvalidEndpointFormat": {
+        "message": "API エンドポイントの URL 形式が無効です。"
+    },
+    "optionsStatusErrorSavingProviderSelection": {
+        "message": "プロバイダー選択の保存中にエラーが発生しました: $1"
+    },
+    "optionsStatusErrorSavingLanguage": {
+        "message": "言語設定の保存中にエラーが発生しました: $1"
+    },
+    "optionsStatusNoDefaultEndpointForProvider": {
+        "message": "$1 に使用できるデフォルトのエンドポイントがありません。"
+    },
+    "optionsStatusNoDefaultModelForProvider": {
+        "message": "$1 に使用できるデフォルト モデルはありません。"
+    },
+    "optionsModelStatusShowingFirstN": {
+        "message": "最初の $1 モデルを表示します。入力を続けて結果を絞り込みます。"
+    },
+    "optionsModelStatusUseCustomModelName": {
+        "message": "カスタム モデル名を使用します: \"$1\""
+    },
+    "optionsModelStatusNoModelsAvailable": {
+        "message": "利用可能なモデルはありません。カスタムモデル名を入力します。"
+    },
+    "optionsModelErrorAddApiKey": {
+        "message": "ライブモデルを取得するための API キーを追加します。"
+    },
+    "optionsModelErrorInvalidEndpointUrl": {
+        "message": "エンドポイント URL が無効です。"
+    },
+    "optionsModelErrorLiveDiscoveryUnavailable": {
+        "message": "このプロバイダーではライブ モデル検出を利用できません。"
+    },
+    "optionsModelErrorProviderReturnedNoModels": {
+        "message": "プロバイダーはモデルを返しませんでした。"
+    },
+    "optionsModelErrorNotConfiguredForProvider": {
+        "message": "モデルの取得は $1 に対して構成されていません。"
+    },
+    "optionsModelStatusLoadingModels": {
+        "message": "モデルをロード中..."
+    },
+    "optionsModelStatusLoadedFromProvider": {
+        "message": "$2 から $1 モデルをロードしました。"
+    },
+    "optionsModelStatusFallbackWithSuggestions": {
+        "message": "$1 組み込みの提案を表示しています。"
+    },
+    "optionsModelStatusFallbackCustomOnly": {
+        "message": "$1 カスタムモデル名を入力します。"
+    },
+    "optionsModelStatusCredentialsChanged": {
+        "message": "資格情報が変更されました。「モデルを更新」をクリックしてライブモデルをロードします。"
+    },
+    "optionsModelStatusEndpointChanged": {
+        "message": "エンドポイントが変更されました。 「モデルの更新」をクリックして、このエンドポイントからモデルをロードします。"
+    },
+    "optionsModelStatusEndpointResetDefault": {
+        "message": "エンドポイントがデフォルトにリセットされました。「モデルを更新」をクリックしてライブモデルをロードします。"
+    }
+}

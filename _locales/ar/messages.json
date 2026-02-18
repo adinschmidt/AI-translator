@@ -1,0 +1,317 @@
+{
+    "extensionName": {
+        "message": "AI Translator"
+    },
+    "extensionDescription": {
+        "message": "ترجم النصوص والصفحات باستخدام نماذج ذكاء اصطناعي قابلة للتخصيص."
+    },
+    "actionDefaultTitle": {
+        "message": "إعدادات AI Translator"
+    },
+    "contextMenuTranslateSelectedText": {
+        "message": "ترجمة النص المحدد"
+    },
+    "contextMenuTranslateEntirePage": {
+        "message": "ترجمة الصفحة كاملة"
+    },
+    "errorCouldNotExtractSelectedContent": {
+        "message": "تعذر استخراج المحتوى المحدد"
+    },
+    "errorCouldNotExtractSelectedHtml": {
+        "message": "تعذر استخراج HTML المحدد"
+    },
+    "errorApiKeyOrEndpointNotSet": {
+        "message": "خطأ في الترجمة: مفتاح API أو نقطة النهاية غير مضبوطة. يرجى ضبطها من إعدادات الإضافة."
+    },
+    "contentTranslating": {
+        "message": "جارٍ الترجمة..."
+    },
+    "contentTranslatingPage": {
+        "message": "جارٍ ترجمة الصفحة..."
+    },
+    "contentTranslateSelectionAriaLabel": {
+        "message": "ترجمة التحديد"
+    },
+    "contentTranslateButtonLabel": {
+        "message": "ترجمة"
+    },
+    "contentTranslateFromLabel": {
+        "message": "ترجمة من $1"
+    },
+    "contentTranslationErrorPrefix": {
+        "message": "خطأ في الترجمة: $1"
+    },
+    "contentTranslationErrorUnknown": {
+        "message": "خطأ في الترجمة: خطأ غير معروف"
+    },
+    "contentTranslationStoppedByUser": {
+        "message": "توقفت الترجمة من قبل المستخدم."
+    },
+    "contentPreparing": {
+        "message": "جارٍ التحضير..."
+    },
+    "contentNoTranslatableContentFound": {
+        "message": "لم يتم العثور على محتوى قابل للترجمة"
+    },
+    "contentTranslatingChunksCount": {
+        "message": "ترجمة $1 القطع..."
+    },
+    "contentProgressBatchPrefix": {
+        "message": "دفعة $1/$2"
+    },
+    "contentProgressPartSuffix": {
+        "message": "الجزء $1/$2"
+    },
+    "contentProgressTranslatedChunks": {
+        "message": "تمت ترجمة مقاطع $1/$2"
+    },
+    "contentProgressErrorSuffix": {
+        "message": "($1 أخطاء)"
+    },
+    "contentSummaryDoneWithErrors": {
+        "message": "تم. ترجمة $1 منطقة، $2 أخطاء"
+    },
+    "contentSummaryDone": {
+        "message": "تم. ترجمة $1 منطقة"
+    },
+    "contentErrorPrefix": {
+        "message": "الخطأ: $1"
+    },
+    "contentStopButton": {
+        "message": "إيقاف"
+    },
+    "contentTranslationErrorMarker": {
+        "message": "[خطأ في الترجمة]"
+    },
+    "contentTranslationFailed": {
+        "message": "فشلت الترجمة"
+    },
+    "contentNoTranslationReceived": {
+        "message": "لم يتم تلقي أي ترجمة"
+    },
+    "contentTranslatingElementsCount": {
+        "message": "ترجمة العناصر $1..."
+    },
+    "contentTranslatingElementsProgress": {
+        "message": "ترجمة العناصر... $1/$2 ($3%)$4"
+    },
+    "contentLoading": {
+        "message": "جارٍ التحميل..."
+    },
+    "contentDebugDetails": {
+        "message": "تفاصيل التصحيح"
+    },
+    "optionsPageTitle": {
+        "message": "إعدادات AI Translator"
+    },
+    "optionsHeading": {
+        "message": "إعدادات AI Translator"
+    },
+    "optionsNeedHelp": {
+        "message": "هل تحتاج مساعدة؟"
+    },
+    "optionsUiLanguageLabel": {
+        "message": "لغة واجهة المستخدم:"
+    },
+    "optionsUiLanguageHelp": {
+        "message": "الافتراضي يتبع لغة المتصفح الخاص بك."
+    },
+    "optionsUiLanguageDefaultOption": {
+        "message": "الافتراضي (لغة المتصفح)"
+    },
+    "optionsDocumentation": {
+        "message": "التوثيق →"
+    },
+    "optionsThemeLegend": {
+        "message": "السمة:"
+    },
+    "optionsThemeLight": {
+        "message": "فاتح"
+    },
+    "optionsThemeDark": {
+        "message": "داكن"
+    },
+    "optionsThemeSystem": {
+        "message": "النظام"
+    },
+    "optionsThemeSystemHint": {
+        "message": "يتبع النظام مخطط الألوان في المتصفح أو نظام التشغيل."
+    },
+    "optionsAdvancedModeLabel": {
+        "message": "الوضع المتقدم"
+    },
+    "optionsAdvancedModeHelp": {
+        "message": "فعّله لتعديل نقاط النهاية والنماذج والتعليمات المخصصة."
+    },
+    "optionsProviderLabel": {
+        "message": "المزوّد:"
+    },
+    "optionsBasicProviderHelp": {
+        "message": "في الوضع الأساسي، يتم تكوين النماذج ونقاط النهاية تلقائيًا."
+    },
+    "optionsApiKeyLabel": {
+        "message": "مفتاح API:"
+    },
+    "optionsApiKeyPlaceholder": {
+        "message": "أدخل مفتاح API"
+    },
+    "optionsApiKeyHelp": {
+        "message": "يتم تخزين مفتاحك بشكل آمن في مساحة تخزين المتصفح المحلي."
+    },
+    "optionsTargetLanguageLabel": {
+        "message": "لغة الهدف:"
+    },
+    "optionsCustomTargetLanguageLabel": {
+        "message": "لغة هدف مخصصة:"
+    },
+    "optionsCustomTargetLanguagePlaceholder": {
+        "message": "مثال: Klingon أو Latin أو pt-BR"
+    },
+    "optionsBasicTargetLanguageHelpHtml": {
+        "message": "يتم عرض أسماء اللغات بتلك اللغة. اختر <strong>مخصص...</strong> لكتابة ما تريد."
+    },
+    "optionsAdvancedProviderHelp": {
+        "message": "حدد التنسيق الذي تتوقعه نقطة النهاية الخاصة بك."
+    },
+    "optionsHowToGetKey": {
+        "message": "كيفية الحصول على المفتاح →"
+    },
+    "optionsModelNameLabel": {
+        "message": "اسم الموديل:"
+    },
+    "optionsModelNamePlaceholder": {
+        "message": "على سبيل المثال، gpt-4o"
+    },
+    "optionsRefreshModelsButton": {
+        "message": "تحديث النماذج"
+    },
+    "optionsFillDefaultButton": {
+        "message": "ملء الافتراضي"
+    },
+    "optionsModelFilterHelp": {
+        "message": "اكتب لتصفية النماذج. إذا لم يكن النموذج الخاص بك مدرجًا، فاستمر في الكتابة لاستخدام اسم نموذج مخصص."
+    },
+    "optionsOllamaNoteHtml": {
+        "message": "<strong>ملاحظة:</strong> قد يلزم بدء تشغيل Ollama بـ <code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code> للسماح بالطلبات من ملحقات Chrome."
+    },
+    "optionsApiEndpointLabel": {
+        "message": "رابط نقطة نهاية API:"
+    },
+    "optionsApiEndpointPlaceholder": {
+        "message": "على سبيل المثال، https://api.openai.com/v1/chat/completions"
+    },
+    "optionsAdvancedTargetLanguageHelpHtml": {
+        "message": "اللغة التي سيتم ترجمة النص إليها. اختر <strong>مخصص...</strong> لكتابة ما تريد."
+    },
+    "optionsExtraInstructionsLabel": {
+        "message": "تعليمات إضافية (اختياري):"
+    },
+    "optionsExtraInstructionsPlaceholder": {
+        "message": "على سبيل المثال، استخدم النبرة الرسمية، واحتفظ بالمصطلحات الفنية"
+    },
+    "optionsExtraInstructionsHelp": {
+        "message": "تعليمات إضافية لمترجم الذكاء الاصطناعي (النغمة والأسلوب وتفضيلات المصطلحات)."
+    },
+    "optionsShowTranslateButtonLabel": {
+        "message": "إظهار زر الترجمة عند التحديد"
+    },
+    "optionsShowTranslateButtonHelp": {
+        "message": "يظهر زر ترجمة صغيرًا عند تحديد نص في أي صفحة. يتطلب الوصول إلى الموقع على كافة الصفحات."
+    },
+    "optionsKeepPopupOpenLabel": {
+        "message": "إبقاء نافذة ترجمة التحديد مفتوحة"
+    },
+    "optionsKeepPopupOpenHelp": {
+        "message": "يضيف زر إغلاق X ويمنع إغلاق نافذة ترجمة التحديد عند النقر في أي مكان آخر بالصفحة."
+    },
+    "optionsDebugModeLabel": {
+        "message": "تفعيل وضع التصحيح"
+    },
+    "optionsDebugModeHelp": {
+        "message": "يضيف سجلات مفصلة إلى وحدات تحكم المتصفح/الامتداد ويعرض معلومات مفصلة عن الأخطاء في النوافذ المنبثقة للترجمة."
+    },
+    "optionsFooterCreditPrefix": {
+        "message": "أيقونة من تصميم Pixel Perfect من"
+    },
+    "optionsCustomOptionLabel": {
+        "message": "مخصص…"
+    },
+    "optionsStatusSettingsSaved": {
+        "message": "تم حفظ الإعدادات!"
+    },
+    "optionsStatusThemeUpdated": {
+        "message": "تم تحديث السمة!"
+    },
+    "optionsStatusLanguageUpdated": {
+        "message": "تم تحديث اللغة!"
+    },
+    "optionsStatusProviderSwitched": {
+        "message": "تم تبديل المزوّد."
+    },
+    "optionsStatusErrorLoadingSettings": {
+        "message": "خطأ في تحميل الإعدادات: $1"
+    },
+    "optionsStatusErrorSaving": {
+        "message": "خطأ في الحفظ: $1"
+    },
+    "optionsStatusInvalidEndpointFormat": {
+        "message": "تنسيق عنوان URL لنقطة نهاية واجهة برمجة التطبيقات غير صالح."
+    },
+    "optionsStatusErrorSavingProviderSelection": {
+        "message": "خطأ في حفظ اختيار الموفر: $1"
+    },
+    "optionsStatusErrorSavingLanguage": {
+        "message": "خطأ في حفظ إعداد اللغة: $1"
+    },
+    "optionsStatusNoDefaultEndpointForProvider": {
+        "message": "لا توجد نقطة نهاية افتراضية متاحة لـ $1."
+    },
+    "optionsStatusNoDefaultModelForProvider": {
+        "message": "لا يوجد نموذج افتراضي متاح لـ $1."
+    },
+    "optionsModelStatusShowingFirstN": {
+        "message": "عرض نماذج $1 الأولى. استمر في الكتابة لتضييق النتائج."
+    },
+    "optionsModelStatusUseCustomModelName": {
+        "message": "استخدم اسم النموذج المخصص: \"$1\""
+    },
+    "optionsModelStatusNoModelsAvailable": {
+        "message": "لا توجد نماذج متاحة. أدخل اسم نموذج مخصص."
+    },
+    "optionsModelErrorAddApiKey": {
+        "message": "أضف مفتاح API لجلب النماذج الحية."
+    },
+    "optionsModelErrorInvalidEndpointUrl": {
+        "message": "عنوان URL لنقطة النهاية غير صالح."
+    },
+    "optionsModelErrorLiveDiscoveryUnavailable": {
+        "message": "اكتشاف النموذج المباشر غير متاح لهذا المزود."
+    },
+    "optionsModelErrorProviderReturnedNoModels": {
+        "message": "لم يُرجع الموفر أي نماذج."
+    },
+    "optionsModelErrorNotConfiguredForProvider": {
+        "message": "لم يتم تكوين جلب النموذج لـ $1."
+    },
+    "optionsModelStatusLoadingModels": {
+        "message": "جارٍ تحميل النماذج..."
+    },
+    "optionsModelStatusLoadedFromProvider": {
+        "message": "تم تحميل $1 نموذج(نماذج) من $2."
+    },
+    "optionsModelStatusFallbackWithSuggestions": {
+        "message": "$1 عرض الاقتراحات المضمنة."
+    },
+    "optionsModelStatusFallbackCustomOnly": {
+        "message": "$1 أدخل اسم نموذج مخصص."
+    },
+    "optionsModelStatusCredentialsChanged": {
+        "message": "تم تغيير بيانات الاعتماد. انقر فوق تحديث النماذج لتحميل النماذج المباشرة."
+    },
+    "optionsModelStatusEndpointChanged": {
+        "message": "تم تغيير نقطة النهاية. انقر فوق تحديث النماذج لتحميل النماذج من نقطة النهاية هذه."
+    },
+    "optionsModelStatusEndpointResetDefault": {
+        "message": "إعادة تعيين نقطة النهاية إلى الوضع الافتراضي. انقر فوق تحديث النماذج لتحميل النماذج المباشرة."
+    }
+}

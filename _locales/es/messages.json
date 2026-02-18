@@ -1,0 +1,317 @@
+{
+    "extensionName": {
+        "message": "AI Translator"
+    },
+    "extensionDescription": {
+        "message": "Traduce texto y páginas con modelos de IA personalizables."
+    },
+    "actionDefaultTitle": {
+        "message": "Configuración de AI Translator"
+    },
+    "contextMenuTranslateSelectedText": {
+        "message": "Traducir texto seleccionado"
+    },
+    "contextMenuTranslateEntirePage": {
+        "message": "Traducir toda la página"
+    },
+    "errorCouldNotExtractSelectedContent": {
+        "message": "No se pudo extraer el contenido seleccionado"
+    },
+    "errorCouldNotExtractSelectedHtml": {
+        "message": "No se pudo extraer el HTML seleccionado"
+    },
+    "errorApiKeyOrEndpointNotSet": {
+        "message": "Error de traducción: falta la clave API o el endpoint. Configúralo en la configuración de la extensión."
+    },
+    "contentTranslating": {
+        "message": "Traduciendo..."
+    },
+    "contentTranslatingPage": {
+        "message": "Traduciendo página..."
+    },
+    "contentTranslateSelectionAriaLabel": {
+        "message": "Traducir selección"
+    },
+    "contentTranslateButtonLabel": {
+        "message": "Traducir"
+    },
+    "contentTranslateFromLabel": {
+        "message": "Traducir desde $1"
+    },
+    "contentTranslationErrorPrefix": {
+        "message": "Error de traducción: $1"
+    },
+    "contentTranslationErrorUnknown": {
+        "message": "Error de traducción: error desconocido"
+    },
+    "contentTranslationStoppedByUser": {
+        "message": "Traducción detenida por el usuario."
+    },
+    "contentPreparing": {
+        "message": "Preparando..."
+    },
+    "contentNoTranslatableContentFound": {
+        "message": "No se encontró contenido traducible"
+    },
+    "contentTranslatingChunksCount": {
+        "message": "Traduciendo $1 fragmentos..."
+    },
+    "contentProgressBatchPrefix": {
+        "message": "Lote $1/$2"
+    },
+    "contentProgressPartSuffix": {
+        "message": "parte $1/$2"
+    },
+    "contentProgressTranslatedChunks": {
+        "message": "Fragmentos $1/$2 traducidos"
+    },
+    "contentProgressErrorSuffix": {
+        "message": "($1 errores)"
+    },
+    "contentSummaryDoneWithErrors": {
+        "message": "Hecho. $1 regiones traducidas, $2 errores"
+    },
+    "contentSummaryDone": {
+        "message": "Hecho. $1 regiones traducidas"
+    },
+    "contentErrorPrefix": {
+        "message": "Error: $1"
+    },
+    "contentStopButton": {
+        "message": "Detener"
+    },
+    "contentTranslationErrorMarker": {
+        "message": "[error de traducción]"
+    },
+    "contentTranslationFailed": {
+        "message": "La traducción falló"
+    },
+    "contentNoTranslationReceived": {
+        "message": "No se recibió traducción"
+    },
+    "contentTranslatingElementsCount": {
+        "message": "Traduciendo elementos $1..."
+    },
+    "contentTranslatingElementsProgress": {
+        "message": "Traduciendo elementos... $1/$2 ($3%)$4"
+    },
+    "contentLoading": {
+        "message": "Cargando..."
+    },
+    "contentDebugDetails": {
+        "message": "Detalles de depuración"
+    },
+    "optionsPageTitle": {
+        "message": "Configuración de AI Translator"
+    },
+    "optionsHeading": {
+        "message": "Configuración de AI Translator"
+    },
+    "optionsNeedHelp": {
+        "message": "¿Necesitas ayuda?"
+    },
+    "optionsUiLanguageLabel": {
+        "message": "Idioma de la interfaz de usuario:"
+    },
+    "optionsUiLanguageHelp": {
+        "message": "El valor predeterminado sigue el idioma de tu navegador."
+    },
+    "optionsUiLanguageDefaultOption": {
+        "message": "Predeterminado (idioma del navegador)"
+    },
+    "optionsDocumentation": {
+        "message": "Documentación →"
+    },
+    "optionsThemeLegend": {
+        "message": "Tema:"
+    },
+    "optionsThemeLight": {
+        "message": "Claro"
+    },
+    "optionsThemeDark": {
+        "message": "Oscuro"
+    },
+    "optionsThemeSystem": {
+        "message": "Sistema"
+    },
+    "optionsThemeSystemHint": {
+        "message": "Sistema sigue el esquema de color de tu navegador o sistema operativo."
+    },
+    "optionsAdvancedModeLabel": {
+        "message": "Modo avanzado"
+    },
+    "optionsAdvancedModeHelp": {
+        "message": "Actívalo para editar endpoints, modelos y prompts personalizados."
+    },
+    "optionsProviderLabel": {
+        "message": "Proveedor:"
+    },
+    "optionsBasicProviderHelp": {
+        "message": "En el modo Básico, los modelos y puntos finales se configuran automáticamente."
+    },
+    "optionsApiKeyLabel": {
+        "message": "Clave API:"
+    },
+    "optionsApiKeyPlaceholder": {
+        "message": "Introduce tu clave API"
+    },
+    "optionsApiKeyHelp": {
+        "message": "Tu clave se almacena de forma segura en el almacenamiento del navegador local."
+    },
+    "optionsTargetLanguageLabel": {
+        "message": "Idioma de destino:"
+    },
+    "optionsCustomTargetLanguageLabel": {
+        "message": "Idioma de destino personalizado:"
+    },
+    "optionsCustomTargetLanguagePlaceholder": {
+        "message": "p. ej., Klingon, Latín o pt-BR"
+    },
+    "optionsBasicTargetLanguageHelpHtml": {
+        "message": "Los nombres de los idiomas se muestran en ese idioma. Elija <strong>Personalizado…</strong> para escribir el suyo propio."
+    },
+    "optionsAdvancedProviderHelp": {
+        "message": "Seleccione el formato que espera su punto final."
+    },
+    "optionsHowToGetKey": {
+        "message": "Cómo conseguir una clave →"
+    },
+    "optionsModelNameLabel": {
+        "message": "Nombre del modelo:"
+    },
+    "optionsModelNamePlaceholder": {
+        "message": "por ejemplo, gpt-4o"
+    },
+    "optionsRefreshModelsButton": {
+        "message": "Actualizar modelos"
+    },
+    "optionsFillDefaultButton": {
+        "message": "Rellenar predeterminado"
+    },
+    "optionsModelFilterHelp": {
+        "message": "Escriba para filtrar modelos. Si su modelo no aparece en la lista, siga escribiendo para usar un nombre de modelo personalizado."
+    },
+    "optionsOllamaNoteHtml": {
+        "message": "<strong>Nota:</strong> Es posible que Ollama deba iniciarse con <code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code> para permitir solicitudes de extensiones de Chrome."
+    },
+    "optionsApiEndpointLabel": {
+        "message": "URL del endpoint API:"
+    },
+    "optionsApiEndpointPlaceholder": {
+        "message": "por ejemplo, https://api.openai.com/v1/chat/completions"
+    },
+    "optionsAdvancedTargetLanguageHelpHtml": {
+        "message": "El idioma al que traducir el texto. Elija <strong>Personalizado…</strong> para escribir el suyo propio."
+    },
+    "optionsExtraInstructionsLabel": {
+        "message": "Instrucciones extra (opcional):"
+    },
+    "optionsExtraInstructionsPlaceholder": {
+        "message": "por ejemplo, utilizar un tono formal, conservar términos técnicos"
+    },
+    "optionsExtraInstructionsHelp": {
+        "message": "Instrucciones adicionales para el traductor AI (tono, estilo, preferencias terminológicas)."
+    },
+    "optionsShowTranslateButtonLabel": {
+        "message": "Mostrar botón Traducir al seleccionar"
+    },
+    "optionsShowTranslateButtonHelp": {
+        "message": "Muestra un pequeño botón Traducir cuando seleccionas texto en cualquier página. Requiere acceso al sitio en todas las páginas."
+    },
+    "optionsKeepPopupOpenLabel": {
+        "message": "Mantener abierta la ventana de traducción de selección"
+    },
+    "optionsKeepPopupOpenHelp": {
+        "message": "Agrega un botón de cierre X y evita que la ventana de traducción de selección se cierre al hacer clic en otra parte de la página."
+    },
+    "optionsDebugModeLabel": {
+        "message": "Activar modo depuración"
+    },
+    "optionsDebugModeHelp": {
+        "message": "Agrega registros detallados a las consolas del navegador/extensión y muestra información detallada de errores en ventanas emergentes de traducción."
+    },
+    "optionsFooterCreditPrefix": {
+        "message": "Icono creado por Pixel Perfect de"
+    },
+    "optionsCustomOptionLabel": {
+        "message": "Personalizado…"
+    },
+    "optionsStatusSettingsSaved": {
+        "message": "¡Configuración guardada!"
+    },
+    "optionsStatusThemeUpdated": {
+        "message": "¡Tema actualizado!"
+    },
+    "optionsStatusLanguageUpdated": {
+        "message": "¡Idioma actualizado!"
+    },
+    "optionsStatusProviderSwitched": {
+        "message": "Proveedor cambiado."
+    },
+    "optionsStatusErrorLoadingSettings": {
+        "message": "Error al cargar la configuración: $1"
+    },
+    "optionsStatusErrorSaving": {
+        "message": "Error al guardar: $1"
+    },
+    "optionsStatusInvalidEndpointFormat": {
+        "message": "Formato de URL del endpoint de API no válido."
+    },
+    "optionsStatusErrorSavingProviderSelection": {
+        "message": "Error al guardar la selección del proveedor: $1"
+    },
+    "optionsStatusErrorSavingLanguage": {
+        "message": "Error al guardar la configuración de idioma: $1"
+    },
+    "optionsStatusNoDefaultEndpointForProvider": {
+        "message": "No hay ningún punto final predeterminado disponible para $1."
+    },
+    "optionsStatusNoDefaultModelForProvider": {
+        "message": "No hay ningún modelo predeterminado disponible para $1."
+    },
+    "optionsModelStatusShowingFirstN": {
+        "message": "Mostrando los primeros modelos $1. Siga escribiendo para limitar los resultados."
+    },
+    "optionsModelStatusUseCustomModelName": {
+        "message": "Utilice un nombre de modelo personalizado: \"$1\""
+    },
+    "optionsModelStatusNoModelsAvailable": {
+        "message": "No hay modelos disponibles. Introduzca un nombre de modelo personalizado."
+    },
+    "optionsModelErrorAddApiKey": {
+        "message": "Agregue una clave API para recuperar modelos en vivo."
+    },
+    "optionsModelErrorInvalidEndpointUrl": {
+        "message": "URL de punto final no válida."
+    },
+    "optionsModelErrorLiveDiscoveryUnavailable": {
+        "message": "El descubrimiento de modelos en vivo no está disponible para este proveedor."
+    },
+    "optionsModelErrorProviderReturnedNoModels": {
+        "message": "El proveedor no devolvió ningún modelo."
+    },
+    "optionsModelErrorNotConfiguredForProvider": {
+        "message": "La recuperación del modelo no está configurada para $1."
+    },
+    "optionsModelStatusLoadingModels": {
+        "message": "Cargando modelos..."
+    },
+    "optionsModelStatusLoadedFromProvider": {
+        "message": "Modelo(s) $1 cargado(s) de $2."
+    },
+    "optionsModelStatusFallbackWithSuggestions": {
+        "message": "$1 Mostrando sugerencias integradas."
+    },
+    "optionsModelStatusFallbackCustomOnly": {
+        "message": "$1 Introduzca un nombre de modelo personalizado."
+    },
+    "optionsModelStatusCredentialsChanged": {
+        "message": "Las credenciales cambiaron. Haga clic en Actualizar modelos para cargar modelos en vivo."
+    },
+    "optionsModelStatusEndpointChanged": {
+        "message": "El punto final cambió. Haga clic en Actualizar modelos para cargar modelos desde este punto final."
+    },
+    "optionsModelStatusEndpointResetDefault": {
+        "message": "Restablecimiento del punto final a los valores predeterminados. Haga clic en Actualizar modelos para cargar modelos en vivo."
+    }
+}

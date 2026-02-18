@@ -33,6 +33,17 @@ import {
     getBasicTargetLanguageLabel,
     buildBasicTranslationInstructions,
 } from "../shared/constants/languages";
+import {
+    getI18nMessageOrFallback,
+    getActiveUILocale,
+    getActiveUILanguagePreference,
+    initializeI18n,
+    initializeI18nFromStorage,
+    normalizeUILanguagePreference,
+    UI_LANGUAGE_DEFAULT,
+    UI_LANGUAGE_OPTIONS,
+    type UILanguagePreference,
+} from "../shared/i18n";
 
 const apiKeyInput = document.getElementById("api-key") as HTMLInputElement;
 const apiEndpointInput = document.getElementById("api-endpoint") as HTMLInputElement;
@@ -75,6 +86,7 @@ const extraInstructionsInput = document.getElementById(
 const advancedModeToggle = document.getElementById(
     "advanced-mode-toggle",
 ) as HTMLInputElement;
+const uiLanguageSelect = document.getElementById("ui-language") as HTMLSelectElement;
 const uiThemeInputs = Array.from(
     document.querySelectorAll<HTMLInputElement>('input[name="ui-theme"]'),
 );
@@ -109,8 +121,11 @@ const modelNameContainer = document.getElementById("model-name-container") as HT
 const providerKeyDocsLink = document.getElementById(
     "provider-key-docs-link",
 ) as HTMLAnchorElement | null;
+const helpDocsLink = document.getElementById(
+    "help-docs-link",
+) as HTMLAnchorElement | null;
 
-const PROVIDERS_DOCS_BASE_URL = "https://adinschmidt.com/AI-translator/providers";
+const DOCS_BASE_URL = "https://adinschmidt.com/AI-translator";
 const CUSTOM_TARGET_LANGUAGE_OPTION_VALUE = "__custom__";
 const PROVIDER_DOC_ANCHORS: Record<Provider, string> = {
     openai: "openai",
@@ -177,6 +192,7 @@ let advancedTargetLanguage = ADVANCED_TARGET_LANGUAGE_DEFAULT;
 let extraInstructions = "";
 let debugModeEnabled = DEBUG_MODE_DEFAULT;
 let uiTheme: UITheme = UI_THEME_DEFAULT;
+let uiLanguagePreference: UILanguagePreference = UI_LANGUAGE_DEFAULT;
 let systemThemeMediaQuery: MediaQueryList | null = null;
 let providerModelOptionsState: Partial<Record<Provider, ProviderModelOptionsState>> = {};
 let activeModelFetchRequestId = 0;
@@ -184,6 +200,164 @@ let isModelDropdownOpen = false;
 let activeModelOptionIndex = -1;
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function t(key: string, fallback: string, substitutions?: string | string[]): string {
+    return getI18nMessageOrFallback(key, fallback, substitutions);
+}
+
+function resolveDocsLocale(): string {
+    return getActiveUILocale() || "en";
+}
+
+function getDocsUrl(path: string): string {
+    const locale = resolveDocsLocale();
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+    const localizedPath =
+        locale === "en" ? normalizedPath : `/${locale}${normalizedPath}`;
+    return `${DOCS_BASE_URL}${localizedPath}`;
+}
+
+function populateUILanguageDropdown(): void {
+    if (!uiLanguageSelect) {
+        return;
+    }
+
+    uiLanguageSelect.textContent = "";
+
+    const defaultOption = document.createElement("option");
+    defaultOption.value = UI_LANGUAGE_DEFAULT;
+    defaultOption.textContent = t(
+        "optionsUiLanguageDefaultOption",
+        "Default (Browser language)",
+    );
+    uiLanguageSelect.appendChild(defaultOption);
+
+    for (const option of UI_LANGUAGE_OPTIONS) {
+        const languageOption = document.createElement("option");
+        languageOption.value = option.value;
+        languageOption.textContent = option.label;
+        uiLanguageSelect.appendChild(languageOption);
+    }
+}
+
+function setUILanguageSelectValue(value: UILanguagePreference): void {
+    if (!uiLanguageSelect) {
+        return;
+    }
+
+    uiLanguageSelect.value = normalizeUILanguagePreference(value);
+}
+
+async function applyUILanguagePreference(
+    preference: UILanguagePreference,
+): Promise<void> {
+    uiLanguagePreference = normalizeUILanguagePreference(preference);
+    await initializeI18n(uiLanguagePreference);
+
+    localizeOptionsPage();
+    populateUILanguageDropdown();
+    setUILanguageSelectValue(uiLanguagePreference);
+    refreshTargetLanguageDropdownLabels();
+}
+
+function refreshTargetLanguageDropdownLabels(): void {
+    const currentBasicValue = resolveTargetLanguageFromControls(
+        basicTargetLanguageSelect,
+        basicTargetLanguageCustomInput,
+        BASIC_TARGET_LANGUAGE_DEFAULT,
+    );
+    const currentAdvancedValue = resolveTargetLanguageFromControls(
+        advancedTargetLanguageSelect,
+        advancedTargetLanguageCustomInput,
+        ADVANCED_TARGET_LANGUAGE_DEFAULT,
+    );
+
+    populateBasicLanguageDropdown();
+    populateAdvancedLanguageDropdown();
+
+    basicTargetLanguage = applyTargetLanguageToControls(
+        currentBasicValue,
+        basicTargetLanguageSelect,
+        basicTargetLanguageCustomInput,
+        basicTargetLanguageCustomContainer,
+        BASIC_TARGET_LANGUAGE_DEFAULT,
+    );
+
+    advancedTargetLanguage = applyTargetLanguageToControls(
+        currentAdvancedValue,
+        advancedTargetLanguageSelect,
+        advancedTargetLanguageCustomInput,
+        advancedTargetLanguageCustomContainer,
+        ADVANCED_TARGET_LANGUAGE_DEFAULT,
+    );
+}
+
+function localizeOptionsPage(): void {
+    document.documentElement.lang = getActiveUILocale();
+
+    const textElements = document.querySelectorAll<HTMLElement>("[data-i18n]");
+    for (const element of textElements) {
+        const key = element.dataset.i18n;
+        if (!key) {
+            continue;
+        }
+
+        const fallback = element.textContent || "";
+        element.textContent = t(key, fallback);
+    }
+
+    const htmlElements = document.querySelectorAll<HTMLElement>("[data-i18n-html]");
+    for (const element of htmlElements) {
+        const key = element.dataset.i18nHtml;
+        if (!key) {
+            continue;
+        }
+
+        const fallback = element.innerHTML;
+        element.innerHTML = t(key, fallback);
+    }
+
+    const placeholderElements = document.querySelectorAll<HTMLElement>(
+        "[data-i18n-placeholder]",
+    );
+    for (const element of placeholderElements) {
+        const key = element.dataset.i18nPlaceholder;
+        if (!key) {
+            continue;
+        }
+
+        const inputElement = element as HTMLInputElement | HTMLTextAreaElement;
+        const fallback = inputElement.getAttribute("placeholder") || "";
+        inputElement.setAttribute("placeholder", t(key, fallback));
+    }
+
+    const ariaElements = document.querySelectorAll<HTMLElement>("[data-i18n-aria-label]");
+    for (const element of ariaElements) {
+        const key = element.dataset.i18nAriaLabel;
+        if (!key) {
+            continue;
+        }
+
+        const fallback = element.getAttribute("aria-label") || "";
+        element.setAttribute("aria-label", t(key, fallback));
+    }
+
+    const titleElement = document.querySelector("title");
+    if (titleElement && titleElement.dataset.i18n) {
+        const fallback = titleElement.textContent || "";
+        titleElement.textContent = t(titleElement.dataset.i18n, fallback);
+    }
+}
+
+function updateDocsLinks(): void {
+    if (helpDocsLink) {
+        helpDocsLink.href = getDocsUrl("/getting-started");
+    }
+
+    if (apiTypeSelect) {
+        updateProviderDocsLink(apiTypeSelect.value || "openai");
+    }
+}
 
 function normalizeUITheme(value: unknown): UITheme {
     return value === UI_THEME_LIGHT ||
@@ -271,7 +445,7 @@ function populateTargetLanguageDropdown(selectEl: HTMLSelectElement): void {
 
     const customOption = document.createElement("option");
     customOption.value = CUSTOM_TARGET_LANGUAGE_OPTION_VALUE;
-    customOption.textContent = "Custom…";
+    customOption.textContent = t("optionsCustomOptionLabel", "Custom…");
     selectEl.appendChild(customOption);
 }
 
@@ -821,8 +995,11 @@ function renderModelOptions(provider: Provider, query: string): void {
         }
 
         if (filteredOptions.length > 100) {
-            modelOptionsEmpty.textContent =
-                "Showing the first 100 models. Keep typing to narrow results.";
+            modelOptionsEmpty.textContent = t(
+                "optionsModelStatusShowingFirstN",
+                "Showing the first $1 models. Keep typing to narrow results.",
+                "100",
+            );
             modelOptionsEmpty.classList.remove("hidden");
         }
     }
@@ -833,7 +1010,11 @@ function renderModelOptions(provider: Provider, query: string): void {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "model-option-button is-custom";
-        button.textContent = `Use custom model name: "${trimmedQuery}"`;
+        button.textContent = t(
+            "optionsModelStatusUseCustomModelName",
+            'Use custom model name: "$1"',
+            trimmedQuery,
+        );
         button.setAttribute("role", "option");
         button.setAttribute("aria-selected", "false");
         button.addEventListener("click", () => {
@@ -846,7 +1027,10 @@ function renderModelOptions(provider: Provider, query: string): void {
     }
 
     if (!modelOptionsList.hasChildNodes()) {
-        modelOptionsEmpty.textContent = "No models available. Enter a custom model name.";
+        modelOptionsEmpty.textContent = t(
+            "optionsModelStatusNoModelsAvailable",
+            "No models available. Enter a custom model name.",
+        );
         modelOptionsEmpty.classList.remove("hidden");
     }
 
@@ -887,13 +1071,17 @@ async function fetchProviderModels(
     }
 
     if (!apiKey) {
-        throw new Error("Add an API key to fetch live models.");
+        throw new Error(
+            t("optionsModelErrorAddApiKey", "Add an API key to fetch live models."),
+        );
     }
 
     if (provider === "anthropic") {
         const modelsUrl = buildAnthropicModelsUrl(apiEndpoint);
         if (!modelsUrl) {
-            throw new Error("Invalid endpoint URL.");
+            throw new Error(
+                t("optionsModelErrorInvalidEndpointUrl", "Invalid endpoint URL."),
+            );
         }
         const data = await fetchJsonOrThrow(modelsUrl, {
             headers: {
@@ -907,7 +1095,9 @@ async function fetchProviderModels(
     if (provider === "google") {
         const modelsUrl = buildGoogleModelsUrl(apiEndpoint);
         if (!modelsUrl) {
-            throw new Error("Invalid endpoint URL.");
+            throw new Error(
+                t("optionsModelErrorInvalidEndpointUrl", "Invalid endpoint URL."),
+            );
         }
         const url = new URL(modelsUrl);
         url.searchParams.set("key", apiKey);
@@ -918,7 +1108,9 @@ async function fetchProviderModels(
     if (OPENAI_COMPATIBLE_MODEL_ENDPOINT_PROVIDERS.has(provider)) {
         const modelsUrl = buildOpenAICompatibleModelsUrl(apiEndpoint, provider);
         if (!modelsUrl) {
-            throw new Error("Invalid endpoint URL.");
+            throw new Error(
+                t("optionsModelErrorInvalidEndpointUrl", "Invalid endpoint URL."),
+            );
         }
         const data = await fetchJsonOrThrow(modelsUrl, {
             headers: {
@@ -928,7 +1120,13 @@ async function fetchProviderModels(
         return parseOpenAICompatibleModels(data);
     }
 
-    throw new Error(`Model fetching is not configured for ${provider}.`);
+    throw new Error(
+        t(
+            "optionsModelErrorNotConfiguredForProvider",
+            "Model fetching is not configured for $1.",
+            provider,
+        ),
+    );
 }
 
 async function refreshModelOptionsForProvider(
@@ -949,7 +1147,7 @@ async function refreshModelOptionsForProvider(
 
     const requestId = ++activeModelFetchRequestId;
     if (apiTypeSelect.value === provider) {
-        setModelListStatus("Loading models...");
+        setModelListStatus(t("optionsModelStatusLoadingModels", "Loading models..."));
         if (refreshModelsButton) {
             refreshModelsButton.disabled = true;
         }
@@ -961,7 +1159,12 @@ async function refreshModelOptionsForProvider(
     let nextState: ProviderModelOptionsState;
     try {
         if (!MODEL_FETCHABLE_PROVIDERS.has(provider)) {
-            throw new Error("Live model discovery is not available for this provider.");
+            throw new Error(
+                t(
+                    "optionsModelErrorLiveDiscoveryUnavailable",
+                    "Live model discovery is not available for this provider.",
+                ),
+            );
         }
 
         const dynamicModels = normalizeModelList(
@@ -971,13 +1174,22 @@ async function refreshModelOptionsForProvider(
         );
 
         if (dynamicModels.length === 0) {
-            throw new Error("Provider returned no models.");
+            throw new Error(
+                t(
+                    "optionsModelErrorProviderReturnedNoModels",
+                    "Provider returned no models.",
+                ),
+            );
         }
 
         nextState = {
             models: normalizeModelList([...dynamicModels, settings.modelName]),
             source: "dynamic",
-            statusText: `Loaded ${dynamicModels.length} model(s) from ${getProviderDisplayName(provider)}.`,
+            statusText: t(
+                "optionsModelStatusLoadedFromProvider",
+                "Loaded $1 model(s) from $2.",
+                [String(dynamicModels.length), getProviderDisplayName(provider)],
+            ),
         };
     } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
@@ -985,8 +1197,16 @@ async function refreshModelOptionsForProvider(
             models: fallbackModels,
             source: "fallback",
             statusText: fallbackModels.length
-                ? `${reason} Showing built-in suggestions.`
-                : `${reason} Enter a custom model name.`,
+                ? t(
+                      "optionsModelStatusFallbackWithSuggestions",
+                      "$1 Showing built-in suggestions.",
+                      reason,
+                  )
+                : t(
+                      "optionsModelStatusFallbackCustomOnly",
+                      "$1 Enter a custom model name.",
+                      reason,
+                  ),
         };
         console.warn(
             `options.ts: Falling back to built-in models for provider ${provider}:`,
@@ -1019,7 +1239,7 @@ function updateProviderDocsLink(provider: string): void {
     }
 
     const anchor = PROVIDER_DOC_ANCHORS[provider as Provider] || "general-setup";
-    providerKeyDocsLink.href = `${PROVIDERS_DOCS_BASE_URL}#${anchor}`;
+    providerKeyDocsLink.href = `${getDocsUrl("/providers")}#${anchor}`;
 }
 
 function updateProviderUI(provider: string): void {
@@ -1091,6 +1311,7 @@ async function loadSettings(): Promise<void> {
             STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN,
             STORAGE_KEYS.DEBUG_MODE,
             STORAGE_KEYS.UI_THEME,
+            STORAGE_KEYS.UI_LANGUAGE,
         ]);
 
         console.log("options.ts: Raw settings loaded from storage:", result);
@@ -1138,13 +1359,23 @@ async function loadSettings(): Promise<void> {
             typeof result.debugMode === "boolean" ? result.debugMode : DEBUG_MODE_DEFAULT;
         const needsPersistUIThemeSetting =
             normalizeUITheme(result.uiTheme) !== result.uiTheme;
+        const normalizedUILanguage = normalizeUILanguagePreference(result.uiLanguage);
+        const needsPersistUILanguageSetting = normalizedUILanguage !== result.uiLanguage;
+        uiLanguagePreference = normalizedUILanguage;
+        if (uiLanguagePreference !== getActiveUILanguagePreference()) {
+            await applyUILanguagePreference(uiLanguagePreference);
+            updateDocsLinks();
+        } else {
+            setUILanguageSelectValue(uiLanguagePreference);
+        }
 
         if (
             shouldPersistModeMigration ||
             needsPersistShowButtonSetting ||
             needsPersistKeepPopupSetting ||
             needsPersistDebugModeSetting ||
-            needsPersistUIThemeSetting
+            needsPersistUIThemeSetting ||
+            needsPersistUILanguageSetting
         ) {
             setStorage({
                 [STORAGE_KEYS.SETTINGS_MODE]: settingsMode,
@@ -1155,6 +1386,7 @@ async function loadSettings(): Promise<void> {
                 [STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN]: keepPopupSetting,
                 [STORAGE_KEYS.DEBUG_MODE]: debugModeEnabled,
                 [STORAGE_KEYS.UI_THEME]: uiTheme,
+                [STORAGE_KEYS.UI_LANGUAGE]: uiLanguagePreference,
             }).catch((error) => {
                 console.error("options.ts: Error persisting mode migration:", error);
             });
@@ -1305,7 +1537,11 @@ async function loadSettings(): Promise<void> {
     } catch (error) {
         console.error("options.ts: Error loading settings:", error);
         displayStatus(
-            `Error loading settings: ${error instanceof Error ? error.message : String(error)}`,
+            t(
+                "optionsStatusErrorLoadingSettings",
+                "Error loading settings: $1",
+                error instanceof Error ? error.message : String(error),
+            ),
             true,
         );
     }
@@ -1408,11 +1644,15 @@ async function saveSetting(): Promise<void> {
                 [STORAGE_KEYS.DEBUG_MODE]: debugModeInput?.checked ?? debugModeEnabled,
                 [STORAGE_KEYS.UI_THEME]: uiTheme,
             });
-            displayStatus("Settings saved!", false);
+            displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
         } catch (error) {
             console.error("options.ts: Error saving basic settings:", error);
             displayStatus(
-                `Error saving: ${error instanceof Error ? error.message : String(error)}`,
+                t(
+                    "optionsStatusErrorSaving",
+                    "Error saving: $1",
+                    error instanceof Error ? error.message : String(error),
+                ),
                 true,
             );
         }
@@ -1449,7 +1689,13 @@ async function saveSetting(): Promise<void> {
             new URL(apiEndpoint);
         } catch (_) {
             console.warn("options.ts: Invalid API Endpoint URL format.");
-            displayStatus("Invalid API Endpoint URL format.", true);
+            displayStatus(
+                t(
+                    "optionsStatusInvalidEndpointFormat",
+                    "Invalid API Endpoint URL format.",
+                ),
+                true,
+            );
             return;
         }
     }
@@ -1479,11 +1725,15 @@ async function saveSetting(): Promise<void> {
             [STORAGE_KEYS.UI_THEME]: uiTheme,
         });
         console.log("options.ts: Provider settings saved successfully.");
-        displayStatus("Settings saved!", false);
+        displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
     } catch (error) {
         console.error("options.ts: Error saving settings:", error);
         displayStatus(
-            `Error saving: ${error instanceof Error ? error.message : String(error)}`,
+            t(
+                "optionsStatusErrorSaving",
+                "Error saving: $1",
+                error instanceof Error ? error.message : String(error),
+            ),
             true,
         );
     }
@@ -1503,9 +1753,17 @@ function displayStatus(message: string, isError = false): void {
     }, 3000);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     console.log("options.ts: DOMContentLoaded event fired.");
 
+    await initializeI18nFromStorage();
+    uiLanguagePreference = getActiveUILanguagePreference();
+    populateUILanguageDropdown();
+    setUILanguageSelectValue(uiLanguagePreference);
+    localizeOptionsPage();
+    populateUILanguageDropdown();
+    setUILanguageSelectValue(uiLanguagePreference);
+    updateDocsLinks();
     ensureSystemThemeWatcher();
     applyTheme(uiTheme);
     updateThemeSelectionUI(uiTheme);
@@ -1660,7 +1918,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }).catch((error) => {
                 console.error("options.ts: Error saving show button setting:", error);
             });
-            displayStatus("Settings saved!", false);
+            displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
         });
     }
 
@@ -1675,7 +1933,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     error,
                 );
             });
-            displayStatus("Settings saved!", false);
+            displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
         });
     }
 
@@ -1687,7 +1945,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }).catch((error) => {
                 console.error("options.ts: Error saving debug mode setting:", error);
             });
-            displayStatus("Settings saved!", false);
+            displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
         });
     }
 
@@ -1708,9 +1966,39 @@ document.addEventListener("DOMContentLoaded", () => {
                     console.error("options.ts: Error saving theme setting:", error);
                 });
 
-                displayStatus("Theme updated!", false);
+                displayStatus(t("optionsStatusThemeUpdated", "Theme updated!"), false);
             });
         }
+    }
+
+    if (uiLanguageSelect) {
+        uiLanguageSelect.addEventListener("change", async () => {
+            const selected = normalizeUILanguagePreference(uiLanguageSelect.value);
+
+            try {
+                await setStorage({
+                    [STORAGE_KEYS.UI_LANGUAGE]: selected,
+                });
+
+                await applyUILanguagePreference(selected);
+                updateDocsLinks();
+
+                displayStatus(
+                    t("optionsStatusLanguageUpdated", "Language updated!"),
+                    false,
+                );
+            } catch (error) {
+                console.error("options.ts: Error saving UI language setting:", error);
+                displayStatus(
+                    t(
+                        "optionsStatusErrorSavingLanguage",
+                        "Error saving language setting: $1",
+                        error instanceof Error ? error.message : String(error),
+                    ),
+                    true,
+                );
+            }
+        });
     }
 
     if (apiKeyInput) {
@@ -1721,7 +2009,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 invalidateModelOptionsForProvider(provider);
                 renderModelOptions(provider, modelNameInput.value);
                 setModelListStatus(
-                    "Credentials changed. Click Refresh Models to load live models.",
+                    t(
+                        "optionsModelStatusCredentialsChanged",
+                        "Credentials changed. Click Refresh Models to load live models.",
+                    ),
                 );
             }
         });
@@ -1743,7 +2034,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 invalidateModelOptionsForProvider(provider);
                 renderModelOptions(provider, modelNameInput.value);
                 setModelListStatus(
-                    "Endpoint changed. Click Refresh Models to load models from this endpoint.",
+                    t(
+                        "optionsModelStatusEndpointChanged",
+                        "Endpoint changed. Click Refresh Models to load models from this endpoint.",
+                    ),
                 );
             }
         });
@@ -1779,12 +2073,19 @@ document.addEventListener("DOMContentLoaded", () => {
             })
                 .then(() => {
                     console.log("options.ts: Provider selection saved.");
-                    displayStatus("Provider switched.", false);
+                    displayStatus(
+                        t("optionsStatusProviderSwitched", "Provider switched."),
+                        false,
+                    );
                 })
                 .catch((error) => {
                     console.error("options.ts: Error saving apiType on change:", error);
                     displayStatus(
-                        `Error saving provider selection: ${error instanceof Error ? error.message : String(error)}`,
+                        t(
+                            "optionsStatusErrorSavingProviderSelection",
+                            "Error saving provider selection: $1",
+                            error instanceof Error ? error.message : String(error),
+                        ),
                         true,
                     );
                 });
@@ -1872,7 +2173,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 );
                 invalidateModelOptionsForProvider(selectedApiType as Provider);
                 setModelListStatus(
-                    "Endpoint reset to default. Click Refresh Models to load live models.",
+                    t(
+                        "optionsModelStatusEndpointResetDefault",
+                        "Endpoint reset to default. Click Refresh Models to load live models.",
+                    ),
                 );
                 autoSaveSetting();
             } else {
@@ -1880,7 +2184,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     `options.ts: No default endpoint found for provider: ${selectedApiType}`,
                 );
                 displayStatus(
-                    `No default endpoint available for ${selectedApiType}.`,
+                    t(
+                        "optionsStatusNoDefaultEndpointForProvider",
+                        "No default endpoint available for $1.",
+                        selectedApiType,
+                    ),
                     true,
                 );
             }
@@ -1909,7 +2217,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.warn(
                     `options.ts: No default model found for provider: ${selectedApiType}`,
                 );
-                displayStatus(`No default model available for ${selectedApiType}.`, true);
+                displayStatus(
+                    t(
+                        "optionsStatusNoDefaultModelForProvider",
+                        "No default model available for $1.",
+                        selectedApiType,
+                    ),
+                    true,
+                );
             }
         });
         console.log(

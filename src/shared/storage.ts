@@ -25,6 +25,7 @@ export const STORAGE_KEYS = {
     KEEP_SELECTION_POPUP_OPEN: "keepSelectionPopupOpen",
     DEBUG_MODE: "debugMode",
     UI_THEME: "uiTheme",
+    UI_LANGUAGE: "uiLanguage",
     API_KEY: "apiKey",
     API_ENDPOINT: "apiEndpoint",
     API_TYPE: "apiType",
@@ -48,6 +49,7 @@ export interface SyncStorage {
     keepSelectionPopupOpen: boolean;
     debugMode: boolean;
     uiTheme: UITheme;
+    uiLanguage: string;
     apiKey: string;
     apiEndpoint: string;
     apiType: Provider;
@@ -69,6 +71,7 @@ export interface StorageGetResult {
     keepSelectionPopupOpen?: boolean;
     debugMode?: boolean;
     uiTheme?: UITheme;
+    uiLanguage?: string;
     apiKey?: string;
     apiEndpoint?: string;
     apiType?: Provider;

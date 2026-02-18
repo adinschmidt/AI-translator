@@ -65,6 +65,12 @@ import {
     buildBasicTranslationInstructions,
     buildTranslationInstructionsWithDetection,
 } from "../shared/constants/languages";
+import {
+    getI18nMessageOrFallback,
+    initializeI18nFromStorage,
+    UI_LANGUAGE_DEFAULT,
+    UI_LANGUAGE_STORAGE_KEY,
+} from "../shared/i18n";
 
 interface StreamState {
     requestId: string;
@@ -101,6 +107,35 @@ type OnBatchResultsCallback = (
 ) => void;
 
 const activeStreams = new Map<number, StreamState>();
+
+function t(key: string, fallback: string, substitutions?: string | string[]): string {
+    return getI18nMessageOrFallback(key, fallback, substitutions);
+}
+
+function createLocalizedContextMenus(): void {
+    chrome.contextMenus.removeAll(() => {
+        chrome.contextMenus.create({
+            id: "translateSelectedText",
+            title: t("contextMenuTranslateSelectedText", "Translate Selected Text"),
+            contexts: ["selection"],
+        });
+
+        chrome.contextMenus.create({
+            id: "translateFullPage",
+            title: t("contextMenuTranslateEntirePage", "Translate Entire Page"),
+            contexts: ["page", "selection"],
+        });
+
+        console.log("AI Translator context menus created.");
+    });
+}
+
+async function refreshLocalizedContextMenus(): Promise<void> {
+    await initializeI18nFromStorage();
+    createLocalizedContextMenus();
+}
+
+void initializeI18nFromStorage();
 
 // Rate limit detection and retry helpers
 function isRateLimitError(error: any): boolean {
@@ -432,10 +467,10 @@ function safeStringifyForDebug(value: unknown, maxLength: number = 1500): string
 function getTranslationErrorMessage(error: unknown): string {
     const rawMessage = (error as any)?.message;
     if (typeof rawMessage === "string" && rawMessage.trim() !== "") {
-        return `Translation Error: ${rawMessage}`;
+        return t("contentTranslationErrorPrefix", "Translation Error: $1", rawMessage);
     }
 
-    return "Translation Error: Unknown error";
+    return t("contentTranslationErrorUnknown", "Translation Error: Unknown error");
 }
 
 function buildDebugErrorDetails(
@@ -1498,8 +1533,10 @@ async function getSettingsAndTranslate(
     }
 
     if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
-        const errorMsg =
-            "Translation Error: API Key or Endpoint not set. Please configure in extension settings.";
+        const errorMsg = t(
+            "errorApiKeyOrEndpointNotSet",
+            "Translation Error: API Key or Endpoint not set. Please configure in extension settings.",
+        );
         console.error(errorMsg);
         const debugInfo = debugModeEnabled
             ? buildDebugErrorDetails(new Error(errorMsg), "settings-validation", {
@@ -1525,7 +1562,7 @@ async function getSettingsAndTranslate(
     if (!isFullPage) {
         notifyContentScript(
             tabId,
-            "Translating...",
+            t("contentTranslating", "Translating..."),
             false,
             false,
             true,
@@ -1825,8 +1862,10 @@ async function getSettingsAndTranslateWithDetection(
     }
 
     if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
-        const errorMsg =
-            "Translation Error: API Key or Endpoint not set. Please configure in extension settings.";
+        const errorMsg = t(
+            "errorApiKeyOrEndpointNotSet",
+            "Translation Error: API Key or Endpoint not set. Please configure in extension settings.",
+        );
         console.error(errorMsg);
         const debugInfo = debugModeEnabled
             ? buildDebugErrorDetails(
@@ -1860,7 +1899,7 @@ async function getSettingsAndTranslateWithDetection(
     if (!isFullPage) {
         notifyContentScriptWithDetection(
             tabId,
-            "Translating...",
+            t("contentTranslating", "Translating..."),
             false,
             false,
             true,
@@ -2365,6 +2404,7 @@ chrome.runtime.onInstalled.addListener(() => {
         STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION,
         STORAGE_KEYS.DEBUG_MODE,
         STORAGE_KEYS.UI_THEME,
+        STORAGE_KEYS.UI_LANGUAGE,
     ]).then((result) => {
         if (typeof result.showTranslateButtonOnSelection !== "boolean") {
             chrome.storage.sync.set({
@@ -2387,21 +2427,27 @@ chrome.runtime.onInstalled.addListener(() => {
                 [STORAGE_KEYS.UI_THEME]: UI_THEME_DEFAULT,
             });
         }
+
+        if (typeof result.uiLanguage !== "string") {
+            chrome.storage.sync.set({
+                [STORAGE_KEYS.UI_LANGUAGE]: UI_LANGUAGE_DEFAULT,
+            });
+        }
     });
 
-    chrome.contextMenus.create({
-        id: "translateSelectedText",
-        title: "Translate Selected Text",
-        contexts: ["selection"],
-    });
+    void refreshLocalizedContextMenus();
+});
 
-    chrome.contextMenus.create({
-        id: "translateFullPage",
-        title: "Translate Entire Page",
-        contexts: ["page", "selection"],
-    });
+chrome.runtime.onStartup?.addListener(() => {
+    void refreshLocalizedContextMenus();
+});
 
-    console.log("AI Translator context menus created.");
+chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== "sync" || !changes[UI_LANGUAGE_STORAGE_KEY]) {
+        return;
+    }
+
+    void refreshLocalizedContextMenus();
 });
 
 chrome.runtime.onMessage.addListener(messageListener);
@@ -2432,7 +2478,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                 );
                 notifyContentScript(
                     tabId,
-                    "Could not extract selected content",
+                    t(
+                        "errorCouldNotExtractSelectedContent",
+                        "Could not extract selected content",
+                    ),
                     false,
                     true,
                     false,
@@ -2448,7 +2497,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                 console.error("No HTML content received from content script");
                 notifyContentScript(
                     tabId,
-                    "Could not extract selected HTML",
+                    t(
+                        "errorCouldNotExtractSelectedHtml",
+                        "Could not extract selected HTML",
+                    ),
                     false,
                     true,
                     false,

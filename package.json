@@ -1,23 +1,24 @@
 {
-  "name": "ai-translator",
-  "version": "0.6.2",
-  "description": "Translate text and pages using customizable AI models.",
-  "license": "AGPL-3.0",
-  "scripts": {
-    "build": "bun run build.ts",
-    "build:zip": "bun run build.ts --zip"
-  },
-  "devDependencies": {
-    "@types/chrome": "^0.1.36",
-    "bun-types": "latest"
-  },
-  "dependencies": {
-    "ai": "^4.3.16",
-    "@ai-sdk/openai": "^1.3.22",
-    "@ai-sdk/anthropic": "^1.2.12",
-    "@ai-sdk/google": "^1.2.17",
-    "@ai-sdk/mistral": "^1.2.8",
-    "@ai-sdk/xai": "^1.2.16",
-    "eld": "^2.0.2"
-  }
+    "name": "ai-translator",
+    "version": "0.6.2",
+    "description": "Translate text and pages using customizable AI models.",
+    "license": "AGPL-3.0",
+    "scripts": {
+        "check:i18n": "bun run scripts/check-i18n.ts",
+        "build": "bun run build.ts",
+        "build:zip": "bun run build.ts --zip"
+    },
+    "devDependencies": {
+        "@types/chrome": "^0.1.36",
+        "bun-types": "latest"
+    },
+    "dependencies": {
+        "ai": "^4.3.16",
+        "@ai-sdk/openai": "^1.3.22",
+        "@ai-sdk/anthropic": "^1.2.12",
+        "@ai-sdk/google": "^1.2.17",
+        "@ai-sdk/mistral": "^1.2.8",
+        "@ai-sdk/xai": "^1.2.16",
+        "eld": "^2.0.2"
+    }
 }

@@ -16,6 +16,11 @@ import {
     HTML_TRANSLATION_PORT_NAME,
     STREAM_PORT_NAME,
 } from "../shared/messaging";
+import {
+    getI18nMessageOrFallback,
+    initializeI18nFromStorage,
+    UI_LANGUAGE_STORAGE_KEY,
+} from "../shared/i18n";
 
 declare global {
     interface Window {
@@ -169,6 +174,25 @@ if ((window as any).hasRun) {
         "datetime",
         "cite",
     ]);
+
+    function t(key: string, fallback: string, substitutions?: string | string[]): string {
+        return getI18nMessageOrFallback(key, fallback, substitutions);
+    }
+
+    function formatTranslationError(message: string | null | undefined): string {
+        const normalized = (message || "").trim();
+        if (normalized) {
+            return t(
+                "contentTranslationErrorPrefix",
+                "Translation Error: $1",
+                normalized,
+            );
+        }
+
+        return t("contentTranslationErrorUnknown", "Translation Error: Unknown error");
+    }
+
+    void initializeI18nFromStorage();
 
     function htmlUnitNeedsSplitting(html: string): boolean {
         return html.length > MAX_HTML_UNIT_CHARS;
@@ -1607,8 +1631,7 @@ if ((window as any).hasRun) {
             case "startElementTranslation":
                 removeLoadingIndicator();
                 if (req.isError) {
-                    const errorText =
-                        req.errorMessage || "Translation Error: Unknown error";
+                    const errorText = formatTranslationError(req.errorMessage || null);
                     debugError("Received full-page translation error", {
                         errorText,
                         debugInfo: req.debugInfo,
@@ -1640,7 +1663,9 @@ if ((window as any).hasRun) {
 
             case "showLoadingIndicator":
                 if (req.isFullPage) {
-                    displayLoadingIndicator("Translating page...");
+                    displayLoadingIndicator(
+                        t("contentTranslatingPage", "Translating page..."),
+                    );
                 } else {
                     console.log(
                         "Loading indicator request ignored for selected text (popup handles it).",
@@ -1871,6 +1896,25 @@ if ((window as any).hasRun) {
             applyThemeToExistingUI();
         });
 
+    async function refreshLocalizedContentUI(): Promise<void> {
+        if (selectionTranslateButton) {
+            selectionTranslateButton.setAttribute(
+                "aria-label",
+                t("contentTranslateSelectionAriaLabel", "Translate selection"),
+            );
+            updateButtonLabel(currentDetectedLanguageName);
+        }
+
+        if (loadingIndicator) {
+            const stopButtonEl = loadingIndicator.querySelector(
+                ".stop-button",
+            ) as HTMLButtonElement | null;
+            if (stopButtonEl) {
+                stopButtonEl.textContent = t("contentStopButton", "Stop");
+            }
+        }
+    }
+
     onStorageChanged((changes, areaName) => {
         if (areaName !== "sync") {
             return;
@@ -1905,6 +1949,15 @@ if ((window as any).hasRun) {
             uiTheme = normalizeUITheme(uiThemeChange.newValue);
             applyThemeToExistingUI();
         }
+
+        const uiLanguageChange = changes[UI_LANGUAGE_STORAGE_KEY];
+        if (uiLanguageChange) {
+            void initializeI18nFromStorage()
+                .then(() => refreshLocalizedContentUI())
+                .catch((error) => {
+                    console.warn("Failed to refresh localized content UI:", error);
+                });
+        }
     });
 
     function updateSelectionTranslateButtonState(): void {
@@ -1925,7 +1978,10 @@ if ((window as any).hasRun) {
         selectionTranslateButton = document.createElement("button");
         selectionTranslateButton.id = "ai-translator-selection-translate-button";
         selectionTranslateButton.type = "button";
-        selectionTranslateButton.setAttribute("aria-label", "Translate selection");
+        selectionTranslateButton.setAttribute(
+            "aria-label",
+            t("contentTranslateSelectionAriaLabel", "Translate selection"),
+        );
 
         const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
         icon.setAttribute("viewBox", "0 0 24 24");
@@ -1939,7 +1995,7 @@ if ((window as any).hasRun) {
         icon.appendChild(path);
 
         const label = document.createElement("span");
-        label.textContent = "Translate";
+        label.textContent = t("contentTranslateButtonLabel", "Translate");
 
         selectionTranslateButton.appendChild(icon);
         selectionTranslateButton.appendChild(label);
@@ -1961,7 +2017,7 @@ if ((window as any).hasRun) {
             selectionTranslateInProgress = true;
             hideSelectionTranslateButton();
             if (!keepSelectionPopupOpenEnabled) {
-                displayPopup("Translating...", false, true);
+                displayPopup(t("contentTranslating", "Translating..."), false, true);
             }
 
             const msg: ContentToBackgroundMessage = {
@@ -1975,7 +2031,7 @@ if ((window as any).hasRun) {
                 if (chrome.runtime.lastError) {
                     selectionTranslateInProgress = false;
                     displayPopup(
-                        `Translation Error: ${chrome.runtime.lastError.message}`,
+                        formatTranslationError(chrome.runtime.lastError.message),
                         true,
                         false,
                     );
@@ -1985,7 +2041,7 @@ if ((window as any).hasRun) {
                 if (response?.status && response.status !== "ok") {
                     selectionTranslateInProgress = false;
                     displayPopup(
-                        `Translation Error: ${response.message || "Unknown error"}`,
+                        formatTranslationError(response.message || "Unknown error"),
                         true,
                         false,
                     );
@@ -2226,9 +2282,13 @@ if ((window as any).hasRun) {
         }
 
         if (languageName) {
-            labelSpan.textContent = `Translate from ${languageName}`;
+            labelSpan.textContent = t(
+                "contentTranslateFromLabel",
+                "Translate from $1",
+                languageName,
+            );
         } else {
-            labelSpan.textContent = "Translate";
+            labelSpan.textContent = t("contentTranslateButtonLabel", "Translate");
         }
     }
 
@@ -2542,7 +2602,13 @@ if ((window as any).hasRun) {
             return;
         }
 
-        displayLoadingIndicator(`Translating ${elements.length} elements...`);
+        displayLoadingIndicator(
+            t(
+                "contentTranslatingElementsCount",
+                "Translating $1 elements...",
+                String(elements.length),
+            ),
+        );
 
         const batchSize = 3;
         const batches = [];
@@ -2557,7 +2623,11 @@ if ((window as any).hasRun) {
             if (stopTranslationFlag) {
                 console.log("Translation stopped by user.");
                 removeLoadingIndicator();
-                displayPopup("Translation stopped by user.", true, false);
+                displayPopup(
+                    t("contentTranslationStoppedByUser", "Translation stopped by user."),
+                    true,
+                    false,
+                );
                 return;
             }
 
@@ -2598,23 +2668,36 @@ if ((window as any).hasRun) {
         errorCount: number,
         batchInfo: HtmlTranslationOnUpdateMeta | null = null,
     ): string {
-        const errorSuffix = errorCount > 0 ? ` (${errorCount} errors)` : "";
+        const errorSuffix =
+            errorCount > 0
+                ? t("contentProgressErrorSuffix", " ($1 errors)", String(errorCount))
+                : "";
         let batchPrefix = "";
         if (
             batchInfo &&
             typeof batchInfo.batchIndex === "number" &&
             typeof batchInfo.batchCount === "number"
         ) {
-            batchPrefix = `Batch ${batchInfo.batchIndex}/${batchInfo.batchCount}`;
+            batchPrefix = t("contentProgressBatchPrefix", "Batch $1/$2", [
+                String(batchInfo.batchIndex),
+                String(batchInfo.batchCount),
+            ]);
             if (
                 typeof batchInfo.subBatchIndex === "number" &&
                 typeof batchInfo.subBatchCount === "number"
             ) {
-                batchPrefix += ` part ${batchInfo.subBatchIndex}/${batchInfo.subBatchCount}`;
+                batchPrefix += t("contentProgressPartSuffix", " part $1/$2", [
+                    String(batchInfo.subBatchIndex),
+                    String(batchInfo.subBatchCount),
+                ]);
             }
             batchPrefix += " - ";
         }
-        return `${batchPrefix}Translated ${translatedChunks}/${totalChunks} chunks${errorSuffix}`;
+        return `${batchPrefix}${t(
+            "contentProgressTranslatedChunks",
+            "Translated $1/$2 chunks",
+            [String(translatedChunks), String(totalChunks)],
+        )}${errorSuffix}`;
     }
 
     async function translatePageV3(): Promise<void> {
@@ -2622,7 +2705,7 @@ if ((window as any).hasRun) {
 
         stopTranslationFlag = false;
 
-        displayLoadingIndicatorState("Preparing...", "preparing");
+        displayLoadingIndicatorState(t("contentPreparing", "Preparing..."), "preparing");
 
         // Use region-based collection to preserve images/non-text nodes
         const units = collectRegionTranslationUnits();
@@ -2630,7 +2713,10 @@ if ((window as any).hasRun) {
 
         if (units.length === 0) {
             console.log("No region translation units found");
-            displayLoadingIndicatorState("No translatable content found", "done");
+            displayLoadingIndicatorState(
+                t("contentNoTranslatableContentFound", "No translatable content found"),
+                "done",
+            );
             setTimeout(() => removeLoadingIndicator(), 60000);
             return;
         }
@@ -2643,7 +2729,11 @@ if ((window as any).hasRun) {
         }));
 
         displayLoadingIndicatorState(
-            `Translating ${totalChunks} chunks...`,
+            t(
+                "contentTranslatingChunksCount",
+                "Translating $1 chunks...",
+                String(totalChunks),
+            ),
             "translating",
             {
                 current: 0,
@@ -2897,8 +2987,16 @@ if ((window as any).hasRun) {
 
             const summary =
                 errorCount > 0
-                    ? `Done. ${successCount} regions translated, ${errorCount} errors`
-                    : `Done. ${successCount} regions translated`;
+                    ? t(
+                          "contentSummaryDoneWithErrors",
+                          "Done. $1 regions translated, $2 errors",
+                          [String(successCount), String(errorCount)],
+                      )
+                    : t(
+                          "contentSummaryDone",
+                          "Done. $1 regions translated",
+                          String(successCount),
+                      );
             const summaryState = errorCount > 0 ? "error" : "done";
             displayLoadingIndicatorState(summary, summaryState, {
                 current: translatedChunks,
@@ -2925,10 +3023,18 @@ if ((window as any).hasRun) {
             for (const element of parentElements) {
                 cleanupOrphanedMarkers(element);
             }
-            displayLoadingIndicatorState(`Error: ${(error as Error).message}`, "error", {
-                current: 0,
-                total: totalChunks,
-            });
+            displayLoadingIndicatorState(
+                t(
+                    "contentErrorPrefix",
+                    "Error: $1",
+                    (error as Error).message || String(error),
+                ),
+                "error",
+                {
+                    current: 0,
+                    total: totalChunks,
+                },
+            );
             setTimeout(() => removeLoadingIndicator(), 60000);
         }
     }
@@ -2969,7 +3075,7 @@ if ((window as any).hasRun) {
 
         const stopButtonEl = document.createElement("button");
         stopButtonEl.className = "stop-button";
-        stopButtonEl.textContent = "Stop";
+        stopButtonEl.textContent = t("contentStopButton", "Stop");
         stopButtonEl.style.display = state === "translating" ? "inline-block" : "none";
 
         const textWrapper = document.createElement("div");
@@ -3062,8 +3168,14 @@ if ((window as any).hasRun) {
     function markElementTranslationError(element: Element, error: Error): void {
         try {
             const marker = document.createElement("span");
-            marker.textContent = " [translation error]";
-            marker.title = error && error.message ? error.message : "Translation failed";
+            marker.textContent = t(
+                "contentTranslationErrorMarker",
+                " [translation error]",
+            );
+            marker.title =
+                error && error.message
+                    ? error.message
+                    : t("contentTranslationFailed", "Translation failed");
             marker.style.color = "#ef4444";
             marker.style.fontSize = "0.75em";
             marker.style.marginLeft = "4px";
@@ -3102,7 +3214,14 @@ if ((window as any).hasRun) {
                         );
                         resolve();
                     } else {
-                        reject(new Error("No translation received"));
+                        reject(
+                            new Error(
+                                t(
+                                    "contentNoTranslationReceived",
+                                    "No translation received",
+                                ),
+                            ),
+                        );
                     }
                 },
             );
@@ -3185,17 +3304,26 @@ if ((window as any).hasRun) {
     ): void {
         if (loadingIndicator) {
             const progress = Math.round((completed / total) * 100);
-            const errorText = errors > 0 ? ` (${errors} errors)` : "";
+            const errorText =
+                errors > 0
+                    ? t("contentProgressErrorSuffix", " ($1 errors)", String(errors))
+                    : "";
             const progressText = loadingIndicator.querySelector(
                 ".progress-text",
             ) as HTMLElement;
             if (progressText) {
-                progressText.textContent = `Translating elements... ${completed}/${total} (${progress}%)${errorText}`;
+                progressText.textContent = t(
+                    "contentTranslatingElementsProgress",
+                    "Translating elements... $1/$2 ($3%)$4",
+                    [String(completed), String(total), String(progress), errorText],
+                );
             }
         }
     }
 
-    function displayLoadingIndicator(message: string = "Loading..."): void {
+    function displayLoadingIndicator(
+        message: string = t("contentLoading", "Loading..."),
+    ): void {
         removeLoadingIndicator();
 
         loadingIndicator = document.createElement("div");
@@ -3207,7 +3335,7 @@ if ((window as any).hasRun) {
 
         const stopButtonEl = document.createElement("button");
         stopButtonEl.className = "stop-button";
-        stopButtonEl.textContent = "Stop";
+        stopButtonEl.textContent = t("contentStopButton", "Stop");
 
         loadingIndicator.appendChild(progressText);
         loadingIndicator.appendChild(stopButtonEl);
@@ -3530,7 +3658,10 @@ if ((window as any).hasRun) {
             typeof content === "string" && content.trim() !== ""
                 ? content
                 : isError
-                  ? "Translation Error: Unknown error"
+                  ? t(
+                        "contentTranslationErrorUnknown",
+                        "Translation Error: Unknown error",
+                    )
                   : "";
         const sanitized = (window as any).DOMPurify?.sanitize(visibleMessage) ?? "";
         const fragment = htmlToFragment(sanitized);
@@ -3539,7 +3670,7 @@ if ((window as any).hasRun) {
 
         if (isError && debugModeEnabled && debugInfo) {
             const debugHeading = document.createElement("div");
-            debugHeading.textContent = "Debug details";
+            debugHeading.textContent = t("contentDebugDetails", "Debug details");
             debugHeading.className = "translation-popup-debug-heading";
             popup.appendChild(debugHeading);
 
@@ -3713,7 +3844,7 @@ if ((window as any).hasRun) {
             spinner.className = "translation-popup-spinner";
 
             const spinnerText = document.createElement("span");
-            spinnerText.textContent = "Translating...";
+            spinnerText.textContent = t("contentTranslating", "Translating...");
 
             spinnerContainer.appendChild(spinner);
             spinnerContainer.appendChild(spinnerText);

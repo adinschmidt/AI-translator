@@ -1,0 +1,317 @@
+{
+    "extensionName": {
+        "message": "AI Translator"
+    },
+    "extensionDescription": {
+        "message": "Translate text and pages using customizable AI models."
+    },
+    "actionDefaultTitle": {
+        "message": "AI Translator Settings"
+    },
+    "contextMenuTranslateSelectedText": {
+        "message": "Translate Selected Text"
+    },
+    "contextMenuTranslateEntirePage": {
+        "message": "Translate Entire Page"
+    },
+    "errorCouldNotExtractSelectedContent": {
+        "message": "Could not extract selected content"
+    },
+    "errorCouldNotExtractSelectedHtml": {
+        "message": "Could not extract selected HTML"
+    },
+    "errorApiKeyOrEndpointNotSet": {
+        "message": "Translation Error: API Key or Endpoint not set. Please configure in extension settings."
+    },
+    "contentTranslating": {
+        "message": "Translating..."
+    },
+    "contentTranslatingPage": {
+        "message": "Translating page..."
+    },
+    "contentTranslateSelectionAriaLabel": {
+        "message": "Translate selection"
+    },
+    "contentTranslateButtonLabel": {
+        "message": "Translate"
+    },
+    "contentTranslateFromLabel": {
+        "message": "Translate from $1"
+    },
+    "contentTranslationErrorPrefix": {
+        "message": "Translation Error: $1"
+    },
+    "contentTranslationErrorUnknown": {
+        "message": "Translation Error: Unknown error"
+    },
+    "contentTranslationStoppedByUser": {
+        "message": "Translation stopped by user."
+    },
+    "contentPreparing": {
+        "message": "Preparing..."
+    },
+    "contentNoTranslatableContentFound": {
+        "message": "No translatable content found"
+    },
+    "contentTranslatingChunksCount": {
+        "message": "Translating $1 chunks..."
+    },
+    "contentProgressBatchPrefix": {
+        "message": "Batch $1/$2"
+    },
+    "contentProgressPartSuffix": {
+        "message": " part $1/$2"
+    },
+    "contentProgressTranslatedChunks": {
+        "message": "Translated $1/$2 chunks"
+    },
+    "contentProgressErrorSuffix": {
+        "message": " ($1 errors)"
+    },
+    "contentSummaryDoneWithErrors": {
+        "message": "Done. $1 regions translated, $2 errors"
+    },
+    "contentSummaryDone": {
+        "message": "Done. $1 regions translated"
+    },
+    "contentErrorPrefix": {
+        "message": "Error: $1"
+    },
+    "contentStopButton": {
+        "message": "Stop"
+    },
+    "contentTranslationErrorMarker": {
+        "message": " [translation error]"
+    },
+    "contentTranslationFailed": {
+        "message": "Translation failed"
+    },
+    "contentNoTranslationReceived": {
+        "message": "No translation received"
+    },
+    "contentTranslatingElementsCount": {
+        "message": "Translating $1 elements..."
+    },
+    "contentTranslatingElementsProgress": {
+        "message": "Translating elements... $1/$2 ($3%)$4"
+    },
+    "contentLoading": {
+        "message": "Loading..."
+    },
+    "contentDebugDetails": {
+        "message": "Debug details"
+    },
+    "optionsPageTitle": {
+        "message": "AI Translator Settings"
+    },
+    "optionsHeading": {
+        "message": "AI Translator Settings"
+    },
+    "optionsNeedHelp": {
+        "message": "Need help?"
+    },
+    "optionsUiLanguageLabel": {
+        "message": "UI Language:"
+    },
+    "optionsUiLanguageHelp": {
+        "message": "Default follows your browser language."
+    },
+    "optionsUiLanguageDefaultOption": {
+        "message": "Default (Browser language)"
+    },
+    "optionsDocumentation": {
+        "message": "Documentation →"
+    },
+    "optionsThemeLegend": {
+        "message": "Theme:"
+    },
+    "optionsThemeLight": {
+        "message": "Light"
+    },
+    "optionsThemeDark": {
+        "message": "Dark"
+    },
+    "optionsThemeSystem": {
+        "message": "System"
+    },
+    "optionsThemeSystemHint": {
+        "message": "System follows your browser or OS color scheme."
+    },
+    "optionsAdvancedModeLabel": {
+        "message": "Advanced mode"
+    },
+    "optionsAdvancedModeHelp": {
+        "message": "Turn on to edit endpoints, models, and custom prompts."
+    },
+    "optionsProviderLabel": {
+        "message": "Provider:"
+    },
+    "optionsBasicProviderHelp": {
+        "message": "In Basic mode, models and endpoints are configured automatically."
+    },
+    "optionsApiKeyLabel": {
+        "message": "API Key:"
+    },
+    "optionsApiKeyPlaceholder": {
+        "message": "Enter your API key"
+    },
+    "optionsApiKeyHelp": {
+        "message": "Your key is stored securely in local browser storage."
+    },
+    "optionsTargetLanguageLabel": {
+        "message": "Target Language:"
+    },
+    "optionsCustomTargetLanguageLabel": {
+        "message": "Custom target language:"
+    },
+    "optionsCustomTargetLanguagePlaceholder": {
+        "message": "e.g., Klingon, Latin, or pt-BR"
+    },
+    "optionsBasicTargetLanguageHelpHtml": {
+        "message": "Language names are shown in that language. Choose <strong>Custom…</strong> to type your own."
+    },
+    "optionsAdvancedProviderHelp": {
+        "message": "Select the format your endpoint expects."
+    },
+    "optionsHowToGetKey": {
+        "message": "How to get a key →"
+    },
+    "optionsModelNameLabel": {
+        "message": "Model Name:"
+    },
+    "optionsModelNamePlaceholder": {
+        "message": "e.g., gpt-4o"
+    },
+    "optionsRefreshModelsButton": {
+        "message": "Refresh Models"
+    },
+    "optionsFillDefaultButton": {
+        "message": "Fill Default"
+    },
+    "optionsModelFilterHelp": {
+        "message": "Type to filter models. If your model is not listed, keep typing to use a custom model name."
+    },
+    "optionsOllamaNoteHtml": {
+        "message": "<strong>Note:</strong> Ollama may need to be started with <code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code> to allow requests from Chrome extensions."
+    },
+    "optionsApiEndpointLabel": {
+        "message": "API Endpoint URL:"
+    },
+    "optionsApiEndpointPlaceholder": {
+        "message": "e.g., https://api.openai.com/v1/chat/completions"
+    },
+    "optionsAdvancedTargetLanguageHelpHtml": {
+        "message": "The language to translate text into. Choose <strong>Custom…</strong> to type your own."
+    },
+    "optionsExtraInstructionsLabel": {
+        "message": "Extra Instructions (optional):"
+    },
+    "optionsExtraInstructionsPlaceholder": {
+        "message": "e.g., Use formal tone, preserve technical terms"
+    },
+    "optionsExtraInstructionsHelp": {
+        "message": "Additional instructions for the AI translator (tone, style, terminology preferences)."
+    },
+    "optionsShowTranslateButtonLabel": {
+        "message": "Show Translate button on selection"
+    },
+    "optionsShowTranslateButtonHelp": {
+        "message": "Shows a small Translate button when you select text on any page. Requires site access on all pages."
+    },
+    "optionsKeepPopupOpenLabel": {
+        "message": "Keep selection translation window open"
+    },
+    "optionsKeepPopupOpenHelp": {
+        "message": "Adds an X close button and prevents the selection translation window from closing when clicking elsewhere on the page."
+    },
+    "optionsDebugModeLabel": {
+        "message": "Enable debug mode"
+    },
+    "optionsDebugModeHelp": {
+        "message": "Adds detailed logs to browser/extension consoles and shows detailed error info in translation popups."
+    },
+    "optionsFooterCreditPrefix": {
+        "message": "Icon made by Pixel perfect from"
+    },
+    "optionsCustomOptionLabel": {
+        "message": "Custom…"
+    },
+    "optionsStatusSettingsSaved": {
+        "message": "Settings saved!"
+    },
+    "optionsStatusThemeUpdated": {
+        "message": "Theme updated!"
+    },
+    "optionsStatusLanguageUpdated": {
+        "message": "Language updated!"
+    },
+    "optionsStatusProviderSwitched": {
+        "message": "Provider switched."
+    },
+    "optionsStatusErrorLoadingSettings": {
+        "message": "Error loading settings: $1"
+    },
+    "optionsStatusErrorSaving": {
+        "message": "Error saving: $1"
+    },
+    "optionsStatusInvalidEndpointFormat": {
+        "message": "Invalid API Endpoint URL format."
+    },
+    "optionsStatusErrorSavingProviderSelection": {
+        "message": "Error saving provider selection: $1"
+    },
+    "optionsStatusErrorSavingLanguage": {
+        "message": "Error saving language setting: $1"
+    },
+    "optionsStatusNoDefaultEndpointForProvider": {
+        "message": "No default endpoint available for $1."
+    },
+    "optionsStatusNoDefaultModelForProvider": {
+        "message": "No default model available for $1."
+    },
+    "optionsModelStatusShowingFirstN": {
+        "message": "Showing the first $1 models. Keep typing to narrow results."
+    },
+    "optionsModelStatusUseCustomModelName": {
+        "message": "Use custom model name: \"$1\""
+    },
+    "optionsModelStatusNoModelsAvailable": {
+        "message": "No models available. Enter a custom model name."
+    },
+    "optionsModelErrorAddApiKey": {
+        "message": "Add an API key to fetch live models."
+    },
+    "optionsModelErrorInvalidEndpointUrl": {
+        "message": "Invalid endpoint URL."
+    },
+    "optionsModelErrorLiveDiscoveryUnavailable": {
+        "message": "Live model discovery is not available for this provider."
+    },
+    "optionsModelErrorProviderReturnedNoModels": {
+        "message": "Provider returned no models."
+    },
+    "optionsModelErrorNotConfiguredForProvider": {
+        "message": "Model fetching is not configured for $1."
+    },
+    "optionsModelStatusLoadingModels": {
+        "message": "Loading models..."
+    },
+    "optionsModelStatusLoadedFromProvider": {
+        "message": "Loaded $1 model(s) from $2."
+    },
+    "optionsModelStatusFallbackWithSuggestions": {
+        "message": "$1 Showing built-in suggestions."
+    },
+    "optionsModelStatusFallbackCustomOnly": {
+        "message": "$1 Enter a custom model name."
+    },
+    "optionsModelStatusCredentialsChanged": {
+        "message": "Credentials changed. Click Refresh Models to load live models."
+    },
+    "optionsModelStatusEndpointChanged": {
+        "message": "Endpoint changed. Click Refresh Models to load models from this endpoint."
+    },
+    "optionsModelStatusEndpointResetDefault": {
+        "message": "Endpoint reset to default. Click Refresh Models to load live models."
+    }
+}

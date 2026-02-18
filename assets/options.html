@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>AI Translator Settings</title>
+        <title data-i18n="optionsPageTitle">AI Translator Settings</title>
         <script src="tailwindcss.min.js"></script>
         <link href="options.css" rel="stylesheet" />
     </head>
@@ -13,26 +13,56 @@
             id="settings-card"
             class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md"
         >
-            <h1 class="text-2xl font-semibold mb-2 text-gray-800">
+            <h1
+                class="text-2xl font-semibold mb-2 text-gray-800"
+                data-i18n="optionsHeading"
+            >
                 AI Translator Settings
             </h1>
             <p class="text-sm text-gray-600 mb-6">
-                Need help?
+                <span data-i18n="optionsNeedHelp">Need help?</span>
                 <a
+                    id="help-docs-link"
                     href="https://adinschmidt.com/AI-translator/getting-started"
                     class="text-indigo-600 hover:underline"
                     target="_blank"
                     rel="noopener noreferrer"
+                    data-i18n="optionsDocumentation"
                     >Documentation →</a
                 >
             </p>
 
             <div class="mb-6">
+                <label
+                    for="ui-language"
+                    class="block text-sm font-medium text-gray-700 mb-1"
+                    data-i18n="optionsUiLanguageLabel"
+                    >UI Language:</label
+                >
+                <select
+                    id="ui-language"
+                    name="ui-language"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                ></select>
+                <p class="text-xs text-gray-500 mt-1" data-i18n="optionsUiLanguageHelp">
+                    Default follows your browser language.
+                </p>
+            </div>
+
+            <div class="mb-6">
                 <fieldset>
-                    <legend class="block text-sm font-medium text-gray-700 mb-2">
+                    <legend
+                        class="block text-sm font-medium text-gray-700 mb-2"
+                        data-i18n="optionsThemeLegend"
+                    >
                         Theme:
                     </legend>
-                    <div class="theme-toggle-grid" role="radiogroup" aria-label="Theme">
+                    <div
+                        class="theme-toggle-grid"
+                        role="radiogroup"
+                        aria-label="Theme"
+                        data-i18n-aria-label="optionsThemeLegend"
+                    >
                         <label class="theme-option">
                             <input
                                 type="radio"
@@ -55,7 +85,7 @@
                                         stroke-linejoin="round"
                                     />
                                 </svg>
-                                <span>Light</span>
+                                <span data-i18n="optionsThemeLight">Light</span>
                             </span>
                         </label>
 
@@ -81,7 +111,7 @@
                                         stroke-linejoin="round"
                                     />
                                 </svg>
-                                <span>Dark</span>
+                                <span data-i18n="optionsThemeDark">Dark</span>
                             </span>
                         </label>
 
@@ -115,11 +145,14 @@
                                         stroke-linecap="round"
                                     />
                                 </svg>
-                                <span>System</span>
+                                <span data-i18n="optionsThemeSystem">System</span>
                             </span>
                         </label>
                     </div>
-                    <p class="text-xs text-gray-500 mt-2">
+                    <p
+                        class="text-xs text-gray-500 mt-2"
+                        data-i18n="optionsThemeSystemHint"
+                    >
                         System follows your browser or OS color scheme.
                     </p>
                 </fieldset>
@@ -131,9 +164,13 @@
                         <label
                             for="advanced-mode-toggle"
                             class="block text-sm font-medium text-gray-700"
+                            data-i18n="optionsAdvancedModeLabel"
                             >Advanced mode</label
                         >
-                        <p class="text-xs text-gray-500 mt-1">
+                        <p
+                            class="text-xs text-gray-500 mt-1"
+                            data-i18n="optionsAdvancedModeHelp"
+                        >
                             Turn on to edit endpoints, models, and custom prompts.
                         </p>
                     </div>
@@ -144,6 +181,7 @@
                             name="advanced-mode-toggle"
                             role="switch"
                             aria-label="Advanced mode"
+                            data-i18n-aria-label="optionsAdvancedModeLabel"
                         />
                         <span class="ios-switch-track"></span>
                     </label>
@@ -156,6 +194,7 @@
                         <label
                             for="basic-provider"
                             class="block text-sm font-medium text-gray-700 mb-1"
+                            data-i18n="optionsProviderLabel"
                             >Provider:</label
                         >
                         <select
@@ -167,7 +206,10 @@
                             <option value="anthropic">Anthropic Claude</option>
                             <option value="google">Google Gemini</option>
                         </select>
-                        <p class="text-xs text-gray-500 mt-1">
+                        <p
+                            class="text-xs text-gray-500 mt-1"
+                            data-i18n="optionsBasicProviderHelp"
+                        >
                             In Basic mode, models and endpoints are configured
                             automatically.
                         </p>
@@ -177,6 +219,7 @@
                         <label
                             for="basic-api-key"
                             class="block text-sm font-medium text-gray-700 mb-1"
+                            data-i18n="optionsApiKeyLabel"
                             >API Key:</label
                         >
                         <input
@@ -185,8 +228,12 @@
                             name="basic-api-key"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                             placeholder="Enter your API key"
+                            data-i18n-placeholder="optionsApiKeyPlaceholder"
                         />
-                        <p class="text-xs text-gray-500 mt-1">
+                        <p
+                            class="text-xs text-gray-500 mt-1"
+                            data-i18n="optionsApiKeyHelp"
+                        >
                             Your key is stored securely in local browser storage.
                         </p>
                     </div>
@@ -195,6 +242,7 @@
                         <label
                             for="basic-target-language"
                             class="block text-sm font-medium text-gray-700 mb-1"
+                            data-i18n="optionsTargetLanguageLabel"
                             >Target Language:</label
                         >
                         <select
@@ -209,6 +257,7 @@
                             <label
                                 for="basic-target-language-custom"
                                 class="block text-xs font-medium text-gray-600 mb-1"
+                                data-i18n="optionsCustomTargetLanguageLabel"
                                 >Custom target language:</label
                             >
                             <input
@@ -217,9 +266,13 @@
                                 name="basic-target-language-custom"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                 placeholder="e.g., Klingon, Latin, or pt-BR"
+                                data-i18n-placeholder="optionsCustomTargetLanguagePlaceholder"
                             />
                         </div>
-                        <p class="text-xs text-gray-500 mt-1">
+                        <p
+                            class="text-xs text-gray-500 mt-1"
+                            data-i18n-html="optionsBasicTargetLanguageHelpHtml"
+                        >
                             Language names are shown in that language. Choose
                             <strong>Custom…</strong> to type your own.
                         </p>
@@ -231,6 +284,7 @@
                         <label
                             for="api-type"
                             class="block text-sm font-medium text-gray-700 mb-1"
+                            data-i18n="optionsProviderLabel"
                             >Provider:</label
                         >
                         <select
@@ -251,13 +305,16 @@
                             <option value="ollama">Ollama (Local)</option>
                         </select>
                         <p class="text-xs text-gray-500 mt-1">
-                            Select the format your endpoint expects.
+                            <span data-i18n="optionsAdvancedProviderHelp">
+                                Select the format your endpoint expects.
+                            </span>
                             <a
                                 id="provider-key-docs-link"
                                 href="https://adinschmidt.com/AI-translator/providers#general-setup"
                                 class="text-indigo-600 hover:underline"
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                data-i18n="optionsHowToGetKey"
                                 >How to get a key →</a
                             >
                         </p>
@@ -267,6 +324,7 @@
                         <label
                             for="api-key"
                             class="block text-sm font-medium text-gray-700 mb-1"
+                            data-i18n="optionsApiKeyLabel"
                             >API Key:</label
                         >
                         <input
@@ -276,8 +334,12 @@
                             required
                             class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                             placeholder="Enter your API key"
+                            data-i18n-placeholder="optionsApiKeyPlaceholder"
                         />
-                        <p class="text-xs text-gray-500 mt-1">
+                        <p
+                            class="text-xs text-gray-500 mt-1"
+                            data-i18n="optionsApiKeyHelp"
+                        >
                             Your key is stored securely in local browser storage.
                         </p>
                     </div>
@@ -286,6 +348,7 @@
                         <label
                             for="model-name"
                             class="block text-sm font-medium text-gray-700 mb-1"
+                            data-i18n="optionsModelNameLabel"
                             >Model Name:</label
                         >
                         <div class="model-controls">
@@ -301,6 +364,7 @@
                                     aria-controls="model-options-list"
                                     class="model-name-input px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                     placeholder="e.g., gpt-4o"
+                                    data-i18n-placeholder="optionsModelNamePlaceholder"
                                 />
                                 <div
                                     id="model-options-container"
@@ -321,6 +385,7 @@
                                 type="button"
                                 id="refresh-models"
                                 class="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                data-i18n="optionsRefreshModelsButton"
                             >
                                 Refresh Models
                             </button>
@@ -328,18 +393,23 @@
                                 type="button"
                                 id="fill-default-model"
                                 class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                data-i18n="optionsFillDefaultButton"
                             >
                                 Fill Default
                             </button>
                         </div>
                         <p id="model-list-status" class="text-xs text-gray-500 mt-1"></p>
-                        <p class="text-xs text-gray-500 mt-1">
+                        <p
+                            class="text-xs text-gray-500 mt-1"
+                            data-i18n="optionsModelFilterHelp"
+                        >
                             Type to filter models. If your model is not listed, keep
                             typing to use a custom model name.
                         </p>
                         <p
                             id="ollama-model-note"
                             class="text-xs text-amber-600 mt-2 hidden"
+                            data-i18n-html="optionsOllamaNoteHtml"
                         >
                             <strong>Note:</strong> Ollama may need to be started with
                             <code class="bg-gray-100 px-1 rounded"
@@ -353,6 +423,7 @@
                         <label
                             for="api-endpoint"
                             class="block text-sm font-medium text-gray-700 mb-1"
+                            data-i18n="optionsApiEndpointLabel"
                             >API Endpoint URL:</label
                         >
                         <div class="flex space-x-2">
@@ -364,11 +435,13 @@
                                 required
                                 class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                 placeholder="e.g., https://api.openai.com/v1/chat/completions"
+                                data-i18n-placeholder="optionsApiEndpointPlaceholder"
                             />
                             <button
                                 type="button"
                                 id="fill-default-endpoint"
                                 class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                                data-i18n="optionsFillDefaultButton"
                             >
                                 Fill Default
                             </button>
@@ -379,6 +452,7 @@
                         <label
                             for="advanced-target-language"
                             class="block text-sm font-medium text-gray-700 mb-1"
+                            data-i18n="optionsTargetLanguageLabel"
                             >Target Language:</label
                         >
                         <select
@@ -393,6 +467,7 @@
                             <label
                                 for="advanced-target-language-custom"
                                 class="block text-xs font-medium text-gray-600 mb-1"
+                                data-i18n="optionsCustomTargetLanguageLabel"
                                 >Custom target language:</label
                             >
                             <input
@@ -401,9 +476,13 @@
                                 name="advanced-target-language-custom"
                                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                                 placeholder="e.g., Klingon, Latin, or pt-BR"
+                                data-i18n-placeholder="optionsCustomTargetLanguagePlaceholder"
                             />
                         </div>
-                        <p class="text-xs text-gray-500 mt-1">
+                        <p
+                            class="text-xs text-gray-500 mt-1"
+                            data-i18n-html="optionsAdvancedTargetLanguageHelpHtml"
+                        >
                             The language to translate text into. Choose
                             <strong>Custom…</strong> to type your own.
                         </p>
@@ -413,6 +492,7 @@
                         <label
                             for="extra-instructions"
                             class="block text-sm font-medium text-gray-700 mb-1"
+                            data-i18n="optionsExtraInstructionsLabel"
                             >Extra Instructions (optional):</label
                         >
                         <textarea
@@ -421,8 +501,12 @@
                             rows="2"
                             class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                             placeholder="e.g., Use formal tone, preserve technical terms"
+                            data-i18n-placeholder="optionsExtraInstructionsPlaceholder"
                         ></textarea>
-                        <p class="text-xs text-gray-500 mt-1">
+                        <p
+                            class="text-xs text-gray-500 mt-1"
+                            data-i18n="optionsExtraInstructionsHelp"
+                        >
                             Additional instructions for the AI translator (tone, style,
                             terminology preferences).
                         </p>
@@ -434,10 +518,14 @@
                                 <label
                                     for="show-translate-button-on-selection"
                                     class="block text-sm font-medium text-gray-700"
+                                    data-i18n="optionsShowTranslateButtonLabel"
                                 >
                                     Show Translate button on selection
                                 </label>
-                                <p class="text-xs text-gray-500 mt-1">
+                                <p
+                                    class="text-xs text-gray-500 mt-1"
+                                    data-i18n="optionsShowTranslateButtonHelp"
+                                >
                                     Shows a small Translate button when you select text on
                                     any page. Requires site access on all pages.
                                 </p>
@@ -451,6 +539,7 @@
                                     id="show-translate-button-on-selection"
                                     role="switch"
                                     aria-label="Show Translate button on selection"
+                                    data-i18n-aria-label="optionsShowTranslateButtonLabel"
                                 />
                                 <span class="ios-switch-track"></span>
                             </label>
@@ -463,10 +552,14 @@
                                 <label
                                     for="keep-selection-popup-open"
                                     class="block text-sm font-medium text-gray-700"
+                                    data-i18n="optionsKeepPopupOpenLabel"
                                 >
                                     Keep selection translation window open
                                 </label>
-                                <p class="text-xs text-gray-500 mt-1">
+                                <p
+                                    class="text-xs text-gray-500 mt-1"
+                                    data-i18n="optionsKeepPopupOpenHelp"
+                                >
                                     Adds an X close button and prevents the selection
                                     translation window from closing when clicking
                                     elsewhere on the page.
@@ -478,6 +571,7 @@
                                     id="keep-selection-popup-open"
                                     role="switch"
                                     aria-label="Keep selection translation window open"
+                                    data-i18n-aria-label="optionsKeepPopupOpenLabel"
                                 />
                                 <span class="ios-switch-track"></span>
                             </label>
@@ -490,10 +584,14 @@
                                 <label
                                     for="debug-mode"
                                     class="block text-sm font-medium text-gray-700"
+                                    data-i18n="optionsDebugModeLabel"
                                 >
                                     Enable debug mode
                                 </label>
-                                <p class="text-xs text-gray-500 mt-1">
+                                <p
+                                    class="text-xs text-gray-500 mt-1"
+                                    data-i18n="optionsDebugModeHelp"
+                                >
                                     Adds detailed logs to browser/extension consoles and
                                     shows detailed error info in translation popups.
                                 </p>
@@ -504,6 +602,7 @@
                                     id="debug-mode"
                                     role="switch"
                                     aria-label="Enable debug mode"
+                                    data-i18n-aria-label="optionsDebugModeLabel"
                                 />
                                 <span class="ios-switch-track"></span>
                             </label>
@@ -525,7 +624,9 @@
         <div
             class="fixed bottom-0 left-0 right-0 bg-gray-200 text-center text-xs p-2 border-t border-gray-300 z-50"
         >
-            Icon made by Pixel perfect from
+            <span data-i18n="optionsFooterCreditPrefix"
+                >Icon made by Pixel perfect from</span
+            >
             <a
                 href="https://www.flaticon.com/"
                 class="text-blue-600 hover:underline"
