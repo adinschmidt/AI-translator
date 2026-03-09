@@ -57,7 +57,6 @@ import {
 import {
     PROVIDERS,
     PROVIDER_DEFAULTS,
-    BASIC_PROVIDERS,
     type Provider,
 } from "../shared/constants/providers";
 import {
