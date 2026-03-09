@@ -449,14 +449,14 @@ function populateTargetLanguageDropdown(selectEl: HTMLSelectElement): void {
     selectEl.appendChild(customOption);
 }
 
-function populateBasicProviderDropdown(): void {
-    if (!basicProviderSelect) return;
-    basicProviderSelect.textContent = "";
+function populateProviderDropdown(select: HTMLSelectElement | null): void {
+    if (!select) return;
+    select.textContent = "";
     for (const id of PROVIDERS) {
         const option = document.createElement("option");
         option.value = id;
         option.textContent = PROVIDER_DISPLAY_NAMES[id];
-        basicProviderSelect.appendChild(option);
+        select.appendChild(option);
     }
 }
 
@@ -855,9 +855,7 @@ function buildGoogleModelsUrl(endpoint: string): string {
 }
 
 function getProviderDisplayName(provider: Provider): string {
-    const option = apiTypeSelect?.querySelector(`option[value="${provider}"]`);
-    const label = option?.textContent?.trim() || "";
-    return label || provider;
+    return PROVIDER_DISPLAY_NAMES[provider] || provider;
 }
 
 function resolveModelFetchSettings(provider: Provider): {
@@ -1768,7 +1766,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     applyTheme(uiTheme);
     updateThemeSelectionUI(uiTheme);
 
-    populateBasicProviderDropdown();
+    populateProviderDropdown(basicProviderSelect);
+    populateProviderDropdown(apiTypeSelect);
     populateBasicLanguageDropdown();
     populateAdvancedLanguageDropdown();
     loadSettings();
@@ -1778,8 +1777,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             settingsMode = advancedModeToggle.checked
                 ? SETTINGS_MODE_ADVANCED
                 : SETTINGS_MODE_BASIC;
-
-            const isBasic = settingsMode === SETTINGS_MODE_BASIC;
 
             const activeProvider = apiTypeSelect.value;
 
