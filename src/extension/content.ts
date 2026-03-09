@@ -20,6 +20,7 @@ import {
     STREAM_PORT_NAME,
 } from "../shared/messaging";
 import {
+    ensureI18nReady,
     getActiveUILocale,
     getI18nMessageOrFallback,
     initializeI18nFromStorage,
@@ -2131,9 +2132,15 @@ if ((window as any).hasRun) {
         detectAndShowButton(selectedText, rect);
     }
 
-    function detectAndShowButton(text: string, rect: DOMRect): void {
+    async function detectAndShowButton(text: string, rect: DOMRect): Promise<void> {
         currentDetectedLanguage = null;
         currentDetectedLanguageName = null;
+
+        // Ensure the fire-and-forget i18n initialization has settled so that
+        // getActiveUILocale() returns the user's chosen locale, not the default
+        // "en".  Without this, the first detection after content-script
+        // injection can produce an English language name.
+        await ensureI18nReady();
 
         const detectionResult = detectLanguage(text);
 

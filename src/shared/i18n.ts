@@ -32,6 +32,7 @@ let activeCatalog: MessageCatalog | null = null;
 let activeLocale: SupportedUILanguage = "en";
 let activePreference: UILanguagePreference = UI_LANGUAGE_DEFAULT;
 let activeLoadPromise: Promise<void> | null = null;
+let initSettledPromise: Promise<void> = Promise.resolve();
 
 function applySubstitutions(message: string, substitutions?: string | string[]): string {
     if (substitutions === undefined) {
@@ -106,6 +107,16 @@ export function getActiveUILocale(): SupportedUILanguage {
     return activeLocale;
 }
 
+/**
+ * Returns a promise that resolves once the most recent i18n initialization has
+ * settled.  Callers that need an up-to-date locale should `await` this before
+ * reading `getActiveUILocale()` to avoid the race where the fire-and-forget
+ * `initializeI18nFromStorage()` at module load has not yet completed.
+ */
+export function ensureI18nReady(): Promise<void> {
+    return initSettledPromise;
+}
+
 async function loadCatalog(locale: SupportedUILanguage): Promise<MessageCatalog> {
     const cached = catalogCache.get(locale);
     if (cached) {
@@ -173,13 +184,16 @@ export async function initializeI18n(
             : normalizeUILanguagePreference(preference);
     const nextLocale = resolveLocaleFromPreference(nextPreference);
 
-    activeLoadPromise = (async () => {
+    const loadWork = (async () => {
         await ensureDefaultCatalog();
         activeCatalog =
             nextLocale === "en" ? defaultCatalog : await loadCatalog(nextLocale);
         activePreference = nextPreference;
         activeLocale = nextLocale;
     })();
+
+    activeLoadPromise = loadWork;
+    initSettledPromise = loadWork;
 
     await activeLoadPromise;
     activeLoadPromise = null;

@@ -66,6 +66,7 @@ import {
     buildTranslationInstructionsWithDetection,
 } from "../shared/constants/languages";
 import {
+    ensureI18nReady,
     getActiveUILocale,
     getI18nMessageOrFallback,
     initializeI18nFromStorage,
@@ -1787,6 +1788,12 @@ async function getSettingsAndTranslateWithDetection(
         detectedLanguage,
         detectedLanguageName,
     });
+
+    // Ensure the fire-and-forget i18n initialization has settled before reading
+    // the active locale.  Without this, the first request after an MV3
+    // service-worker wake can resolve display names against the default "en"
+    // locale instead of the user's chosen UI language.
+    await ensureI18nReady();
 
     const storage = await getStorage([
         STORAGE_KEYS.API_KEY,
