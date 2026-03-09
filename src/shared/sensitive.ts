@@ -54,7 +54,7 @@ const SSN_REGEX =
  * Alphanumeric boundaries prevent matching within longer tokens.
  * The 3-3-3 grouping is canonical for SINs.
  */
-const SIN_REGEX = /(?<![0-9a-zA-Z])\d{3}[-\s]\d{3}[-\s]\d{3}(?![0-9a-zA-Z])/g;
+const SIN_REGEX = /(?<![0-9a-zA-Z])\d{3}([-\s])\d{3}\1\d{3}(?![0-9a-zA-Z])/g;
 
 /**
  * Email addresses.
@@ -134,38 +134,21 @@ export function redactSensitiveData(
 }
 
 /**
- * Redact sensitive data within HTML tag attribute values.
- *
- * Targets double- and single-quoted attribute values (the `="..."` or `='...'`
- * portions) inside a single HTML tag string, and applies the same redaction
- * patterns to each value.  Tag names and unquoted structure are left intact.
- */
-function redactTagAttributes(
-    tag: string,
-    mode: RedactionMode,
-    totalCount: { value: number },
-    allTypes: Set<SensitiveDataType>,
-): string {
-    // Match attribute values: ="value" or ='value'
-    return tag.replace(/=("[^"]*"|'[^']*')/g, (full, quoted: string) => {
-        const quote = quoted[0];
-        const inner = quoted.slice(1, -1);
-        const r = redactSensitiveData(inner, mode);
-        if (r.redactionCount > 0) {
-            accumulateResult(r, totalCount, allTypes);
-            return `=${quote}${r.redactedText}${quote}`;
-        }
-        return full;
-    });
-}
-
-/**
  * Redact sensitive data from an HTML string while preserving tag structure.
  *
- * The function splits the input into alternating "tag" / "text" segments.
- * Text segments are redacted directly.  Tag segments have their attribute
- * values scanned and redacted as well (e.g. `mailto:` hrefs), while tag
- * names and attribute keys are left intact.
+ * The function splits the input into alternating "tag" / "text" segments and
+ * only applies redaction to text segments.  Tag segments (including attribute
+ * values like `href`, `title`, `data-*`) are passed through unchanged.
+ *
+ * **Why attributes are not redacted:** The full-page translation pipeline
+ * preserves and re-applies original `href`/`title` attributes to the
+ * translated DOM.  Rewriting `mailto:user@example.com` →
+ * `mailto:[REDACTED:EMAIL]` would break anchor links in the translated page.
+ * Attribute values do still reach the provider in the prompt, but the LLM is
+ * instructed to preserve them verbatim — they are not "translated" or
+ * otherwise processed.  If attribute-level privacy becomes a requirement, a
+ * redact-then-restore approach (stripping attributes before the API call and
+ * re-attaching originals to the translated output) would be the correct path.
  */
 export function redactSensitiveHTML(
     html: string,
@@ -197,8 +180,8 @@ export function redactSensitiveHTML(
             parts.push(r.redactedText);
             accumulateResult(r, totalCount, allTypes);
         }
-        // The tag itself — redact sensitive data inside attribute values.
-        parts.push(redactTagAttributes(match[0], mode, totalCount, allTypes));
+        // The tag itself — pass through unchanged (see JSDoc above).
+        parts.push(match[0]);
         lastIndex = match.index + match[0].length;
     }
 
