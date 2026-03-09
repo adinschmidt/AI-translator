@@ -66,6 +66,7 @@ import {
     buildTranslationInstructionsWithDetection,
 } from "../shared/constants/languages";
 import {
+    getActiveUILocale,
     getI18nMessageOrFallback,
     initializeI18nFromStorage,
     UI_LANGUAGE_DEFAULT,
@@ -1822,7 +1823,10 @@ async function getSettingsAndTranslateWithDetection(
     if (mode === SETTINGS_MODE_BASIC) {
         const languageValue =
             storage.basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
-        targetLanguageLabel = getBasicTargetLanguageLabel(languageValue);
+        targetLanguageLabel = getBasicTargetLanguageLabel(
+            languageValue,
+            getActiveUILocale(),
+        );
         settings.apiEndpoint =
             PROVIDER_DEFAULTS[finalType]?.apiEndpoint || settings.apiEndpoint;
         settings.modelName = PROVIDER_DEFAULTS[finalType]?.modelName;
@@ -1835,7 +1839,10 @@ async function getSettingsAndTranslateWithDetection(
     } else {
         const languageValue =
             storage.advancedTargetLanguage || ADVANCED_TARGET_LANGUAGE_DEFAULT;
-        targetLanguageLabel = getBasicTargetLanguageLabel(languageValue);
+        targetLanguageLabel = getBasicTargetLanguageLabel(
+            languageValue,
+            getActiveUILocale(),
+        );
         finalInstructions = buildTranslationInstructionsWithDetection(
             detectedLanguage,
             detectedLanguageName,

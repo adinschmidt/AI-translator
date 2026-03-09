@@ -119,6 +119,32 @@ function normalizeLanguageInput(value: string | null | undefined): string {
     return (value || "").trim();
 }
 
+function normalizeDisplayLocale(locale: string | null | undefined): string {
+    const normalized = (locale || "").trim().replace("_", "-");
+    return normalized || "en";
+}
+
+function localizeWithIntlDisplayNames(
+    languageCode: string,
+    locale: string,
+): string | null {
+    if (typeof Intl === "undefined" || typeof Intl.DisplayNames !== "function") {
+        return null;
+    }
+
+    try {
+        const displayNames = new Intl.DisplayNames([locale], { type: "language" });
+        const localized = displayNames.of(languageCode);
+        if (localized && localized !== languageCode) {
+            return localized;
+        }
+    } catch {
+        // Fall through to static mapping.
+    }
+
+    return null;
+}
+
 function resolveLanguageCode(value: string | null | undefined): string | null {
     const normalizedValue = normalizeLanguageInput(value).toLowerCase();
     if (!normalizedValue) {
@@ -160,13 +186,26 @@ export function normalizeLanguageComparisonValue(
     return normalizedValue.toLowerCase();
 }
 
-export function getLanguageDisplayName(languageCode: string | null): string {
+export function getLanguageDisplayName(
+    languageCode: string | null,
+    locale: string = "en",
+): string {
     const normalizedInput = normalizeLanguageInput(languageCode);
     if (!normalizedInput) {
         return "Unknown";
     }
 
     const resolvedCode = resolveLanguageCode(normalizedInput);
+    const localeForDisplay = normalizeDisplayLocale(locale);
+
+    const intlDisplayName = localizeWithIntlDisplayNames(
+        resolvedCode || normalizedInput,
+        localeForDisplay,
+    );
+    if (intlDisplayName) {
+        return intlDisplayName;
+    }
+
     if (resolvedCode) {
         const normalizedCode = resolvedCode.toLowerCase().split("-")[0];
         return (
@@ -184,27 +223,30 @@ export function getLanguageDisplayName(languageCode: string | null): string {
     );
 }
 
-export function getBasicTargetLanguageLabel(value: string): string {
+export function getBasicTargetLanguageLabel(
+    value: string,
+    locale: string = "en",
+): string {
     const normalizedValue = normalizeLanguageInput(value);
     if (!normalizedValue) {
-        return "English";
+        return getLanguageDisplayName("en", locale);
     }
 
     const basicMatchByValue = BASIC_TARGET_LANGUAGES.find(
         (lang) => lang.value.toLowerCase() === normalizedValue.toLowerCase(),
     );
     if (basicMatchByValue) {
-        return basicMatchByValue.label;
+        return getLanguageDisplayName(basicMatchByValue.value, locale);
     }
 
     const basicMatchByLabel = BASIC_TARGET_LANGUAGES.find(
         (lang) => lang.label.toLowerCase() === normalizedValue.toLowerCase(),
     );
     if (basicMatchByLabel) {
-        return basicMatchByLabel.label;
+        return getLanguageDisplayName(basicMatchByLabel.value, locale);
     }
 
-    return getLanguageDisplayName(normalizedValue);
+    return getLanguageDisplayName(normalizedValue, locale);
 }
 
 export function buildBasicTranslationInstructions(targetLanguageLabel: string): string {
