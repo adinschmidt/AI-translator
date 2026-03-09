@@ -1,4 +1,5 @@
 import { STORAGE_KEYS, getStorage, onStorageChanged } from "../shared/storage";
+import { selectionOverlapsSensitiveField } from "../shared/sensitive";
 import {
     DEBUG_MODE_DEFAULT,
     UI_THEME_DARK,
@@ -2106,6 +2107,12 @@ if ((window as any).hasRun) {
             return;
         }
 
+        // Don't offer to translate content from password or other sensitive fields.
+        if (selectionOverlapsSensitiveField(selection)) {
+            hideSelectionTranslateButton();
+            return;
+        }
+
         const selectionContainerEl = selection.anchorNode
             ? selection.anchorNode.nodeType === Node.ELEMENT_NODE
                 ? (selection.anchorNode as Element)
@@ -2249,6 +2256,14 @@ if ((window as any).hasRun) {
     function extractSelectedHtml(): string | null {
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) return null;
+
+        // Block translation when the selection overlaps a sensitive form field.
+        if (selectionOverlapsSensitiveField(selection)) {
+            console.warn(
+                "[AI Translator] Selection overlaps a sensitive form field; blocking translation.",
+            );
+            return null;
+        }
 
         const range = selection.getRangeAt(0);
         if (range.collapsed) return null;

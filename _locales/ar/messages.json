@@ -230,6 +230,12 @@
     "optionsDebugModeHelp": {
         "message": "يضيف سجلات مفصلة إلى وحدات تحكم المتصفح/الامتداد ويعرض معلومات مفصلة عن الأخطاء في النوافذ المنبثقة للترجمة."
     },
+    "optionsRedactSensitiveDataLabel": {
+        "message": "تنقيح البيانات الحساسة"
+    },
+    "optionsRedactSensitiveDataHelp": {
+        "message": "يزيل تلقائيًا أرقام الهواتف وأرقام الضمان الاجتماعي وعناوين البريد الإلكتروني والبيانات الحساسة الأخرى قبل إرسال النص إلى واجهات برمجة الترجمة."
+    },
     "optionsFooterCreditPrefix": {
         "message": "أيقونة من تصميم Pixel Perfect من"
     },

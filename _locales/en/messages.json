@@ -230,6 +230,12 @@
     "optionsDebugModeHelp": {
         "message": "Adds detailed logs to browser/extension consoles and shows detailed error info in translation popups."
     },
+    "optionsRedactSensitiveDataLabel": {
+        "message": "Redact sensitive data"
+    },
+    "optionsRedactSensitiveDataHelp": {
+        "message": "Automatically removes phone numbers, SSNs, email addresses, and other sensitive data before sending text to translation APIs."
+    },
     "optionsFooterCreditPrefix": {
         "message": "Icon made by Pixel perfect from"
     },

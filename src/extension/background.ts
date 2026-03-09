@@ -53,6 +53,8 @@ import {
     createRequestId,
     isInstructModelName,
     stripThinkBlocks,
+    REDACTION_MODE_DEFAULT,
+    type RedactionMode,
 } from "../shared/constants/settings";
 import {
     PROVIDERS,
@@ -72,6 +74,7 @@ import {
     UI_LANGUAGE_DEFAULT,
     UI_LANGUAGE_STORAGE_KEY,
 } from "../shared/i18n";
+import { redactSensitiveHTML } from "../shared/sensitive";
 
 interface StreamState {
     requestId: string;
@@ -1126,6 +1129,7 @@ async function translateHTMLUnits(
         STORAGE_KEYS.SETTINGS_MODE,
         STORAGE_KEYS.BASIC_TARGET_LANGUAGE,
         STORAGE_KEYS.ADVANCED_TARGET_LANGUAGE,
+        STORAGE_KEYS.REDACTION_MODE,
     ]);
 
     const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
@@ -1139,6 +1143,19 @@ async function translateHTMLUnits(
         throw new Error(
             "API Key or Endpoint not set. Please configure in extension settings.",
         );
+    }
+
+    // Redact sensitive data in each HTML unit before sending to the API.
+    const redactionMode: RedactionMode =
+        (storage as any).redactionMode || REDACTION_MODE_DEFAULT;
+    for (const unit of units) {
+        const r = redactSensitiveHTML(unit.html, redactionMode);
+        if (r.redactionCount > 0) {
+            unit.html = r.redactedText;
+            console.log(
+                `[AI Translator] Redacted ${r.redactionCount} sensitive item(s) in HTML unit ${unit.id}: ${r.typesDetected.join(", ")}`,
+            );
+        }
     }
 
     const batches = batchHTMLUnits(units);
@@ -1500,9 +1517,21 @@ async function getSettingsAndTranslate(
         STORAGE_KEYS.SETTINGS_MODE,
         STORAGE_KEYS.BASIC_TARGET_LANGUAGE,
         STORAGE_KEYS.DEBUG_MODE,
+        STORAGE_KEYS.REDACTION_MODE,
     ]);
     const debugModeEnabled =
         typeof storage.debugMode === "boolean" ? storage.debugMode : DEBUG_MODE_DEFAULT;
+
+    // Redact sensitive data before it reaches any provider API.
+    const redactionMode: RedactionMode =
+        (storage as any).redactionMode || REDACTION_MODE_DEFAULT;
+    const redactionResult = redactSensitiveHTML(textToTranslate, redactionMode);
+    if (redactionResult.redactionCount > 0) {
+        textToTranslate = redactionResult.redactedText;
+        console.log(
+            `[AI Translator] Redacted ${redactionResult.redactionCount} sensitive item(s): ${redactionResult.typesDetected.join(", ")}`,
+        );
+    }
 
     const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
     const settings = getEffectiveProviderSettings(storage, mode);
@@ -1805,9 +1834,21 @@ async function getSettingsAndTranslateWithDetection(
         STORAGE_KEYS.ADVANCED_TARGET_LANGUAGE,
         STORAGE_KEYS.EXTRA_INSTRUCTIONS,
         STORAGE_KEYS.DEBUG_MODE,
+        STORAGE_KEYS.REDACTION_MODE,
     ]);
     const debugModeEnabled =
         typeof storage.debugMode === "boolean" ? storage.debugMode : DEBUG_MODE_DEFAULT;
+
+    // Redact sensitive data before it reaches any provider API.
+    const redactionMode: RedactionMode =
+        (storage as any).redactionMode || REDACTION_MODE_DEFAULT;
+    const redactionResult = redactSensitiveHTML(textToTranslate, redactionMode);
+    if (redactionResult.redactionCount > 0) {
+        textToTranslate = redactionResult.redactedText;
+        console.log(
+            `[AI Translator] Redacted ${redactionResult.redactionCount} sensitive item(s): ${redactionResult.typesDetected.join(", ")}`,
+        );
+    }
 
     const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
     const settings = getEffectiveProviderSettings(storage, mode);

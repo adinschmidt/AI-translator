@@ -230,6 +230,12 @@
     "optionsDebugModeHelp": {
         "message": "Fügt detaillierte Protokolle zu Browser-/Erweiterungskonsolen hinzu und zeigt detaillierte Fehlerinformationen in Übersetzungs-Popups an."
     },
+    "optionsRedactSensitiveDataLabel": {
+        "message": "Sensible Daten schwärzen"
+    },
+    "optionsRedactSensitiveDataHelp": {
+        "message": "Entfernt automatisch Telefonnummern, Sozialversicherungsnummern, E-Mail-Adressen und andere sensible Daten, bevor Text an Übersetzungs-APIs gesendet wird."
+    },
     "optionsFooterCreditPrefix": {
         "message": "Icon erstellt von Pixel Perfect aus"
     },

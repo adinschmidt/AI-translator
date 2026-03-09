@@ -230,6 +230,12 @@
     "optionsDebugModeHelp": {
         "message": "Agrega registros detallados a las consolas del navegador/extensión y muestra información detallada de errores en ventanas emergentes de traducción."
     },
+    "optionsRedactSensitiveDataLabel": {
+        "message": "Redactar datos confidenciales"
+    },
+    "optionsRedactSensitiveDataHelp": {
+        "message": "Elimina automáticamente números de teléfono, números de seguro social, direcciones de correo electrónico y otros datos confidenciales antes de enviar el texto a las API de traducción."
+    },
     "optionsFooterCreditPrefix": {
         "message": "Icono creado por Pixel Perfect de"
     },

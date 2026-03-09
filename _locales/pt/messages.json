@@ -230,6 +230,12 @@
     "optionsDebugModeHelp": {
         "message": "Adiciona logs detalhados aos consoles de navegador/extensão e mostra informações detalhadas de erros em pop-ups de tradução."
     },
+    "optionsRedactSensitiveDataLabel": {
+        "message": "Ocultar dados sensíveis"
+    },
+    "optionsRedactSensitiveDataHelp": {
+        "message": "Remove automaticamente números de telefone, números de segurança social, endereços de e-mail e outros dados sensíveis antes de enviar texto para as APIs de tradução."
+    },
     "optionsFooterCreditPrefix": {
         "message": "Ícone feito por Pixel Perfect de"
     },

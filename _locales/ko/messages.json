@@ -230,6 +230,12 @@
     "optionsDebugModeHelp": {
         "message": "브라우저/확장 콘솔에 자세한 로그를 추가하고 번역 팝업에 자세한 오류 정보를 표시합니다."
     },
+    "optionsRedactSensitiveDataLabel": {
+        "message": "민감한 데이터 삭제"
+    },
+    "optionsRedactSensitiveDataHelp": {
+        "message": "번역 API로 텍스트를 보내기 전에 전화번호, 사회보장번호, 이메일 주소 및 기타 민감한 데이터를 자동으로 제거합니다."
+    },
     "optionsFooterCreditPrefix": {
         "message": "Pixel Perfect가 만든 아이콘 출처:"
     },
