@@ -14,9 +14,19 @@ export const PROVIDERS = [
 
 export type Provider = (typeof PROVIDERS)[number];
 
-export const BASIC_PROVIDERS = ["openai", "anthropic", "google"] as const;
-
-export type BasicProvider = (typeof BASIC_PROVIDERS)[number];
+export const PROVIDER_DISPLAY_NAMES: Record<Provider, string> = {
+    openai: "OpenAI",
+    anthropic: "Anthropic Claude",
+    google: "Google Gemini",
+    groq: "Groq",
+    grok: "Grok (xAI)",
+    openrouter: "OpenRouter",
+    deepseek: "DeepSeek",
+    mistral: "Mistral AI",
+    qwen: "Qwen (Alibaba)",
+    cerebras: "Cerebras",
+    ollama: "Ollama (Local)",
+};
 
 export const CEREBRAS_SUPPORTED_MODELS = [
     "llama3.1-8b",

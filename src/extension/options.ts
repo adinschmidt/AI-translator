@@ -7,7 +7,7 @@ import {
 import {
     PROVIDERS,
     PROVIDER_DEFAULTS,
-    BASIC_PROVIDERS,
+    PROVIDER_DISPLAY_NAMES,
     CEREBRAS_SUPPORTED_MODELS,
     canonicalizeProviderModelName,
     resolveProviderDefaults,
@@ -447,6 +447,17 @@ function populateTargetLanguageDropdown(selectEl: HTMLSelectElement): void {
     customOption.value = CUSTOM_TARGET_LANGUAGE_OPTION_VALUE;
     customOption.textContent = t("optionsCustomOptionLabel", "Custom…");
     selectEl.appendChild(customOption);
+}
+
+function populateBasicProviderDropdown(): void {
+    if (!basicProviderSelect) return;
+    basicProviderSelect.textContent = "";
+    for (const id of PROVIDERS) {
+        const option = document.createElement("option");
+        option.value = id;
+        option.textContent = PROVIDER_DISPLAY_NAMES[id];
+        basicProviderSelect.appendChild(option);
+    }
 }
 
 function populateBasicLanguageDropdown(): void {
@@ -1514,19 +1525,10 @@ async function loadSettings(): Promise<void> {
                 ? (result.apiType as Provider)
                 : "openai";
 
-        if (
-            settingsMode === SETTINGS_MODE_BASIC &&
-            !BASIC_PROVIDERS.includes(initialProvider as any)
-        ) {
-            initialProvider = "openai";
-        }
-
         apiTypeSelect.value = initialProvider;
 
         if (basicProviderSelect) {
-            basicProviderSelect.value = BASIC_PROVIDERS.includes(initialProvider as any)
-                ? initialProvider
-                : "openai";
+            basicProviderSelect.value = initialProvider;
         }
 
         applyProviderToForm(initialProvider);
@@ -1579,9 +1581,7 @@ function applyBasicSettingsToUI(provider: string): void {
     const settings = providerSettings[provider] || resolveProviderDefaults(provider);
 
     if (basicProviderSelect) {
-        basicProviderSelect.value = BASIC_PROVIDERS.includes(provider as any)
-            ? provider
-            : "openai";
+        basicProviderSelect.value = PROVIDERS.includes(provider as Provider) ? provider : "openai";
     }
 
     if (basicApiKeyInput) {
@@ -1611,7 +1611,7 @@ async function saveSetting(): Promise<void> {
 
     if (isBasic) {
         const selectedProvider = basicProviderSelect?.value || "openai";
-        const provider = BASIC_PROVIDERS.includes(selectedProvider as any)
+        const provider: Provider = PROVIDERS.includes(selectedProvider as Provider)
             ? (selectedProvider as Provider)
             : "openai";
 
@@ -1768,6 +1768,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     applyTheme(uiTheme);
     updateThemeSelectionUI(uiTheme);
 
+    populateBasicProviderDropdown();
     populateBasicLanguageDropdown();
     populateAdvancedLanguageDropdown();
     loadSettings();
@@ -1780,16 +1781,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const isBasic = settingsMode === SETTINGS_MODE_BASIC;
 
-            let activeProvider = apiTypeSelect.value;
-            if (isBasic && !BASIC_PROVIDERS.includes(activeProvider as any)) {
-                activeProvider = "openai";
-                apiTypeSelect.value = activeProvider;
-            }
+            const activeProvider = apiTypeSelect.value;
 
             if (basicProviderSelect) {
-                basicProviderSelect.value = BASIC_PROVIDERS.includes(
-                    activeProvider as any,
-                )
+                basicProviderSelect.value = PROVIDERS.includes(activeProvider as Provider)
                     ? activeProvider
                     : "openai";
             }
@@ -1819,7 +1814,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (basicProviderSelect) {
         basicProviderSelect.addEventListener("change", () => {
             const provider = basicProviderSelect.value;
-            const safeProvider = BASIC_PROVIDERS.includes(provider as any)
+            const safeProvider: Provider = PROVIDERS.includes(provider as Provider)
                 ? (provider as Provider)
                 : "openai";
 
