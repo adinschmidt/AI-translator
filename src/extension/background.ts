@@ -66,6 +66,8 @@ import {
     buildTranslationInstructionsWithDetection,
 } from "../shared/constants/languages";
 import {
+    ensureI18nReady,
+    getActiveUILocale,
     getI18nMessageOrFallback,
     initializeI18nFromStorage,
     UI_LANGUAGE_DEFAULT,
@@ -1787,6 +1789,12 @@ async function getSettingsAndTranslateWithDetection(
         detectedLanguageName,
     });
 
+    // Ensure the fire-and-forget i18n initialization has settled before reading
+    // the active locale.  Without this, the first request after an MV3
+    // service-worker wake can resolve display names against the default "en"
+    // locale instead of the user's chosen UI language.
+    await ensureI18nReady();
+
     const storage = await getStorage([
         STORAGE_KEYS.API_KEY,
         STORAGE_KEYS.API_ENDPOINT,
@@ -1822,7 +1830,10 @@ async function getSettingsAndTranslateWithDetection(
     if (mode === SETTINGS_MODE_BASIC) {
         const languageValue =
             storage.basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
-        targetLanguageLabel = getBasicTargetLanguageLabel(languageValue);
+        targetLanguageLabel = getBasicTargetLanguageLabel(
+            languageValue,
+            getActiveUILocale(),
+        );
         settings.apiEndpoint =
             PROVIDER_DEFAULTS[finalType]?.apiEndpoint || settings.apiEndpoint;
         settings.modelName = PROVIDER_DEFAULTS[finalType]?.modelName;
@@ -1835,7 +1846,10 @@ async function getSettingsAndTranslateWithDetection(
     } else {
         const languageValue =
             storage.advancedTargetLanguage || ADVANCED_TARGET_LANGUAGE_DEFAULT;
-        targetLanguageLabel = getBasicTargetLanguageLabel(languageValue);
+        targetLanguageLabel = getBasicTargetLanguageLabel(
+            languageValue,
+            getActiveUILocale(),
+        );
         finalInstructions = buildTranslationInstructionsWithDetection(
             detectedLanguage,
             detectedLanguageName,

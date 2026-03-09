@@ -7,7 +7,10 @@ import {
     UI_THEME_SYSTEM,
     type UITheme,
 } from "../shared/constants/settings";
-import { normalizeLanguageComparisonValue } from "../shared/constants/languages";
+import {
+    getLanguageDisplayName,
+    normalizeLanguageComparisonValue,
+} from "../shared/constants/languages";
 import {
     type BackgroundToContentMessage,
     type ContentToBackgroundMessage,
@@ -17,6 +20,8 @@ import {
     STREAM_PORT_NAME,
 } from "../shared/messaging";
 import {
+    ensureI18nReady,
+    getActiveUILocale,
     getI18nMessageOrFallback,
     initializeI18nFromStorage,
     UI_LANGUAGE_STORAGE_KEY,
@@ -1271,71 +1276,8 @@ if ((window as any).hasRun) {
 
     const MAX_TEXT_SAMPLE_FOR_DETECTION = 512;
 
-    const LANGUAGE_NAMES: Record<string, string> = {
-        en: "English",
-        es: "Spanish",
-        fr: "French",
-        de: "German",
-        it: "Italian",
-        pt: "Portuguese",
-        ru: "Russian",
-        ja: "Japanese",
-        ko: "Korean",
-        zh: "Chinese",
-        "zh-CN": "Chinese (Simplified)",
-        "zh-TW": "Chinese (Traditional)",
-        ar: "Arabic",
-        hi: "Hindi",
-        nl: "Dutch",
-        pl: "Polish",
-        tr: "Turkish",
-        vi: "Vietnamese",
-        th: "Thai",
-        sv: "Swedish",
-        da: "Danish",
-        no: "Norwegian",
-        fi: "Finnish",
-        cs: "Czech",
-        el: "Greek",
-        he: "Hebrew",
-        hu: "Hungarian",
-        id: "Indonesian",
-        ms: "Malay",
-        ro: "Romanian",
-        sk: "Slovak",
-        uk: "Ukrainian",
-        bg: "Bulgarian",
-        hr: "Croatian",
-        sr: "Serbian",
-        sl: "Slovenian",
-        et: "Estonian",
-        lv: "Latvian",
-        lt: "Lithuanian",
-        fa: "Persian",
-        bn: "Bengali",
-        ta: "Tamil",
-        te: "Telugu",
-        mr: "Marathi",
-        gu: "Gujarati",
-        kn: "Kannada",
-        ml: "Malayalam",
-        pa: "Punjabi",
-        ur: "Urdu",
-        sw: "Swahili",
-        af: "Afrikaans",
-        ca: "Catalan",
-        gl: "Galician",
-        eu: "Basque",
-        fil: "Filipino",
-        tl: "Tagalog",
-    };
-
-    function getLanguageDisplayName(languageCode: string): string {
-        if (!languageCode) return "Unknown";
-        const normalizedCode = languageCode.toLowerCase().split("-")[0];
-        return (
-            LANGUAGE_NAMES[languageCode] || LANGUAGE_NAMES[normalizedCode] || languageCode
-        );
+    function getLocalizedLanguageDisplayName(languageCode: string): string {
+        return getLanguageDisplayName(languageCode, getActiveUILocale());
     }
 
     interface LanguageDetectionResult {
@@ -1374,7 +1316,7 @@ if ((window as any).hasRun) {
 
             return {
                 language: result.language,
-                languageName: getLanguageDisplayName(result.language),
+                languageName: getLocalizedLanguageDisplayName(result.language),
                 isReliable: result.isReliable ? result.isReliable() : true,
             };
         } catch (error) {
@@ -1897,6 +1839,12 @@ if ((window as any).hasRun) {
         });
 
     async function refreshLocalizedContentUI(): Promise<void> {
+        if (currentDetectedLanguage) {
+            currentDetectedLanguageName = getLocalizedLanguageDisplayName(
+                currentDetectedLanguage,
+            );
+        }
+
         if (selectionTranslateButton) {
             selectionTranslateButton.setAttribute(
                 "aria-label",
@@ -2184,9 +2132,15 @@ if ((window as any).hasRun) {
         detectAndShowButton(selectedText, rect);
     }
 
-    function detectAndShowButton(text: string, rect: DOMRect): void {
+    async function detectAndShowButton(text: string, rect: DOMRect): Promise<void> {
         currentDetectedLanguage = null;
         currentDetectedLanguageName = null;
+
+        // Ensure the fire-and-forget i18n initialization has settled so that
+        // getActiveUILocale() returns the user's chosen locale, not the default
+        // "en".  Without this, the first detection after content-script
+        // injection can produce an English language name.
+        await ensureI18nReady();
 
         const detectionResult = detectLanguage(text);
 

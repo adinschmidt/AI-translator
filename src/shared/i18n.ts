@@ -32,6 +32,7 @@ let activeCatalog: MessageCatalog | null = null;
 let activeLocale: SupportedUILanguage = "en";
 let activePreference: UILanguagePreference = UI_LANGUAGE_DEFAULT;
 let activeLoadPromise: Promise<void> | null = null;
+let initSettledPromise: Promise<void> = Promise.resolve();
 
 function applySubstitutions(message: string, substitutions?: string | string[]): string {
     if (substitutions === undefined) {
@@ -106,6 +107,16 @@ export function getActiveUILocale(): SupportedUILanguage {
     return activeLocale;
 }
 
+/**
+ * Returns a promise that resolves once the most recent i18n initialization has
+ * settled.  Callers that need an up-to-date locale should `await` this before
+ * reading `getActiveUILocale()` to avoid the race where the fire-and-forget
+ * `initializeI18nFromStorage()` at module load has not yet completed.
+ */
+export function ensureI18nReady(): Promise<void> {
+    return initSettledPromise;
+}
+
 async function loadCatalog(locale: SupportedUILanguage): Promise<MessageCatalog> {
     const cached = catalogCache.get(locale);
     if (cached) {
@@ -167,13 +178,16 @@ async function readStoredPreference(): Promise<UILanguagePreference> {
 export async function initializeI18n(
     preference?: UILanguagePreference,
 ): Promise<UILanguagePreference> {
-    const nextPreference =
-        preference === undefined
-            ? await readStoredPreference()
-            : normalizeUILanguagePreference(preference);
-    const nextLocale = resolveLocaleFromPreference(nextPreference);
+    // Wrap the entire flow — including the storage read — in a single promise
+    // and assign it *before* any awaits so that `ensureI18nReady()` callers
+    // block on the full initialization, not just the catalog-load tail.
+    const fullInit = (async () => {
+        const nextPreference =
+            preference === undefined
+                ? await readStoredPreference()
+                : normalizeUILanguagePreference(preference);
+        const nextLocale = resolveLocaleFromPreference(nextPreference);
 
-    activeLoadPromise = (async () => {
         await ensureDefaultCatalog();
         activeCatalog =
             nextLocale === "en" ? defaultCatalog : await loadCatalog(nextLocale);
@@ -181,7 +195,10 @@ export async function initializeI18n(
         activeLocale = nextLocale;
     })();
 
-    await activeLoadPromise;
+    activeLoadPromise = fullInit;
+    initSettledPromise = fullInit;
+
+    await fullInit;
     activeLoadPromise = null;
     return activePreference;
 }
