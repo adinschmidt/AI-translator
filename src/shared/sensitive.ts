@@ -1,7 +1,7 @@
 import type { RedactionMode } from "./constants/settings";
 
 /** Categories of sensitive data that can be detected and redacted. */
-export type SensitiveDataType = "PHONE" | "SSN" | "SIN" | "EMAIL" | "PASSWORD_FIELD";
+export type SensitiveDataType = "PHONE" | "SSN" | "SIN" | "EMAIL";
 
 /** Result returned by redaction functions. */
 export interface RedactionResult {
@@ -34,22 +34,27 @@ const INTL_PHONE_REGEX =
 
 /**
  * US Social Security Numbers (SSN):
- * 123-45-6789, 123 45 6789, 123456789
+ * 123-45-6789, 123 45 6789
+ *
+ * Requires at least one separator (dash or space) to avoid matching arbitrary
+ * 9-digit numbers like product codes or reference IDs.  Alphanumeric
+ * boundaries prevent matching within longer tokens.
  *
  * Excludes invalid area prefixes: 000, 666, 9xx (per IRS rules).
  * The 3-2-4 grouping distinguishes SSNs from SINs (3-3-3).
  */
 const SSN_REGEX =
-    /(?<!\d)(?!000|666|9\d\d)\d{3}[-\s]?\d{2}[-\s]?\d{4}(?!\d)/g;
+    /(?<![0-9a-zA-Z])(?!000|666|9\d\d)\d{3}([-\s])\d{2}\1\d{4}(?![0-9a-zA-Z])/g;
 
 /**
  * Canadian Social Insurance Numbers (SIN):
  * 123-456-789, 123 456 789
  *
  * Requires separators to distinguish from SSNs and other 9-digit sequences.
+ * Alphanumeric boundaries prevent matching within longer tokens.
  * The 3-3-3 grouping is canonical for SINs.
  */
-const SIN_REGEX = /(?<!\d)\d{3}[-\s]\d{3}[-\s]\d{3}(?!\d)/g;
+const SIN_REGEX = /(?<![0-9a-zA-Z])\d{3}[-\s]\d{3}[-\s]\d{3}(?![0-9a-zA-Z])/g;
 
 /**
  * Email addresses.
@@ -78,6 +83,20 @@ const PATTERNS: ReadonlyArray<{ regex: RegExp; type: SensitiveDataType }> = [
 // ---------------------------------------------------------------------------
 // Core redaction functions
 // ---------------------------------------------------------------------------
+
+/**
+ * Collect redaction counts/types into accumulators.
+ */
+function accumulateResult(
+    result: RedactionResult,
+    totalCount: { value: number },
+    allTypes: Set<SensitiveDataType>,
+): void {
+    totalCount.value += result.redactionCount;
+    for (const t of result.typesDetected) {
+        allTypes.add(t);
+    }
+}
 
 /**
  * Redact sensitive data from a plain-text string.
@@ -115,12 +134,38 @@ export function redactSensitiveData(
 }
 
 /**
- * Redact sensitive data from an HTML string while preserving all tags and
- * attributes.
+ * Redact sensitive data within HTML tag attribute values.
  *
- * The function splits the input into alternating "tag" / "text" segments and
- * only applies redaction to text segments.  This avoids touching href, src, or
- * any other attribute content and keeps the HTML structurally valid.
+ * Targets double- and single-quoted attribute values (the `="..."` or `='...'`
+ * portions) inside a single HTML tag string, and applies the same redaction
+ * patterns to each value.  Tag names and unquoted structure are left intact.
+ */
+function redactTagAttributes(
+    tag: string,
+    mode: RedactionMode,
+    totalCount: { value: number },
+    allTypes: Set<SensitiveDataType>,
+): string {
+    // Match attribute values: ="value" or ='value'
+    return tag.replace(/=("[^"]*"|'[^']*')/g, (full, quoted: string) => {
+        const quote = quoted[0];
+        const inner = quoted.slice(1, -1);
+        const r = redactSensitiveData(inner, mode);
+        if (r.redactionCount > 0) {
+            accumulateResult(r, totalCount, allTypes);
+            return `=${quote}${r.redactedText}${quote}`;
+        }
+        return full;
+    });
+}
+
+/**
+ * Redact sensitive data from an HTML string while preserving tag structure.
+ *
+ * The function splits the input into alternating "tag" / "text" segments.
+ * Text segments are redacted directly.  Tag segments have their attribute
+ * values scanned and redacted as well (e.g. `mailto:` hrefs), while tag
+ * names and attribute keys are left intact.
  */
 export function redactSensitiveHTML(
     html: string,
@@ -130,7 +175,12 @@ export function redactSensitiveHTML(
         return { redactedText: html, redactionCount: 0, typesDetected: [] };
     }
 
-    let totalCount = 0;
+    // Short-circuit: if there are no HTML tags, just redact as plain text.
+    if (!html.includes("<")) {
+        return redactSensitiveData(html, mode);
+    }
+
+    const totalCount = { value: 0 };
     const allTypes = new Set<SensitiveDataType>();
 
     // Match HTML tags (opening, closing, self-closing, comments).
@@ -145,26 +195,24 @@ export function redactSensitiveHTML(
             const textSegment = html.slice(lastIndex, match.index);
             const r = redactSensitiveData(textSegment, mode);
             parts.push(r.redactedText);
-            totalCount += r.redactionCount;
-            r.typesDetected.forEach((t) => allTypes.add(t));
+            accumulateResult(r, totalCount, allTypes);
         }
-        // The tag itself — pass through unchanged
-        parts.push(match[0]);
+        // The tag itself — redact sensitive data inside attribute values.
+        parts.push(redactTagAttributes(match[0], mode, totalCount, allTypes));
         lastIndex = match.index + match[0].length;
     }
 
-    // Trailing text after the last tag (or the entire string if no tags)
+    // Trailing text after the last tag
     if (lastIndex < html.length) {
         const textSegment = html.slice(lastIndex);
         const r = redactSensitiveData(textSegment, mode);
         parts.push(r.redactedText);
-        totalCount += r.redactionCount;
-        r.typesDetected.forEach((t) => allTypes.add(t));
+        accumulateResult(r, totalCount, allTypes);
     }
 
     return {
         redactedText: parts.join(""),
-        redactionCount: totalCount,
+        redactionCount: totalCount.value,
         typesDetected: Array.from(allTypes),
     };
 }
@@ -173,7 +221,7 @@ export function redactSensitiveHTML(
 // Sensitive form-field detection (content-script context)
 // ---------------------------------------------------------------------------
 
-const SENSITIVE_INPUT_TYPES = new Set(["password", "hidden"]);
+const SENSITIVE_INPUT_TYPES = new Set(["password"]);
 
 const SENSITIVE_AUTOCOMPLETE_VALUES = new Set([
     "current-password",
@@ -187,8 +235,46 @@ const SENSITIVE_AUTOCOMPLETE_VALUES = new Set([
 ]);
 
 /**
+ * Build a CSS selector that matches all sensitive input elements.
+ *
+ * Derived programmatically from {@link SENSITIVE_INPUT_TYPES} and
+ * {@link SENSITIVE_AUTOCOMPLETE_VALUES} so the selector stays in sync with
+ * the sets used by {@link isSensitiveFormField}.
+ */
+function buildSensitiveSelector(): string {
+    const parts: string[] = [];
+    for (const t of SENSITIVE_INPUT_TYPES) {
+        parts.push(`input[type="${t}"]`);
+    }
+    for (const v of SENSITIVE_AUTOCOMPLETE_VALUES) {
+        parts.push(`input[autocomplete~="${v}"]`);
+    }
+    return parts.join(", ");
+}
+
+const SENSITIVE_SELECTOR = buildSensitiveSelector();
+
+/**
+ * Check whether any token in the element's `autocomplete` attribute matches
+ * a known sensitive value.
+ *
+ * The `autocomplete` attribute can contain a space-separated list of tokens
+ * (e.g. `"section-checkout cc-number"`).  Per the spec we need to check each
+ * token individually, not require an exact match on the full string.
+ *
+ * @see https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/autocomplete
+ */
+function hasAnySensitiveAutocompleteToken(element: Element): boolean {
+    const raw = element.getAttribute("autocomplete");
+    if (!raw) return false;
+
+    const tokens = raw.toLowerCase().trim().split(/\s+/);
+    return tokens.some((token) => SENSITIVE_AUTOCOMPLETE_VALUES.has(token));
+}
+
+/**
  * Returns `true` when the given element is a form field whose value the
- * browser considers sensitive (password inputs, hidden fields, or inputs with
+ * browser considers sensitive (password inputs or inputs with
  * payment/credential autocomplete hints).
  */
 export function isSensitiveFormField(element: Element): boolean {
@@ -206,14 +292,7 @@ export function isSensitiveFormField(element: Element): boolean {
         }
     }
 
-    const autocomplete = (element.getAttribute("autocomplete") || "")
-        .toLowerCase()
-        .trim();
-    if (autocomplete && SENSITIVE_AUTOCOMPLETE_VALUES.has(autocomplete)) {
-        return true;
-    }
-
-    return false;
+    return hasAnySensitiveAutocompleteToken(element);
 }
 
 /**
@@ -240,25 +319,14 @@ export function selectionOverlapsSensitiveField(selection: Selection): boolean {
     // If the selection *is* a sensitive field, that's an immediate match.
     if (isSensitiveFormField(element)) return true;
 
-    // Search within the nearest form (or parent) for any sensitive inputs that
-    // intersect the selected range.
-    const ancestor =
-        element.closest("form") || element.parentElement || document.body;
+    // Search within the nearest form for any sensitive inputs that intersect
+    // the selected range.  We intentionally do NOT fall back to document.body
+    // to avoid false positives when an unrelated password input exists
+    // elsewhere on the page.
+    const ancestor = element.closest("form");
+    if (!ancestor) return false;
 
-    const sensitiveSelector = [
-        'input[type="password"]',
-        'input[type="hidden"]',
-        'input[autocomplete="current-password"]',
-        'input[autocomplete="new-password"]',
-        'input[autocomplete="cc-number"]',
-        'input[autocomplete="cc-csc"]',
-        'input[autocomplete="cc-exp"]',
-        'input[autocomplete="cc-exp-month"]',
-        'input[autocomplete="cc-exp-year"]',
-        'input[autocomplete="cc-type"]',
-    ].join(", ");
-
-    const sensitiveInputs = ancestor.querySelectorAll(sensitiveSelector);
+    const sensitiveInputs = ancestor.querySelectorAll(SENSITIVE_SELECTOR);
 
     for (const input of sensitiveInputs) {
         if (range.intersectsNode(input)) {

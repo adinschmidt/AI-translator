@@ -76,6 +76,21 @@ import {
 } from "../shared/i18n";
 import { redactSensitiveHTML } from "../shared/sensitive";
 
+/**
+ * Apply redaction to text/HTML based on the user's redaction-mode setting and
+ * return the (possibly redacted) text.  Logs a summary when items are found.
+ */
+function applyRedaction(text: string, mode: RedactionMode): string {
+    const r = redactSensitiveHTML(text, mode);
+    if (r.redactionCount > 0) {
+        console.log(
+            `[AI Translator] Redacted ${r.redactionCount} sensitive item(s): ${r.typesDetected.join(", ")}`,
+        );
+        return r.redactedText;
+    }
+    return text;
+}
+
 interface StreamState {
     requestId: string;
     controller: AbortController;
@@ -1146,16 +1161,9 @@ async function translateHTMLUnits(
     }
 
     // Redact sensitive data in each HTML unit before sending to the API.
-    const redactionMode: RedactionMode =
-        (storage as any).redactionMode || REDACTION_MODE_DEFAULT;
+    const redactionMode: RedactionMode = storage.redactionMode || REDACTION_MODE_DEFAULT;
     for (const unit of units) {
-        const r = redactSensitiveHTML(unit.html, redactionMode);
-        if (r.redactionCount > 0) {
-            unit.html = r.redactedText;
-            console.log(
-                `[AI Translator] Redacted ${r.redactionCount} sensitive item(s) in HTML unit ${unit.id}: ${r.typesDetected.join(", ")}`,
-            );
-        }
+        unit.html = applyRedaction(unit.html, redactionMode);
     }
 
     const batches = batchHTMLUnits(units);
@@ -1523,15 +1531,8 @@ async function getSettingsAndTranslate(
         typeof storage.debugMode === "boolean" ? storage.debugMode : DEBUG_MODE_DEFAULT;
 
     // Redact sensitive data before it reaches any provider API.
-    const redactionMode: RedactionMode =
-        (storage as any).redactionMode || REDACTION_MODE_DEFAULT;
-    const redactionResult = redactSensitiveHTML(textToTranslate, redactionMode);
-    if (redactionResult.redactionCount > 0) {
-        textToTranslate = redactionResult.redactedText;
-        console.log(
-            `[AI Translator] Redacted ${redactionResult.redactionCount} sensitive item(s): ${redactionResult.typesDetected.join(", ")}`,
-        );
-    }
+    const redactionMode: RedactionMode = storage.redactionMode || REDACTION_MODE_DEFAULT;
+    textToTranslate = applyRedaction(textToTranslate, redactionMode);
 
     const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
     const settings = getEffectiveProviderSettings(storage, mode);
@@ -1840,15 +1841,8 @@ async function getSettingsAndTranslateWithDetection(
         typeof storage.debugMode === "boolean" ? storage.debugMode : DEBUG_MODE_DEFAULT;
 
     // Redact sensitive data before it reaches any provider API.
-    const redactionMode: RedactionMode =
-        (storage as any).redactionMode || REDACTION_MODE_DEFAULT;
-    const redactionResult = redactSensitiveHTML(textToTranslate, redactionMode);
-    if (redactionResult.redactionCount > 0) {
-        textToTranslate = redactionResult.redactedText;
-        console.log(
-            `[AI Translator] Redacted ${redactionResult.redactionCount} sensitive item(s): ${redactionResult.typesDetected.join(", ")}`,
-        );
-    }
+    const redactionMode: RedactionMode = storage.redactionMode || REDACTION_MODE_DEFAULT;
+    textToTranslate = applyRedaction(textToTranslate, redactionMode);
 
     const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
     const settings = getEffectiveProviderSettings(storage, mode);

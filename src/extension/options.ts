@@ -1375,8 +1375,7 @@ async function loadSettings(): Promise<void> {
             typeof result.debugMode === "boolean" ? result.debugMode : DEBUG_MODE_DEFAULT;
         const needsPersistRedactionModeSetting =
             typeof result.redactionMode === "undefined";
-        redactionEnabled =
-            result.redactionMode !== "off"; // "auto" or undefined → true
+        redactionEnabled = result.redactionMode !== "off"; // "auto" or undefined → true
         const needsPersistUIThemeSetting =
             normalizeUITheme(result.uiTheme) !== result.uiTheme;
         const normalizedUILanguage = normalizeUILanguagePreference(result.uiLanguage);
@@ -1596,7 +1595,9 @@ function applyBasicSettingsToUI(provider: string): void {
     const settings = providerSettings[provider] || resolveProviderDefaults(provider);
 
     if (basicProviderSelect) {
-        basicProviderSelect.value = PROVIDERS.includes(provider as Provider) ? provider : "openai";
+        basicProviderSelect.value = PROVIDERS.includes(provider as Provider)
+            ? provider
+            : "openai";
     }
 
     if (basicApiKeyInput) {
@@ -1657,7 +1658,9 @@ async function saveSetting(): Promise<void> {
                 [STORAGE_KEYS.SETTINGS_MODE]: settingsMode,
                 [STORAGE_KEYS.BASIC_TARGET_LANGUAGE]: basicTargetLanguage,
                 [STORAGE_KEYS.DEBUG_MODE]: debugModeInput?.checked ?? debugModeEnabled,
-                [STORAGE_KEYS.REDACTION_MODE]: redactSensitiveDataInput?.checked ? "auto" : "off",
+                [STORAGE_KEYS.REDACTION_MODE]: redactSensitiveDataInput?.checked
+                    ? "auto"
+                    : "off",
                 [STORAGE_KEYS.UI_THEME]: uiTheme,
             });
             displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
@@ -1738,7 +1741,9 @@ async function saveSetting(): Promise<void> {
             [STORAGE_KEYS.ADVANCED_TARGET_LANGUAGE]: advancedTargetLanguage,
             [STORAGE_KEYS.EXTRA_INSTRUCTIONS]: extraInstructions,
             [STORAGE_KEYS.DEBUG_MODE]: debugModeInput?.checked ?? debugModeEnabled,
-            [STORAGE_KEYS.REDACTION_MODE]: redactSensitiveDataInput?.checked ? "auto" : "off",
+            [STORAGE_KEYS.REDACTION_MODE]: redactSensitiveDataInput?.checked
+                ? "auto"
+                : "off",
             [STORAGE_KEYS.UI_THEME]: uiTheme,
         });
         console.log("options.ts: Provider settings saved successfully.");
@@ -1818,7 +1823,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                     keepSelectionPopupOpenInput?.checked ??
                     KEEP_SELECTION_POPUP_OPEN_DEFAULT,
                 [STORAGE_KEYS.DEBUG_MODE]: debugModeInput?.checked ?? debugModeEnabled,
-                [STORAGE_KEYS.REDACTION_MODE]: redactSensitiveDataInput?.checked ? "auto" : "off",
+                [STORAGE_KEYS.REDACTION_MODE]: redactSensitiveDataInput?.checked
+                    ? "auto"
+                    : "off",
                 [STORAGE_KEYS.UI_THEME]: uiTheme,
             }).catch((error) => {
                 console.error("options.ts: Error saving settings mode:", error);
@@ -1967,10 +1974,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             setStorage({
                 [STORAGE_KEYS.REDACTION_MODE]: redactionEnabled ? "auto" : "off",
             }).catch((error) => {
-                console.error(
-                    "options.ts: Error saving redaction mode setting:",
-                    error,
-                );
+                console.error("options.ts: Error saving redaction mode setting:", error);
             });
             displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
         });
