@@ -178,13 +178,16 @@ async function readStoredPreference(): Promise<UILanguagePreference> {
 export async function initializeI18n(
     preference?: UILanguagePreference,
 ): Promise<UILanguagePreference> {
-    const nextPreference =
-        preference === undefined
-            ? await readStoredPreference()
-            : normalizeUILanguagePreference(preference);
-    const nextLocale = resolveLocaleFromPreference(nextPreference);
+    // Wrap the entire flow — including the storage read — in a single promise
+    // and assign it *before* any awaits so that `ensureI18nReady()` callers
+    // block on the full initialization, not just the catalog-load tail.
+    const fullInit = (async () => {
+        const nextPreference =
+            preference === undefined
+                ? await readStoredPreference()
+                : normalizeUILanguagePreference(preference);
+        const nextLocale = resolveLocaleFromPreference(nextPreference);
 
-    const loadWork = (async () => {
         await ensureDefaultCatalog();
         activeCatalog =
             nextLocale === "en" ? defaultCatalog : await loadCatalog(nextLocale);
@@ -192,10 +195,10 @@ export async function initializeI18n(
         activeLocale = nextLocale;
     })();
 
-    activeLoadPromise = loadWork;
-    initSettledPromise = loadWork;
+    activeLoadPromise = fullInit;
+    initSettledPromise = fullInit;
 
-    await activeLoadPromise;
+    await fullInit;
     activeLoadPromise = null;
     return activePreference;
 }
