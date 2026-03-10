@@ -26,7 +26,6 @@ import {
     UI_THEME_DEFAULT,
     DEFAULT_TRANSLATION_INSTRUCTIONS,
     REDACTION_MODE_DEFAULT,
-    type RedactionMode,
     type SettingsMode,
     type UITheme,
 } from "../shared/constants/settings";
