@@ -234,7 +234,7 @@
         "message": "隐去敏感数据"
     },
     "optionsRedactSensitiveDataHelp": {
-        "message": "在将文本发送到翻译API之前，自动删除电话号码、社会安全号码、电子邮件地址和其他敏感数据。"
+        "message": "在将文本发送到翻译 API 之前，自动删除电话号码、社会安全号码、电子邮件地址和其他敏感数据。警告：不能保证识别所有敏感信息。"
     },
     "optionsFooterCreditPrefix": {
         "message": "图标由 Pixel Perfect 制作，来自"

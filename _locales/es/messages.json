@@ -234,7 +234,7 @@
         "message": "Redactar datos confidenciales"
     },
     "optionsRedactSensitiveDataHelp": {
-        "message": "Elimina automáticamente números de teléfono, números de seguro social, direcciones de correo electrónico y otros datos confidenciales antes de enviar el texto a las API de traducción."
+        "message": "Elimina automáticamente números de teléfono, números de seguro social, direcciones de correo electrónico y otros datos confidenciales antes de enviar el texto a las API de traducción. Advertencia: no se garantiza que detecte toda la información sensible."
     },
     "optionsFooterCreditPrefix": {
         "message": "Icono creado por Pixel Perfect de"

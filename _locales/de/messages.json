@@ -234,7 +234,7 @@
         "message": "Sensible Daten schwärzen"
     },
     "optionsRedactSensitiveDataHelp": {
-        "message": "Entfernt automatisch Telefonnummern, Sozialversicherungsnummern, E-Mail-Adressen und andere sensible Daten, bevor Text an Übersetzungs-APIs gesendet wird."
+        "message": "Entfernt automatisch Telefonnummern, Sozialversicherungsnummern, E-Mail-Adressen und andere sensible Daten, bevor Text an Übersetzungs-APIs gesendet wird. Warnung: Es ist nicht garantiert, dass alle sensiblen Informationen erkannt werden."
     },
     "optionsFooterCreditPrefix": {
         "message": "Icon erstellt von Pixel Perfect aus"

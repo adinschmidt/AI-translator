@@ -234,7 +234,7 @@
         "message": "Ocultar dados sensíveis"
     },
     "optionsRedactSensitiveDataHelp": {
-        "message": "Remove automaticamente números de telefone, números de segurança social, endereços de e-mail e outros dados sensíveis antes de enviar texto para as APIs de tradução."
+        "message": "Remove automaticamente números de telefone, números de segurança social, endereços de e-mail e outros dados sensíveis antes de enviar texto para as APIs de tradução. Aviso: não há garantia de que todas as informações sensíveis sejam detectadas."
     },
     "optionsFooterCreditPrefix": {
         "message": "Ícone feito por Pixel Perfect de"

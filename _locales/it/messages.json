@@ -234,7 +234,7 @@
         "message": "Oscura dati sensibili"
     },
     "optionsRedactSensitiveDataHelp": {
-        "message": "Rimuove automaticamente numeri di telefono, codici fiscali, indirizzi email e altri dati sensibili prima di inviare il testo alle API di traduzione."
+        "message": "Rimuove automaticamente numeri di telefono, codici fiscali, indirizzi email e altri dati sensibili prima di inviare il testo alle API di traduzione. Avviso: non è garantito che rilevi tutte le informazioni sensibili."
     },
     "optionsFooterCreditPrefix": {
         "message": "Icona realizzata da Pixel Perfect da"

@@ -234,7 +234,7 @@
         "message": "Redact sensitive data"
     },
     "optionsRedactSensitiveDataHelp": {
-        "message": "Automatically removes phone numbers, SSNs, email addresses, and other sensitive data before sending text to translation APIs."
+        "message": "Automatically removes phone numbers, SSNs, email addresses, and other sensitive data before sending text to translation APIs. Warning: not guaranteed to catch all sensitive info."
     },
     "optionsFooterCreditPrefix": {
         "message": "Icon made by Pixel perfect from"
