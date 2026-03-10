@@ -566,6 +566,39 @@
                         <div class="mode-switch-row">
                             <div>
                                 <label
+                                    for="redact-sensitive-data"
+                                    class="block text-sm font-medium text-gray-700"
+                                    data-i18n="optionsRedactSensitiveDataLabel"
+                                >
+                                    Redact sensitive data
+                                </label>
+                                <p
+                                    class="text-xs text-gray-500 mt-1"
+                                    data-i18n="optionsRedactSensitiveDataHelp"
+                                >
+                                    Automatically removes phone numbers, SSNs, email
+                                    addresses, and other sensitive data before sending
+                                    text to translation APIs. Warning: not guaranteed to
+                                    catch all sensitive info.
+                                </p>
+                            </div>
+                            <label class="ios-switch" for="redact-sensitive-data">
+                                <input
+                                    type="checkbox"
+                                    id="redact-sensitive-data"
+                                    role="switch"
+                                    aria-label="Redact sensitive data"
+                                    data-i18n-aria-label="optionsRedactSensitiveDataLabel"
+                                />
+                                <span class="ios-switch-track"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="mode-switch-row">
+                            <div>
+                                <label
                                     for="debug-mode"
                                     class="block text-sm font-medium text-gray-700"
                                     data-i18n="optionsDebugModeLabel"

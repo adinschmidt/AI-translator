@@ -230,6 +230,12 @@
     "optionsDebugModeHelp": {
         "message": "Aggiunge registri dettagliati alle console del browser/estensione e mostra informazioni dettagliate sugli errori nei popup di traduzione."
     },
+    "optionsRedactSensitiveDataLabel": {
+        "message": "Oscura dati sensibili"
+    },
+    "optionsRedactSensitiveDataHelp": {
+        "message": "Rimuove automaticamente numeri di telefono, codici fiscali, indirizzi email e altri dati sensibili prima di inviare il testo alle API di traduzione. Avviso: non è garantito che rilevi tutte le informazioni sensibili."
+    },
     "optionsFooterCreditPrefix": {
         "message": "Icona realizzata da Pixel Perfect da"
     },

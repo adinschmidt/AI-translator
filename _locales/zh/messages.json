@@ -230,6 +230,12 @@
     "optionsDebugModeHelp": {
         "message": "将详细日志添加到浏览器/扩展控制台，并在翻译弹出窗口中显示详细错误信息。"
     },
+    "optionsRedactSensitiveDataLabel": {
+        "message": "隐去敏感数据"
+    },
+    "optionsRedactSensitiveDataHelp": {
+        "message": "在将文本发送到翻译 API 之前，自动删除电话号码、社会安全号码、电子邮件地址和其他敏感数据。警告：不能保证识别所有敏感信息。"
+    },
     "optionsFooterCreditPrefix": {
         "message": "图标由 Pixel Perfect 制作，来自"
     },

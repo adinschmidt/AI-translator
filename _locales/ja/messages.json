@@ -230,6 +230,12 @@
     "optionsDebugModeHelp": {
         "message": "詳細なログをブラウザ/拡張機能のコンソールに追加し、翻訳ポップアップに詳細なエラー情報を表示します。"
     },
+    "optionsRedactSensitiveDataLabel": {
+        "message": "機密データを編集"
+    },
+    "optionsRedactSensitiveDataHelp": {
+        "message": "翻訳 API にテキストを送信する前に、電話番号、社会保障番号、メールアドレス、その他の機密データを自動的に削除します。警告: すべての機密情報を検出できる保証はありません。"
+    },
     "optionsFooterCreditPrefix": {
         "message": "アイコンはピクセルパーフェクトが作成しました"
     },

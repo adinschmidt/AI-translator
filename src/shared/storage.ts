@@ -1,5 +1,5 @@
 import type { Provider, ProviderSettings } from "./constants/providers";
-import type { SettingsMode, UITheme } from "./constants/settings";
+import type { SettingsMode, UITheme, RedactionMode } from "./constants/settings";
 import {
     PROVIDERS,
     PROVIDER_DEFAULTS,
@@ -24,6 +24,7 @@ export const STORAGE_KEYS = {
     SHOW_TRANSLATE_BUTTON_ON_SELECTION: "showTranslateButtonOnSelection",
     KEEP_SELECTION_POPUP_OPEN: "keepSelectionPopupOpen",
     DEBUG_MODE: "debugMode",
+    REDACTION_MODE: "redactionMode",
     UI_THEME: "uiTheme",
     UI_LANGUAGE: "uiLanguage",
     API_KEY: "apiKey",
@@ -48,6 +49,7 @@ export interface SyncStorage {
     showTranslateButtonOnSelection: boolean;
     keepSelectionPopupOpen: boolean;
     debugMode: boolean;
+    redactionMode: RedactionMode;
     uiTheme: UITheme;
     uiLanguage: string;
     apiKey: string;
@@ -70,6 +72,7 @@ export interface StorageGetResult {
     showTranslateButtonOnSelection?: boolean;
     keepSelectionPopupOpen?: boolean;
     debugMode?: boolean;
+    redactionMode?: RedactionMode;
     uiTheme?: UITheme;
     uiLanguage?: string;
     apiKey?: string;

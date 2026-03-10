@@ -7,6 +7,7 @@ export const KEEP_SELECTION_POPUP_OPEN_KEY = "keepSelectionPopupOpen";
 export const DEBUG_MODE_KEY = "debugMode";
 export const UI_THEME_KEY = "uiTheme";
 export const UI_LANGUAGE_KEY = "uiLanguage";
+export const REDACTION_MODE_KEY = "redactionMode";
 
 export const SETTINGS_MODE_BASIC = "basic";
 export const SETTINGS_MODE_ADVANCED = "advanced";
@@ -21,6 +22,13 @@ export type UITheme =
     | typeof UI_THEME_LIGHT
     | typeof UI_THEME_DARK
     | typeof UI_THEME_SYSTEM;
+
+export const REDACTION_MODE_AUTO = "auto";
+export const REDACTION_MODE_OFF = "off";
+
+export type RedactionMode = typeof REDACTION_MODE_AUTO | typeof REDACTION_MODE_OFF;
+
+export const REDACTION_MODE_DEFAULT = REDACTION_MODE_AUTO;
 
 export const BASIC_TARGET_LANGUAGE_DEFAULT = "en";
 export const ADVANCED_TARGET_LANGUAGE_DEFAULT = "en";

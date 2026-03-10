@@ -25,6 +25,7 @@ import {
     UI_THEME_SYSTEM,
     UI_THEME_DEFAULT,
     DEFAULT_TRANSLATION_INSTRUCTIONS,
+    REDACTION_MODE_DEFAULT,
     type SettingsMode,
     type UITheme,
 } from "../shared/constants/settings";
@@ -113,6 +114,9 @@ const keepSelectionPopupOpenInput = document.getElementById(
     "keep-selection-popup-open",
 ) as HTMLInputElement;
 const debugModeInput = document.getElementById("debug-mode") as HTMLInputElement;
+const redactSensitiveDataInput = document.getElementById(
+    "redact-sensitive-data",
+) as HTMLInputElement;
 
 const apiKeyContainer = document
     .getElementById("api-key")
@@ -191,6 +195,7 @@ let basicTargetLanguage = BASIC_TARGET_LANGUAGE_DEFAULT;
 let advancedTargetLanguage = ADVANCED_TARGET_LANGUAGE_DEFAULT;
 let extraInstructions = "";
 let debugModeEnabled = DEBUG_MODE_DEFAULT;
+let redactionEnabled = REDACTION_MODE_DEFAULT === "auto";
 let uiTheme: UITheme = UI_THEME_DEFAULT;
 let uiLanguagePreference: UILanguagePreference = UI_LANGUAGE_DEFAULT;
 let systemThemeMediaQuery: MediaQueryList | null = null;
@@ -1319,6 +1324,7 @@ async function loadSettings(): Promise<void> {
             STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION,
             STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN,
             STORAGE_KEYS.DEBUG_MODE,
+            STORAGE_KEYS.REDACTION_MODE,
             STORAGE_KEYS.UI_THEME,
             STORAGE_KEYS.UI_LANGUAGE,
         ]);
@@ -1366,6 +1372,9 @@ async function loadSettings(): Promise<void> {
         const needsPersistDebugModeSetting = typeof result.debugMode !== "boolean";
         debugModeEnabled =
             typeof result.debugMode === "boolean" ? result.debugMode : DEBUG_MODE_DEFAULT;
+        const needsPersistRedactionModeSetting =
+            typeof result.redactionMode === "undefined";
+        redactionEnabled = result.redactionMode !== "off"; // "auto" or undefined → true
         const needsPersistUIThemeSetting =
             normalizeUITheme(result.uiTheme) !== result.uiTheme;
         const normalizedUILanguage = normalizeUILanguagePreference(result.uiLanguage);
@@ -1383,6 +1392,7 @@ async function loadSettings(): Promise<void> {
             needsPersistShowButtonSetting ||
             needsPersistKeepPopupSetting ||
             needsPersistDebugModeSetting ||
+            needsPersistRedactionModeSetting ||
             needsPersistUIThemeSetting ||
             needsPersistUILanguageSetting
         ) {
@@ -1394,6 +1404,7 @@ async function loadSettings(): Promise<void> {
                 [STORAGE_KEYS.SHOW_TRANSLATE_BUTTON_ON_SELECTION]: showButtonSetting,
                 [STORAGE_KEYS.KEEP_SELECTION_POPUP_OPEN]: keepPopupSetting,
                 [STORAGE_KEYS.DEBUG_MODE]: debugModeEnabled,
+                [STORAGE_KEYS.REDACTION_MODE]: redactionEnabled ? "auto" : "off",
                 [STORAGE_KEYS.UI_THEME]: uiTheme,
                 [STORAGE_KEYS.UI_LANGUAGE]: uiLanguagePreference,
             }).catch((error) => {
@@ -1446,6 +1457,10 @@ async function loadSettings(): Promise<void> {
 
         if (debugModeInput) {
             debugModeInput.checked = debugModeEnabled;
+        }
+
+        if (redactSensitiveDataInput) {
+            redactSensitiveDataInput.checked = redactionEnabled;
         }
 
         providerSettings = result.providerSettings || {};
@@ -1579,7 +1594,9 @@ function applyBasicSettingsToUI(provider: string): void {
     const settings = providerSettings[provider] || resolveProviderDefaults(provider);
 
     if (basicProviderSelect) {
-        basicProviderSelect.value = PROVIDERS.includes(provider as Provider) ? provider : "openai";
+        basicProviderSelect.value = PROVIDERS.includes(provider as Provider)
+            ? provider
+            : "openai";
     }
 
     if (basicApiKeyInput) {
@@ -1640,6 +1657,9 @@ async function saveSetting(): Promise<void> {
                 [STORAGE_KEYS.SETTINGS_MODE]: settingsMode,
                 [STORAGE_KEYS.BASIC_TARGET_LANGUAGE]: basicTargetLanguage,
                 [STORAGE_KEYS.DEBUG_MODE]: debugModeInput?.checked ?? debugModeEnabled,
+                [STORAGE_KEYS.REDACTION_MODE]: redactSensitiveDataInput?.checked
+                    ? "auto"
+                    : "off",
                 [STORAGE_KEYS.UI_THEME]: uiTheme,
             });
             displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
@@ -1720,6 +1740,9 @@ async function saveSetting(): Promise<void> {
             [STORAGE_KEYS.ADVANCED_TARGET_LANGUAGE]: advancedTargetLanguage,
             [STORAGE_KEYS.EXTRA_INSTRUCTIONS]: extraInstructions,
             [STORAGE_KEYS.DEBUG_MODE]: debugModeInput?.checked ?? debugModeEnabled,
+            [STORAGE_KEYS.REDACTION_MODE]: redactSensitiveDataInput?.checked
+                ? "auto"
+                : "off",
             [STORAGE_KEYS.UI_THEME]: uiTheme,
         });
         console.log("options.ts: Provider settings saved successfully.");
@@ -1799,6 +1822,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                     keepSelectionPopupOpenInput?.checked ??
                     KEEP_SELECTION_POPUP_OPEN_DEFAULT,
                 [STORAGE_KEYS.DEBUG_MODE]: debugModeInput?.checked ?? debugModeEnabled,
+                [STORAGE_KEYS.REDACTION_MODE]: redactSensitiveDataInput?.checked
+                    ? "auto"
+                    : "off",
                 [STORAGE_KEYS.UI_THEME]: uiTheme,
             }).catch((error) => {
                 console.error("options.ts: Error saving settings mode:", error);
@@ -1936,6 +1962,18 @@ document.addEventListener("DOMContentLoaded", async () => {
                 [STORAGE_KEYS.DEBUG_MODE]: debugModeEnabled,
             }).catch((error) => {
                 console.error("options.ts: Error saving debug mode setting:", error);
+            });
+            displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
+        });
+    }
+
+    if (redactSensitiveDataInput) {
+        redactSensitiveDataInput.addEventListener("change", () => {
+            redactionEnabled = redactSensitiveDataInput.checked;
+            setStorage({
+                [STORAGE_KEYS.REDACTION_MODE]: redactionEnabled ? "auto" : "off",
+            }).catch((error) => {
+                console.error("options.ts: Error saving redaction mode setting:", error);
             });
             displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
         });
