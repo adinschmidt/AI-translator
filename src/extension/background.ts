@@ -2602,17 +2602,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                 const requestId = createRequestId();
                 getSettingsAndTranslate(response.html, tabId, false, requestId);
             } else {
-                console.error("No HTML content received from content script");
-                notifyContentScript(
-                    tabId,
-                    t(
-                        "errorCouldNotExtractSelectedHtml",
-                        "Could not extract selected HTML",
-                    ),
-                    false,
-                    true,
-                    false,
+                console.warn(
+                    "No HTML content received from content script; falling back to selectionText.",
                 );
+                const requestId = createRequestId();
+                getSettingsAndTranslate(info.selectionText, tabId, false, requestId);
             }
         });
     } else if (info.menuItemId === "translateFullPage") {
