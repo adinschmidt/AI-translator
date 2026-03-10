@@ -10,6 +10,11 @@ export interface RedactionResult {
     typesDetected: SensitiveDataType[];
 }
 
+export interface ProtectedHtmlAttributes {
+    protectedHtml: string;
+    replacements: Array<readonly [placeholder: string, originalValue: string]>;
+}
+
 // ---------------------------------------------------------------------------
 // Regex patterns
 // ---------------------------------------------------------------------------
@@ -80,6 +85,8 @@ const PATTERNS: ReadonlyArray<{ regex: RegExp; type: SensitiveDataType }> = [
     { regex: INTL_PHONE_REGEX, type: "PHONE" },
 ];
 
+const ATTRIBUTE_PLACEHOLDER_PREFIX = "__AI_TRANSLATOR_ATTR_";
+
 // ---------------------------------------------------------------------------
 // Core redaction functions
 // ---------------------------------------------------------------------------
@@ -134,21 +141,67 @@ export function redactSensitiveData(
 }
 
 /**
+ * Replace quoted HTML attribute values with opaque placeholders so sensitive
+ * values never reach the translation provider.  The placeholders can be
+ * restored later with {@link restoreHtmlAttributeValues}.
+ *
+ * This intentionally protects all quoted attribute values, not just a subset
+ * like `href`/`title`, because they are not user-visible translation content.
+ */
+export function protectHtmlAttributeValues(html: string): ProtectedHtmlAttributes {
+    if (!html || !html.includes("<")) {
+        return {
+            protectedHtml: html,
+            replacements: [],
+        };
+    }
+
+    const replacements: ProtectedHtmlAttributes["replacements"] = [];
+    let placeholderIndex = 0;
+
+    const protectedHtml = html.replace(/<[^>]*>/g, (tag) => {
+        return tag.replace(/=("[^"]*"|'[^']*')/g, (_full, quoted: string) => {
+            const quote = quoted[0];
+            const originalValue = quoted.slice(1, -1);
+            const placeholder = `${ATTRIBUTE_PLACEHOLDER_PREFIX}${placeholderIndex++}__`;
+            replacements.push([placeholder, originalValue] as const);
+            return `=${quote}${placeholder}${quote}`;
+        });
+    });
+
+    return {
+        protectedHtml,
+        replacements,
+    };
+}
+
+/**
+ * Restore placeholders produced by {@link protectHtmlAttributeValues}.
+ */
+export function restoreHtmlAttributeValues(
+    html: string,
+    replacements: ReadonlyArray<readonly [placeholder: string, originalValue: string]>,
+): string {
+    if (!html || replacements.length === 0) {
+        return html;
+    }
+
+    let restoredHtml = html;
+    for (const [placeholder, originalValue] of replacements) {
+        restoredHtml = restoredHtml.split(placeholder).join(originalValue);
+    }
+
+    return restoredHtml;
+}
+
+/**
  * Redact sensitive data from an HTML string while preserving tag structure.
  *
  * The function splits the input into alternating "tag" / "text" segments and
  * only applies redaction to text segments.  Tag segments (including attribute
- * values like `href`, `title`, `data-*`) are passed through unchanged.
- *
- * **Why attributes are not redacted:** The full-page translation pipeline
- * preserves and re-applies original `href`/`title` attributes to the
- * translated DOM.  Rewriting `mailto:user@example.com` →
- * `mailto:[REDACTED:EMAIL]` would break anchor links in the translated page.
- * Attribute values do still reach the provider in the prompt, but the LLM is
- * instructed to preserve them verbatim — they are not "translated" or
- * otherwise processed.  If attribute-level privacy becomes a requirement, a
- * redact-then-restore approach (stripping attributes before the API call and
- * re-attaching originals to the translated output) would be the correct path.
+ * values like `href`, `title`, `data-*`) are passed through unchanged here.
+ * Attribute protection is handled separately via placeholder stripping so the
+ * original values can be restored after translation without leaking them.
  */
 export function redactSensitiveHTML(
     html: string,

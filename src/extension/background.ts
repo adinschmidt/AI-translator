@@ -74,7 +74,11 @@ import {
     UI_LANGUAGE_DEFAULT,
     UI_LANGUAGE_STORAGE_KEY,
 } from "../shared/i18n";
-import { redactSensitiveHTML } from "../shared/sensitive";
+import {
+    protectHtmlAttributeValues,
+    redactSensitiveHTML,
+    restoreHtmlAttributeValues,
+} from "../shared/sensitive";
 
 /**
  * Apply redaction to text/HTML based on the user's redaction-mode setting and
@@ -89,6 +93,23 @@ function applyRedaction(text: string, mode: RedactionMode): string {
         return r.redactedText;
     }
     return text;
+}
+
+interface PreparedTranslationInput {
+    text: string;
+    restoreTranslatedOutput: (translatedText: string) => string;
+}
+
+function prepareTranslationInput(
+    text: string,
+    redactionMode: RedactionMode,
+): PreparedTranslationInput {
+    const { protectedHtml, replacements } = protectHtmlAttributeValues(text);
+    return {
+        text: applyRedaction(protectedHtml, redactionMode),
+        restoreTranslatedOutput: (translatedText: string) =>
+            restoreHtmlAttributeValues(translatedText, replacements),
+    };
 }
 
 interface StreamState {
@@ -1162,8 +1183,14 @@ async function translateHTMLUnits(
 
     // Redact sensitive data in each HTML unit before sending to the API.
     const redactionMode: RedactionMode = storage.redactionMode || REDACTION_MODE_DEFAULT;
+    const restoreByUnitId = new Map<
+        string | number,
+        (translatedHtml: string) => string
+    >();
     for (const unit of units) {
-        unit.html = applyRedaction(unit.html, redactionMode);
+        const prepared = prepareTranslationInput(unit.html, redactionMode);
+        unit.html = prepared.text;
+        restoreByUnitId.set(unit.id, prepared.restoreTranslatedOutput);
     }
 
     const batches = batchHTMLUnits(units);
@@ -1227,6 +1254,23 @@ async function translateHTMLUnits(
     const shouldSplitBatch = (error: any): boolean =>
         error?.code === "OUTPUT_PARTS_MISMATCH";
 
+    const restoreBatchResults = (
+        results: HTMLTranslationResult[],
+    ): HTMLTranslationResult[] =>
+        results.map((result) => {
+            if (result.error || !result.translatedHtml) {
+                return result;
+            }
+            const restoreTranslatedOutput = restoreByUnitId.get(result.id);
+            if (!restoreTranslatedOutput) {
+                return result;
+            }
+            return {
+                ...result,
+                translatedHtml: restoreTranslatedOutput(result.translatedHtml),
+            };
+        });
+
     const translateBatchWithFallback = async (
         batch: HTMLUnit[],
         batchIndex: number,
@@ -1236,7 +1280,9 @@ async function translateHTMLUnits(
         const meta = buildBatchMeta(batchIndex, batchCount, batch, subBatchIndex);
         logBatchStart(meta);
         try {
-            const results = await translateHTMLBatch(batch, settings, false);
+            const results = restoreBatchResults(
+                await translateHTMLBatch(batch, settings, false),
+            );
             const batchErrors = results.filter((result) => result.error).length;
             logBatchComplete(meta, batchErrors);
             reportBatchResults(results, meta);
@@ -1244,7 +1290,9 @@ async function translateHTMLUnits(
         } catch (error) {
             console.error("translateHTMLBatch error:", error);
             try {
-                const results = await translateHTMLBatch(batch, settings, true);
+                const results = restoreBatchResults(
+                    await translateHTMLBatch(batch, settings, true),
+                );
                 const batchErrors = results.filter((result) => result.error).length;
                 logBatchComplete(meta, batchErrors);
                 reportBatchResults(results, meta);
@@ -1326,6 +1374,7 @@ async function streamSelectedTranslation(
     translationInstructions: string,
     detectedLanguageName: string | null = null,
     targetLanguageName: string | null = null,
+    restoreTranslatedOutput: ((translatedText: string) => string) | null = null,
 ): Promise<string | null> {
     cancelActiveStream(tabId);
 
@@ -1387,7 +1436,9 @@ async function streamSelectedTranslation(
                 if (streamedText !== "") {
                     scheduleStreamUpdate(
                         streamState,
-                        streamedText,
+                        restoreTranslatedOutput
+                            ? restoreTranslatedOutput(streamedText)
+                            : streamedText,
                         detectedLanguageName,
                         targetLanguageName,
                     );
@@ -1405,13 +1456,16 @@ async function streamSelectedTranslation(
         if (!finalText || finalText.trim() === "") {
             throw new Error("API returned no translation text.");
         }
+        const restoredFinalText = restoreTranslatedOutput
+            ? restoreTranslatedOutput(finalText)
+            : finalText;
         flushStreamUpdate(
             streamState,
-            finalText,
+            restoredFinalText,
             detectedLanguageName,
             targetLanguageName,
         );
-        return finalText;
+        return restoredFinalText;
     } catch (error) {
         if (controller.signal.aborted || (error as any)?.name === "AbortError") {
             return null;
@@ -1532,7 +1586,8 @@ async function getSettingsAndTranslate(
 
     // Redact sensitive data before it reaches any provider API.
     const redactionMode: RedactionMode = storage.redactionMode || REDACTION_MODE_DEFAULT;
-    textToTranslate = applyRedaction(textToTranslate, redactionMode);
+    const preparedInput = prepareTranslationInput(textToTranslate, redactionMode);
+    textToTranslate = preparedInput.text;
 
     const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
     const settings = getEffectiveProviderSettings(storage, mode);
@@ -1613,7 +1668,7 @@ async function getSettingsAndTranslate(
                 .then((translation) => {
                     notifyContentScript(
                         tabId,
-                        translation,
+                        preparedInput.restoreTranslatedOutput(translation),
                         false,
                         false,
                         false,
@@ -1663,6 +1718,9 @@ async function getSettingsAndTranslate(
             finalType,
             selectedModelName,
             finalInstructions,
+            null,
+            null,
+            preparedInput.restoreTranslatedOutput,
         )
             .then((translation) => {
                 if (translation === null) {
@@ -1700,7 +1758,7 @@ async function getSettingsAndTranslate(
                         );
                         notifyContentScript(
                             tabId,
-                            fallbackTranslation,
+                            preparedInput.restoreTranslatedOutput(fallbackTranslation),
                             false,
                             false,
                             false,
@@ -1766,7 +1824,7 @@ async function getSettingsAndTranslate(
             console.log("Translation received (length):", translation.length);
             notifyContentScript(
                 tabId,
-                translation,
+                preparedInput.restoreTranslatedOutput(translation),
                 isFullPage,
                 false,
                 false,
@@ -1842,7 +1900,8 @@ async function getSettingsAndTranslateWithDetection(
 
     // Redact sensitive data before it reaches any provider API.
     const redactionMode: RedactionMode = storage.redactionMode || REDACTION_MODE_DEFAULT;
-    textToTranslate = applyRedaction(textToTranslate, redactionMode);
+    const preparedInput = prepareTranslationInput(textToTranslate, redactionMode);
+    textToTranslate = preparedInput.text;
 
     const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
     const settings = getEffectiveProviderSettings(storage, mode);
@@ -1969,7 +2028,7 @@ async function getSettingsAndTranslateWithDetection(
                 .then((translation) => {
                     notifyContentScriptWithDetection(
                         tabId,
-                        translation,
+                        preparedInput.restoreTranslatedOutput(translation),
                         false,
                         false,
                         false,
@@ -2031,6 +2090,7 @@ async function getSettingsAndTranslateWithDetection(
             finalInstructions,
             detectedLanguageName,
             targetLanguageLabel,
+            preparedInput.restoreTranslatedOutput,
         )
             .then((translation) => {
                 if (translation === null) {
@@ -2070,7 +2130,7 @@ async function getSettingsAndTranslateWithDetection(
                         );
                         notifyContentScriptWithDetection(
                             tabId,
-                            fallbackTranslation,
+                            preparedInput.restoreTranslatedOutput(fallbackTranslation),
                             false,
                             false,
                             false,
@@ -2147,7 +2207,7 @@ async function getSettingsAndTranslateWithDetection(
             console.log("Translation received (length):", translation.length);
             notifyContentScriptWithDetection(
                 tabId,
-                translation,
+                preparedInput.restoreTranslatedOutput(translation),
                 isFullPage,
                 false,
                 false,
