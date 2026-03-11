@@ -1606,8 +1606,9 @@ if ((window as any).hasRun) {
 
             case "showLoadingIndicator":
                 if (req.isFullPage) {
-                    displayLoadingIndicator(
+                    renderFullPageLoadingIndicator(
                         t("contentTranslatingPage", "Translating page..."),
+                        "preparing",
                     );
                 } else {
                     console.log(
@@ -2674,7 +2675,10 @@ if ((window as any).hasRun) {
 
         stopTranslationFlag = false;
 
-        displayLoadingIndicatorState(t("contentPreparing", "Preparing..."), "preparing");
+        renderFullPageLoadingIndicator(
+            t("contentPreparing", "Preparing..."),
+            "preparing",
+        );
 
         // Use region-based collection to preserve images/non-text nodes
         const units = collectRegionTranslationUnits();
@@ -2682,7 +2686,7 @@ if ((window as any).hasRun) {
 
         if (units.length === 0) {
             console.log("No region translation units found");
-            displayLoadingIndicatorState(
+            renderFullPageLoadingIndicator(
                 t("contentNoTranslatableContentFound", "No translatable content found"),
                 "done",
             );
@@ -2697,7 +2701,7 @@ if ((window as any).hasRun) {
             html: unit.html,
         }));
 
-        displayLoadingIndicatorState(
+        renderFullPageLoadingIndicator(
             t(
                 "contentTranslatingChunksCount",
                 "Translating $1 chunks...",
@@ -2751,7 +2755,7 @@ if ((window as any).hasRun) {
         let latestBatchInfo: HtmlTranslationOnUpdateMeta | null = null;
 
         const updateChunkProgress = () => {
-            displayLoadingIndicatorState(
+            renderFullPageLoadingIndicator(
                 getChunkProgressMessage(
                     translatedChunks,
                     totalChunks,
@@ -2967,7 +2971,7 @@ if ((window as any).hasRun) {
                           String(successCount),
                       );
             const summaryState = errorCount > 0 ? "error" : "done";
-            displayLoadingIndicatorState(summary, summaryState, {
+            renderFullPageLoadingIndicator(summary, summaryState, {
                 current: translatedChunks,
                 total: totalChunks,
             });
@@ -2992,7 +2996,7 @@ if ((window as any).hasRun) {
             for (const element of parentElements) {
                 cleanupOrphanedMarkers(element);
             }
-            displayLoadingIndicatorState(
+            renderFullPageLoadingIndicator(
                 t(
                     "contentErrorPrefix",
                     "Error: $1",
@@ -3023,6 +3027,138 @@ if ((window as any).hasRun) {
     interface LoadingProgress {
         current: number;
         total: number;
+    }
+
+    function renderFullPageLoadingIndicator(
+        message: string,
+        state: LoadingIndicatorState = "translating",
+        progress: LoadingProgress | null = null,
+    ): void {
+        removeLoadingIndicator();
+
+        loadingIndicator = document.createElement("div");
+        loadingIndicator.id = "translation-loading-indicator";
+
+        const isActiveState = state === "preparing" || state === "translating";
+        const stateIcon = document.createElement("span");
+        const progressText = document.createElement("span");
+        const stopButtonEl = document.createElement("button");
+        const textWrapper = document.createElement("div");
+
+        progressText.className = "progress-text";
+        progressText.textContent = message;
+
+        stopButtonEl.className = "stop-button";
+        stopButtonEl.textContent = t("contentStopButton", "Stop");
+        stopButtonEl.style.display = isActiveState ? "inline-block" : "none";
+
+        textWrapper.style.display = "flex";
+        textWrapper.style.flexDirection = "column";
+        textWrapper.style.gap = "6px";
+        textWrapper.style.alignItems = "flex-start";
+        textWrapper.appendChild(progressText);
+
+        if (
+            progress &&
+            typeof progress.current === "number" &&
+            typeof progress.total === "number"
+        ) {
+            const progressBar = document.createElement("div");
+            const progressFill = document.createElement("div");
+            const ratio = progress.total > 0 ? progress.current / progress.total : 0;
+            const clamped = Math.max(0, Math.min(1, ratio));
+
+            progressBar.style.width = "160px";
+            progressBar.style.height = "6px";
+            progressBar.style.backgroundColor = "rgba(255,255,255,0.3)";
+            progressBar.style.borderRadius = "999px";
+            progressBar.style.overflow = "hidden";
+
+            progressFill.style.width = `${Math.round(clamped * 100)}%`;
+            progressFill.style.height = "100%";
+            progressFill.style.backgroundColor = "rgba(255,255,255,0.92)";
+            progressFill.style.transition = "width 0.2s ease";
+
+            progressBar.appendChild(progressFill);
+            textWrapper.appendChild(progressBar);
+        }
+
+        const stateColors: Record<LoadingIndicatorState, string> = {
+            preparing: "rgba(59, 130, 246, 0.9)",
+            translating: "rgba(16, 185, 129, 0.9)",
+            done: "rgba(34, 197, 94, 0.9)",
+            stopped: "rgba(251, 191, 36, 0.9)",
+            error: "rgba(239, 68, 68, 0.9)",
+        };
+
+        loadingIndicator.style.position = "fixed";
+        loadingIndicator.style.bottom = "20px";
+        loadingIndicator.style.left = "20px";
+        loadingIndicator.style.backgroundColor =
+            stateColors[state] || stateColors.translating;
+        loadingIndicator.style.color = "white";
+        loadingIndicator.style.padding = "10px 15px";
+        loadingIndicator.style.borderRadius = "8px";
+        loadingIndicator.style.zIndex = "2147483647";
+        loadingIndicator.style.fontSize = "14px";
+        loadingIndicator.style.fontFamily = "system-ui, -apple-system, sans-serif";
+        loadingIndicator.style.display = "flex";
+        loadingIndicator.style.alignItems = "center";
+        loadingIndicator.style.gap = "12px";
+        loadingIndicator.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
+
+        stateIcon.style.display = "flex";
+        stateIcon.style.alignItems = "center";
+        stateIcon.style.justifyContent = "center";
+        stateIcon.style.width = "16px";
+        stateIcon.style.height = "16px";
+        stateIcon.style.flex = "0 0 auto";
+
+        if (isActiveState) {
+            const spinner = document.createElement("span");
+            spinner.style.width = "14px";
+            spinner.style.height = "14px";
+            spinner.style.display = "inline-block";
+            spinner.style.boxSizing = "border-box";
+            spinner.style.border = "2px solid rgba(255,255,255,0.35)";
+            spinner.style.borderTopColor = "rgba(255,255,255,0.95)";
+            spinner.style.borderRadius = "999px";
+            spinner.animate(
+                [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }],
+                {
+                    duration: 800,
+                    iterations: Infinity,
+                },
+            );
+            stateIcon.appendChild(spinner);
+        } else {
+            stateIcon.textContent =
+                state === "done" ? "OK" : state === "stopped" ? "||" : "X";
+            stateIcon.style.fontSize = "13px";
+            stateIcon.style.fontWeight = "700";
+        }
+
+        stopButtonEl.style.backgroundColor = "rgba(255,255,255,0.2)";
+        stopButtonEl.style.color = "white";
+        stopButtonEl.style.border = "1px solid rgba(255,255,255,0.4)";
+        stopButtonEl.style.padding = "4px 12px";
+        stopButtonEl.style.borderRadius = "4px";
+        stopButtonEl.style.cursor = "pointer";
+        stopButtonEl.style.fontSize = "12px";
+        stopButtonEl.style.fontWeight = "500";
+        stopButtonEl.onmouseover = () => {
+            stopButtonEl.style.backgroundColor = "rgba(255,255,255,0.3)";
+        };
+        stopButtonEl.onmouseout = () => {
+            stopButtonEl.style.backgroundColor = "rgba(255,255,255,0.2)";
+        };
+        stopButtonEl.onclick = stopTranslation;
+
+        loadingIndicator.appendChild(stateIcon);
+        loadingIndicator.appendChild(textWrapper);
+        loadingIndicator.appendChild(stopButtonEl);
+
+        document.body.appendChild(loadingIndicator);
     }
 
     function displayLoadingIndicatorState(
@@ -3271,75 +3407,38 @@ if ((window as any).hasRun) {
         total: number,
         errors: number,
     ): void {
-        if (loadingIndicator) {
-            const progress = Math.round((completed / total) * 100);
-            const errorText =
-                errors > 0
-                    ? t("contentProgressErrorSuffix", " ($1 errors)", String(errors))
-                    : "";
-            const progressText = loadingIndicator.querySelector(
-                ".progress-text",
-            ) as HTMLElement;
-            if (progressText) {
-                progressText.textContent = t(
-                    "contentTranslatingElementsProgress",
-                    "Translating elements... $1/$2 ($3%)$4",
-                    [String(completed), String(total), String(progress), errorText],
-                );
-            }
+        if (total <= 0) {
+            renderFullPageLoadingIndicator(
+                t("contentTranslatingPage", "Translating page..."),
+                "translating",
+            );
+            return;
         }
+
+        const progress = Math.round((completed / total) * 100);
+        const errorText =
+            errors > 0
+                ? t("contentProgressErrorSuffix", " ($1 errors)", String(errors))
+                : "";
+
+        renderFullPageLoadingIndicator(
+            t(
+                "contentTranslatingElementsProgress",
+                "Translating elements... $1/$2 ($3%)$4",
+                [String(completed), String(total), String(progress), errorText],
+            ),
+            "translating",
+            {
+                current: completed,
+                total,
+            },
+        );
     }
 
     function displayLoadingIndicator(
         message: string = t("contentLoading", "Loading..."),
     ): void {
-        removeLoadingIndicator();
-
-        loadingIndicator = document.createElement("div");
-        loadingIndicator.id = "translation-loading-indicator";
-
-        const progressText = document.createElement("span");
-        progressText.className = "progress-text";
-        progressText.textContent = message;
-
-        const stopButtonEl = document.createElement("button");
-        stopButtonEl.className = "stop-button";
-        stopButtonEl.textContent = t("contentStopButton", "Stop");
-
-        loadingIndicator.appendChild(progressText);
-        loadingIndicator.appendChild(stopButtonEl);
-
-        loadingIndicator.style.position = "fixed";
-        loadingIndicator.style.bottom = "20px";
-        loadingIndicator.style.left = "20px";
-        loadingIndicator.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
-        loadingIndicator.style.color = "white";
-        loadingIndicator.style.padding = "10px 15px";
-        loadingIndicator.style.borderRadius = "5px";
-        loadingIndicator.style.zIndex = "2147483647";
-        loadingIndicator.style.fontSize = "14px";
-        loadingIndicator.style.fontFamily = "sans-serif";
-        loadingIndicator.style.display = "flex";
-        loadingIndicator.style.alignItems = "center";
-        loadingIndicator.style.gap = "10px";
-
-        stopButtonEl.style.backgroundColor = "#ff4444";
-        stopButtonEl.style.color = "white";
-        stopButtonEl.style.border = "none";
-        stopButtonEl.style.padding = "5px 10px";
-        stopButtonEl.style.borderRadius = "3px";
-        stopButtonEl.style.cursor = "pointer";
-        stopButtonEl.style.fontSize = "12px";
-        stopButtonEl.style.fontWeight = "bold";
-        stopButtonEl.onmouseover = () => {
-            stopButtonEl.style.backgroundColor = "#cc0000";
-        };
-        stopButtonEl.onmouseout = () => {
-            stopButtonEl.style.backgroundColor = "#ff4444";
-        };
-        stopButtonEl.onclick = stopTranslation;
-
-        document.body.appendChild(loadingIndicator);
+        renderFullPageLoadingIndicator(message, "preparing");
     }
 
     function removeLoadingIndicator(): void {
