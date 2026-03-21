@@ -1084,7 +1084,9 @@ async function fetchProviderModels(
         return fetchOllamaModels(apiEndpoint || PROVIDER_DEFAULTS.ollama.apiEndpoint);
     }
 
-    if (!apiKey) {
+    const requiresApiKey = provider !== "openrouter";
+
+    if (requiresApiKey && !apiKey) {
         throw new Error(
             t("optionsModelErrorAddApiKey", "Add an API key to fetch live models."),
         );
@@ -1153,7 +1155,7 @@ async function refreshModelOptionsForProvider(
             setModelListStatus(existingState.statusText);
             renderModelOptions(provider, modelNameInput.value);
             if (refreshModelsButton) {
-                refreshModelsButton.disabled = false;
+                updateRefreshModelsButtonState();
             }
         }
         return;
@@ -1238,7 +1240,7 @@ async function refreshModelOptionsForProvider(
         setModelListStatus(nextState.statusText);
         renderModelOptions(provider, modelNameInput.value);
         if (refreshModelsButton) {
-            refreshModelsButton.disabled = false;
+            updateRefreshModelsButtonState();
         }
     }
 }
@@ -1292,6 +1294,30 @@ function updateProviderUI(provider: string): void {
     }
 
     void refreshModelOptionsForProvider(safeProvider, false);
+    updateRefreshModelsButtonState();
+}
+
+function updateRefreshModelsButtonState(): void {
+    if (!refreshModelsButton) {
+        return;
+    }
+
+    const provider = apiTypeSelect.value as Provider;
+
+    if (!MODEL_FETCHABLE_PROVIDERS.has(provider)) {
+        refreshModelsButton.style.display = "none";
+        return;
+    }
+
+    refreshModelsButton.style.display = "";
+
+    if (provider === "openrouter" || provider === "ollama") {
+        refreshModelsButton.disabled = false;
+        return;
+    }
+
+    const key = apiKeyInput.value.trim();
+    refreshModelsButton.disabled = !key;
 }
 
 function updateSettingsModeUI(): void {
@@ -2044,6 +2070,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         "Credentials changed. Click Refresh Models to load live models.",
                     ),
                 );
+                updateRefreshModelsButtonState();
             }
         });
         apiKeyInput.addEventListener("change", () => {
