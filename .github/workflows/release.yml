@@ -27,29 +27,6 @@ jobs:
       - name: Build extensions
         run: bun run build.ts --zip
 
-      - name: Build CRX
-        env:
-          CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
-        run: |
-          if [ -z "$CRX_PRIVATE_KEY" ]; then
-            echo "No CRX_PRIVATE_KEY secret set, skipping CRX build"
-            exit 0
-          fi
-
-          # Install crx3 tool
-          npm install -g crx3
-
-          # Get version from manifest
-          VERSION=$(jq -r .version manifest.json)
-
-          # Write private key
-          echo "$CRX_PRIVATE_KEY" > key.pem
-
-          # Build crx from the already-built Chrome extension
-          crx3 pack dist/chrome -o dist/translator-${VERSION}-chrome.crx -p key.pem
-
-          # Clean up key
-          rm key.pem
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
