@@ -752,14 +752,15 @@
                     </section>
                 </div>
 
-                <div class="text-center pt-4 mt-4">
-                    <span
-                        id="status-message"
-                        class="text-sm font-medium text-green-600 feedback opacity-0"
-                    ></span>
+                    <!-- Status message moved to toast -->
                 </div>
             </form>
         </div>
+
+        <div
+            id="status-message"
+            class="fixed top-6 right-6 z-50 px-4 py-3 rounded-md shadow-lg text-sm font-medium transition-opacity duration-300 opacity-0 pointer-events-none status-toast"
+        ></div>
 
         <script src="options.js"></script>
 

@@ -394,6 +394,7 @@ html[data-resolved-theme="dark"] .text-amber-600 {
     --accent-green: #10b981;
     --accent-amber: #f59e0b;
     --accent-slate: #64748b;
+    --accent-red: #ef4444;
 }
 
 html[data-resolved-theme="dark"] {
@@ -402,6 +403,21 @@ html[data-resolved-theme="dark"] {
     --accent-green: #34d399;
     --accent-amber: #fbbf24;
     --accent-slate: #94a3b8;
+    --accent-red: #f87171;
+}
+
+.status-toast {
+    background-color: var(--options-card-bg);
+    border: 1px solid var(--options-border);
+    color: var(--options-text-primary);
+}
+
+.status-toast-success {
+    border-left: 4px solid var(--accent-green) !important;
+}
+
+.status-toast-error {
+    border-left: 4px solid var(--accent-red) !important;
 }
 
 .settings-section {

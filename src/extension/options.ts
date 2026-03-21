@@ -1789,7 +1789,17 @@ async function saveSetting(): Promise<void> {
 let statusTimeout: ReturnType<typeof setTimeout> | null = null;
 function displayStatus(message: string, isError = false): void {
     statusMessage.textContent = message;
-    statusMessage.style.color = isError ? "#dc2626" : "#16a34a";
+    
+    statusMessage.style.color = ""; // Clear inline color
+
+    statusMessage.classList.remove("status-toast-success", "status-toast-error");
+
+    if (isError) {
+        statusMessage.classList.add("status-toast-error");
+    } else {
+        statusMessage.classList.add("status-toast-success");
+    }
+
     statusMessage.classList.remove("opacity-0");
 
     if (statusTimeout) {
