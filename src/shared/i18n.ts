@@ -231,5 +231,5 @@ export function getI18nMessageOrFallback(
     fallback: string,
     substitutions?: string | string[],
 ): string {
-    return getI18nMessage(key, substitutions) || fallback;
+    return getI18nMessage(key, substitutions) || applySubstitutions(fallback, substitutions);
 }
