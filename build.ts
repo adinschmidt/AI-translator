@@ -1,6 +1,6 @@
 import { rm, mkdir, cp, writeFile } from "fs/promises";
 import { existsSync } from "fs";
-import { join } from "path";
+import { join, resolve } from "path";
 
 const ROOT = import.meta.dir;
 const DIST = join(ROOT, "dist");
@@ -21,8 +21,10 @@ const STATIC_FILES = [
     "assets/styles.css",
     "assets/options.html",
     "assets/options.css",
-    "assets/tailwindcss.min.js",
 ];
+
+// Tailwind CSS input file (compiled at build time)
+const TAILWIND_INPUT = join(ROOT, "assets", "tailwind.css");
 
 const IMAGE_FILES = [
     "assets/images/icon16.png",
@@ -77,6 +79,34 @@ async function bundleEntrypoint(entrypoint: string, outfile: string): Promise<vo
     await writeFile(outfile, bundledContent);
 }
 
+/**
+ * Compile Tailwind CSS from the input file to the target directory.
+ * Uses @tailwindcss/cli to scan options.html and generate only used utilities.
+ */
+async function compileTailwind(targetDir: string): Promise<void> {
+    const outFile = join(targetDir, "tailwind.css");
+    const proc = Bun.spawn(
+        [
+            resolve(ROOT, "node_modules", ".bin", "tailwindcss"),
+            "-i",
+            TAILWIND_INPUT,
+            "-o",
+            outFile,
+            "--minify",
+        ],
+        {
+            cwd: ROOT,
+            stdout: "inherit",
+            stderr: "inherit",
+        },
+    );
+
+    const exitCode = await proc.exited;
+    if (exitCode !== 0) {
+        throw new Error("Tailwind CSS compilation failed.");
+    }
+}
+
 async function buildExtension(target: "chrome" | "firefox", manifestSource: string) {
     const targetDir = join(DIST, target);
     await mkdir(join(targetDir, "images"), { recursive: true });
@@ -86,6 +116,9 @@ async function buildExtension(target: "chrome" | "firefox", manifestSource: stri
     await bundleEntrypoint(ENTRYPOINTS.background, join(targetDir, "background.js"));
     await bundleEntrypoint(ENTRYPOINTS.content, join(targetDir, "content.js"));
     await bundleEntrypoint(ENTRYPOINTS.options, join(targetDir, "options.js"));
+
+    // Compile Tailwind CSS (scans options.html, outputs only used utilities)
+    await compileTailwind(targetDir);
 
     for (const file of STATIC_FILES) {
         const destPath = file.replace("assets/", "");

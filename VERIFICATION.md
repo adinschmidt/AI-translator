@@ -22,7 +22,7 @@ Both Chrome and Firefox builds contain all required files:
 - ✓ styles.css (injected styles)
 - ✓ purify.min.js (HTML sanitization)
 - ✓ eld-bundle.js (external library)
-- ✓ tailwindcss.min.js (CSS framework)
+- ✓ tailwind.css (Tailwind CSS, compiled at build time)
 - ✓ images/ (icon assets)
 
 ### Manifest Permissions
