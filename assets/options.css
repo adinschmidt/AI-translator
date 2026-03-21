@@ -385,3 +385,72 @@ html[data-resolved-theme="dark"] .text-gray-500 {
 html[data-resolved-theme="dark"] .text-amber-600 {
     color: #fbbf24 !important;
 }
+
+/* ── Section groups ── */
+
+:root {
+    --accent-purple: #7c3aed;
+    --accent-blue: #3b82f6;
+    --accent-green: #10b981;
+    --accent-amber: #f59e0b;
+    --accent-slate: #64748b;
+}
+
+html[data-resolved-theme="dark"] {
+    --accent-purple: #a78bfa;
+    --accent-blue: #60a5fa;
+    --accent-green: #34d399;
+    --accent-amber: #fbbf24;
+    --accent-slate: #94a3b8;
+}
+
+.settings-section {
+    position: relative;
+    background: var(--options-theme-tile-bg);
+    border: 1px solid var(--options-border);
+    border-left: 3px solid var(--section-accent, var(--options-link));
+    border-radius: 10px;
+    padding: 20px 20px 16px;
+    margin-bottom: 24px;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease;
+}
+
+.settings-section-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--section-accent, var(--options-link));
+    margin: 0 0 16px;
+    padding: 0;
+}
+
+.settings-section-icon {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.accent-purple {
+    --section-accent: var(--accent-purple);
+}
+
+.accent-blue {
+    --section-accent: var(--accent-blue);
+}
+
+.accent-green {
+    --section-accent: var(--accent-green);
+}
+
+.accent-amber {
+    --section-accent: var(--accent-amber);
+}
+
+.accent-slate {
+    --section-accent: var(--accent-slate);
+}
