@@ -1,25 +1,25 @@
 /* options.css - Styles for the options page */
 
 :root {
-    --options-page-bg: #f3f4f6;
-    --options-card-bg: #ffffff;
-    --options-text-primary: #1f2937;
-    --options-text-muted: #4b5563;
-    --options-text-subtle: #6b7280;
-    --options-border: #d1d5db;
-    --options-input-bg: #ffffff;
-    --options-input-text: #111827;
-    --options-input-placeholder: #6b7280;
+    --options-page-bg: #d4d4d4;
+    --options-card-bg: #e5e5e5;
+    --options-text-primary: #000000;
+    --options-text-muted: #333333;
+    --options-text-subtle: #666666;
+    --options-border: #a9a9a9;
+    --options-input-bg: #f2f2f2;
+    --options-input-text: #000000;
+    --options-input-placeholder: #666666;
     --options-link: #4f46e5;
     --options-muted-bg: #e5e7eb;
     --options-muted-bg-hover: #d1d5db;
     --options-muted-text: #374151;
     --options-ring: rgba(79, 70, 229, 0.28);
-    --options-theme-tile-bg: #f9fafb;
-    --options-theme-tile-border: #d1d5db;
-    --options-theme-tile-selected-bg: #eef2ff;
-    --options-theme-tile-selected-text: #3730a3;
-    --options-theme-tile-selected-border: #4f46e5;
+    --options-theme-tile-bg: #f2f2f2;
+    --options-theme-tile-border: #cccccc;
+    --options-theme-tile-selected-bg: #e5e5e5;
+    --options-theme-tile-selected-text: #000000;
+    --options-theme-tile-selected-border: #000000;
     --options-switch-glass-off-bg: rgba(255, 255, 255, 0.55);
     --options-switch-glass-on-bg: rgba(79, 70, 229, 0.28);
     --options-switch-glass-border: rgba(148, 163, 184, 0.45);
