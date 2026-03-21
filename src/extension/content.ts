@@ -3045,7 +3045,10 @@ if ((window as any).hasRun) {
         const stopButtonEl = document.createElement("button");
         stopButtonEl.className = "stop-button";
         stopButtonEl.textContent = t("contentStopButton", "Stop");
-        stopButtonEl.style.display = state === "translating" ? "inline-block" : "none";
+        stopButtonEl.style.display =
+            state === "translating" || state === "preparing"
+                ? "inline-block"
+                : "none";
 
         const textWrapper = document.createElement("div");
         textWrapper.style.display = "flex";
@@ -3293,53 +3296,7 @@ if ((window as any).hasRun) {
     function displayLoadingIndicator(
         message: string = t("contentLoading", "Loading..."),
     ): void {
-        removeLoadingIndicator();
-
-        loadingIndicator = document.createElement("div");
-        loadingIndicator.id = "translation-loading-indicator";
-
-        const progressText = document.createElement("span");
-        progressText.className = "progress-text";
-        progressText.textContent = message;
-
-        const stopButtonEl = document.createElement("button");
-        stopButtonEl.className = "stop-button";
-        stopButtonEl.textContent = t("contentStopButton", "Stop");
-
-        loadingIndicator.appendChild(progressText);
-        loadingIndicator.appendChild(stopButtonEl);
-
-        loadingIndicator.style.position = "fixed";
-        loadingIndicator.style.bottom = "20px";
-        loadingIndicator.style.left = "20px";
-        loadingIndicator.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
-        loadingIndicator.style.color = "white";
-        loadingIndicator.style.padding = "10px 15px";
-        loadingIndicator.style.borderRadius = "5px";
-        loadingIndicator.style.zIndex = "2147483647";
-        loadingIndicator.style.fontSize = "14px";
-        loadingIndicator.style.fontFamily = "sans-serif";
-        loadingIndicator.style.display = "flex";
-        loadingIndicator.style.alignItems = "center";
-        loadingIndicator.style.gap = "10px";
-
-        stopButtonEl.style.backgroundColor = "#ff4444";
-        stopButtonEl.style.color = "white";
-        stopButtonEl.style.border = "none";
-        stopButtonEl.style.padding = "5px 10px";
-        stopButtonEl.style.borderRadius = "3px";
-        stopButtonEl.style.cursor = "pointer";
-        stopButtonEl.style.fontSize = "12px";
-        stopButtonEl.style.fontWeight = "bold";
-        stopButtonEl.onmouseover = () => {
-            stopButtonEl.style.backgroundColor = "#cc0000";
-        };
-        stopButtonEl.onmouseout = () => {
-            stopButtonEl.style.backgroundColor = "#ff4444";
-        };
-        stopButtonEl.onclick = stopTranslation;
-
-        document.body.appendChild(loadingIndicator);
+        displayLoadingIndicatorState(message, "preparing");
     }
 
     function removeLoadingIndicator(): void {
