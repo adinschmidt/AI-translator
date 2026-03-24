@@ -18,10 +18,6 @@ function createLocaleThemeConfig(prefix, labels) {
                 text: labels.troubleshooting,
                 link: localePath(prefix, "/troubleshooting"),
             },
-            {
-                text: "GitHub",
-                link: REPO_LINK,
-            },
         ],
         sidebar: [
             {
