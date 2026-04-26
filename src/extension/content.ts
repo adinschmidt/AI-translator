@@ -1257,18 +1257,6 @@ if ((window as any).hasRun) {
                 return;
             }
 
-            if (
-                root !== document.body &&
-                !seenElements.has(root) &&
-                !BLOCK_LEVEL_TAGS.has(root.tagName) &&
-                !STRUCTURAL_BOUNDARY_TAGS.has(root.tagName) &&
-                (root.textContent || "").trim().length >= 2
-            ) {
-                seenElements.add(root);
-                units.push(...collectRegionUnitsFromElement(root, runId));
-                return;
-            }
-
             for (const child of Array.from(root.children)) {
                 traverse(child);
             }
@@ -1320,6 +1308,18 @@ if ((window as any).hasRun) {
                     units.push(regionUnit);
                 }
 
+                return;
+            }
+
+            if (
+                root !== document.body &&
+                !seenElements.has(root) &&
+                !BLOCK_LEVEL_TAGS.has(root.tagName) &&
+                !STRUCTURAL_BOUNDARY_TAGS.has(root.tagName) &&
+                (root.textContent || "").trim().length >= 2
+            ) {
+                seenElements.add(root);
+                units.push(...collectRegionUnitsFromElement(root, runId));
                 return;
             }
 
@@ -1896,13 +1896,13 @@ if ((window as any).hasRun) {
                         if (msg.cancelled) {
                             (error as any).cancelled = true;
                         }
-                        finalize(error);
+                        finalize(error, null);
                         return;
                     }
                     if (msg.cancelled) {
                         const error = new Error("Translation cancelled.");
                         (error as any).cancelled = true;
-                        finalize(error);
+                        finalize(error, null);
                         return;
                     }
                     if (msg.results) {
@@ -1934,7 +1934,10 @@ if ((window as any).hasRun) {
 
             port.onDisconnect.addListener(() => {
                 if (!settled) {
-                    finalize(new Error("Translation connection closed unexpectedly."));
+                    finalize(
+                        new Error("Translation connection closed unexpectedly."),
+                        null,
+                    );
                 }
             });
 
