@@ -172,10 +172,16 @@ export interface StartHTMLTranslationPortMessage {
     requestId: string;
 }
 
+export interface CancelHTMLTranslationPortMessage {
+    action: "cancelHTMLTranslation";
+    requestId?: string;
+}
+
 export interface HtmlTranslationResultPortMessage {
     action: "htmlTranslationResult";
     requestId?: string;
     error?: string;
+    cancelled?: boolean;
     results?: unknown[];
     batchIndex?: number;
     batchCount?: number;
@@ -188,6 +194,7 @@ export interface HtmlTranslationResultPortMessage {
 
 export type PortMessage =
     | StartHTMLTranslationPortMessage
+    | CancelHTMLTranslationPortMessage
     | HtmlTranslationResultPortMessage;
 
 export { HTML_TRANSLATION_PORT_NAME, STREAM_PORT_NAME } from "./constants/settings";

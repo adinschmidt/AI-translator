@@ -97,6 +97,32 @@ if ((window as any).hasRun) {
         "LEGEND",
     ]);
 
+    const STRUCTURAL_BOUNDARY_TAGS = new Set([
+        "ADDRESS",
+        "ARTICLE",
+        "ASIDE",
+        "DETAILS",
+        "DIALOG",
+        "DL",
+        "FIELDSET",
+        "FIGURE",
+        "FOOTER",
+        "FORM",
+        "HEADER",
+        "HR",
+        "MAIN",
+        "MENU",
+        "NAV",
+        "OL",
+        "SECTION",
+        "TABLE",
+        "TBODY",
+        "TFOOT",
+        "THEAD",
+        "TR",
+        "UL",
+    ]);
+
     const INLINE_SAFE_TAGS = new Set([
         "A",
         "ABBR",
@@ -451,6 +477,7 @@ if ((window as any).hasRun) {
      */
     interface RegionTranslationUnit {
         parentElement: Element; // The unit element containing this region
+        runId: string; // Full-page translation run that owns the markers
         regionId: string; // UUID for marker identification
         html: string; // Serialized simplified HTML
         chunkIndex?: number; // For chunked regions
@@ -496,6 +523,10 @@ if ((window as any).hasRun) {
 
             // BR and WBR are always boundaries
             if (tag === "BR" || tag === "WBR") {
+                return "BOUNDARY";
+            }
+
+            if (!canRoundTripInlineSubtree(el)) {
                 return "BOUNDARY";
             }
 
@@ -605,10 +636,22 @@ if ((window as any).hasRun) {
      * @param region The region to mark
      * @returns The generated region ID (UUID)
      */
-    function insertRegionMarkers(unitEl: Element, region: Region): string {
+    function getRegionMarkerText(
+        kind: "START" | "END",
+        runId: string,
+        regionId: string,
+    ): string {
+        return `TR_REGION_${kind}_${runId}_${regionId}`;
+    }
+
+    function insertRegionMarkers(unitEl: Element, region: Region, runId: string): string {
         const regionId = generateRegionId();
-        const startMarker = document.createComment(`TR_REGION_START_${regionId}`);
-        const endMarker = document.createComment(`TR_REGION_END_${regionId}`);
+        const startMarker = document.createComment(
+            getRegionMarkerText("START", runId, regionId),
+        );
+        const endMarker = document.createComment(
+            getRegionMarkerText("END", runId, regionId),
+        );
 
         // Insert start marker before first region node
         const firstNode = region.nodes[0];
@@ -721,12 +764,15 @@ if ((window as any).hasRun) {
      * @param unitEl The unit element to process
      * @returns Array of RegionTranslationUnits for all regions in the element
      */
-    function collectRegionUnitsFromElement(unitEl: Element): RegionTranslationUnit[] {
+    function collectRegionUnitsFromElement(
+        unitEl: Element,
+        runId: string,
+    ): RegionTranslationUnit[] {
         const units: RegionTranslationUnit[] = [];
         const regions = identifyRegions(unitEl);
 
         for (const region of regions) {
-            const regionId = insertRegionMarkers(unitEl, region);
+            const regionId = insertRegionMarkers(unitEl, region, runId);
             const html = serializeRegionNodes(region.nodes);
 
             if (html.length === 0) {
@@ -739,6 +785,7 @@ if ((window as any).hasRun) {
                     if (chunks[i].html.length > 0) {
                         units.push({
                             parentElement: unitEl,
+                            runId,
                             regionId: regionId,
                             html: chunks[i].html,
                             chunkIndex: i,
@@ -749,10 +796,27 @@ if ((window as any).hasRun) {
             } else {
                 units.push({
                     parentElement: unitEl,
+                    runId,
                     regionId: regionId,
                     html: html,
                 });
             }
+        }
+
+        for (const child of Array.from(unitEl.children)) {
+            if (classifyNode(child) !== "BOUNDARY") {
+                continue;
+            }
+            if (SKIP_TAGS.has(child.tagName) || isHiddenElement(child)) {
+                continue;
+            }
+            if (isExtensionUI(child) || containsInteractiveControls(child)) {
+                continue;
+            }
+            if ((child.textContent || "").trim().length < 2) {
+                continue;
+            }
+            units.push(...collectRegionUnitsFromElement(child, runId));
         }
 
         return units;
@@ -797,15 +861,19 @@ if ((window as any).hasRun) {
      */
     function applyRegionTranslation(
         parentElement: Element,
+        runId: string,
         regionId: string,
         translatedHtml: string,
     ): boolean {
         // 1. Find markers
         const startMarker = findMarkerComment(
             parentElement,
-            `TR_REGION_START_${regionId}`,
+            getRegionMarkerText("START", runId, regionId),
         );
-        const endMarker = findMarkerComment(parentElement, `TR_REGION_END_${regionId}`);
+        const endMarker = findMarkerComment(
+            parentElement,
+            getRegionMarkerText("END", runId, regionId),
+        );
 
         if (!startMarker || !endMarker) {
             console.warn(
@@ -862,15 +930,14 @@ if ((window as any).hasRun) {
      *
      * @param unitEl The unit element to clean up
      */
-    function cleanupOrphanedMarkers(unitEl: Element): void {
+    function cleanupOrphanedMarkers(unitEl: Element, runId: string): void {
         const markers: Comment[] = [];
+        const startPrefix = `TR_REGION_START_${runId}_`;
+        const endPrefix = `TR_REGION_END_${runId}_`;
         for (const child of Array.from(unitEl.childNodes)) {
             if (child.nodeType === Node.COMMENT_NODE) {
                 const text = child.textContent || "";
-                if (
-                    text.startsWith("TR_REGION_START_") ||
-                    text.startsWith("TR_REGION_END_")
-                ) {
+                if (text.startsWith(startPrefix) || text.startsWith(endPrefix)) {
                     markers.push(child as Comment);
                 }
             }
@@ -927,16 +994,65 @@ if ((window as any).hasRun) {
         return interactiveDescendant !== null;
     }
 
-    function containsNestedBlocks(el: Element): boolean {
-        for (const child of Array.from(el.children)) {
-            if (BLOCK_LEVEL_TAGS.has(child.tagName)) {
+    function hasDescendantStructuralBoundary(el: Element): boolean {
+        for (const descendant of Array.from(el.querySelectorAll("*"))) {
+            if (
+                STRUCTURAL_BOUNDARY_TAGS.has(descendant.tagName) ||
+                BLOCK_LEVEL_TAGS.has(descendant.tagName)
+            ) {
                 return true;
             }
-            if (child.tagName === "DIV" && child.textContent.trim().length > 0) {
+            if (
+                descendant.tagName === "DIV" &&
+                descendant.textContent?.trim().length
+            ) {
                 return true;
             }
         }
         return false;
+    }
+
+    function canRoundTripInlineSubtree(node: Node): boolean {
+        if (node.nodeType === Node.TEXT_NODE) {
+            return true;
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+            return false;
+        }
+
+        const el = node as Element;
+        const tagName = el.tagName.toLowerCase();
+
+        if (SKIP_TAGS.has(el.tagName) || !HTML_UNIT_ALLOWED_TAGS.has(tagName)) {
+            return false;
+        }
+
+        for (const attr of Array.from(el.attributes)) {
+            if (!HTML_UNIT_ALLOWED_ATTRS.has(attr.name)) {
+                return false;
+            }
+            if (attr.name === "href" && sanitizeUnitHref(attr.value) !== attr.value) {
+                return false;
+            }
+        }
+
+        if (containsInteractiveControls(el)) {
+            return false;
+        }
+
+        for (const child of Array.from(el.childNodes)) {
+            if (!canRoundTripInlineSubtree(child)) {
+                return false;
+            }
+        }
+
+        const serialized = getNodeSimplifiedHTML(el);
+        if (!serialized.trim()) {
+            return false;
+        }
+
+        return sanitizeTranslatedHTML(serialized) === serialized;
     }
 
     function isSafeTranslationUnit(el: Element): boolean {
@@ -965,7 +1081,7 @@ if ((window as any).hasRun) {
             return false;
         }
 
-        if (containsNestedBlocks(el)) {
+        if (hasDescendantStructuralBoundary(el)) {
             return false;
         }
 
@@ -1141,6 +1257,18 @@ if ((window as any).hasRun) {
                 return;
             }
 
+            if (
+                root !== document.body &&
+                !seenElements.has(root) &&
+                !BLOCK_LEVEL_TAGS.has(root.tagName) &&
+                !STRUCTURAL_BOUNDARY_TAGS.has(root.tagName) &&
+                (root.textContent || "").trim().length >= 2
+            ) {
+                seenElements.add(root);
+                units.push(...collectRegionUnitsFromElement(root, runId));
+                return;
+            }
+
             for (const child of Array.from(root.children)) {
                 traverse(child);
             }
@@ -1162,7 +1290,7 @@ if ((window as any).hasRun) {
      *
      * @returns Array of RegionTranslationUnits for all regions across all unit elements
      */
-    function collectRegionTranslationUnits(): RegionTranslationUnit[] {
+    function collectRegionTranslationUnits(runId: string): RegionTranslationUnit[] {
         const units: RegionTranslationUnit[] = [];
         const seenElements = new WeakSet<Element>();
 
@@ -1187,7 +1315,7 @@ if ((window as any).hasRun) {
                 seenElements.add(root);
 
                 // Use region-based collection instead of whole-element extraction
-                const regionUnits = collectRegionUnitsFromElement(root);
+                const regionUnits = collectRegionUnitsFromElement(root, runId);
                 for (const regionUnit of regionUnits) {
                     units.push(regionUnit);
                 }
@@ -1467,9 +1595,20 @@ if ((window as any).hasRun) {
     interface ActiveHtmlTranslation {
         requestId: string;
         port: chrome.runtime.Port;
+        runId: string | null;
     }
 
     let activeHtmlTranslation: ActiveHtmlTranslation | null = null;
+
+    interface FullPageTranslationRun {
+        runId: string;
+        cancelled: boolean;
+        parentElements: Set<Element>;
+        htmlTranslationRequestId: string | null;
+        htmlTranslationPort: chrome.runtime.Port | null;
+    }
+
+    let activeFullPageRun: FullPageTranslationRun | null = null;
 
     const messageListener: MessageListener = (request: unknown, sender, sendResponse) => {
         console.log("Content Script Received Action:", (request as any).action, request);
@@ -1591,6 +1730,13 @@ if ((window as any).hasRun) {
                     );
                     console.error("Element translation failed:", req.errorMessage);
                 } else if (!isTranslated) {
+                    if (activeFullPageRun && !activeFullPageRun.cancelled) {
+                        console.log(
+                            "Full-page translation already in progress, ignoring duplicate start.",
+                        );
+                        sendResponse({ status: "already_in_progress" });
+                        break;
+                    }
                     console.log("Starting page translation (HTML-preserving).");
                     translatePageV3();
                 } else {
@@ -1679,17 +1825,12 @@ if ((window as any).hasRun) {
                   batchInfo: HtmlTranslationOnUpdateMeta | null,
               ) => void)
             | null = null,
+        runId: string | null = null,
     ): Promise<HtmlTranslationResultItem[]> {
         return new Promise((resolve, reject) => {
             if (activeHtmlTranslation?.port) {
-                try {
-                    activeHtmlTranslation.port.disconnect();
-                } catch (error) {
-                    console.warn(
-                        "Failed to close previous HTML translation port:",
-                        error,
-                    );
-                }
+                reject(new Error("HTML translation already in progress."));
+                return;
             }
 
             const requestId = `html-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -1722,7 +1863,9 @@ if ((window as any).hasRun) {
                     return;
                 }
                 settled = true;
-                activeHtmlTranslation = null;
+                if (activeHtmlTranslation?.requestId === requestId) {
+                    activeHtmlTranslation = null;
+                }
                 if (error) {
                     reject(error);
                 } else {
@@ -1749,7 +1892,17 @@ if ((window as any).hasRun) {
                         return;
                     }
                     if (msg.error) {
-                        finalize(new Error(msg.error));
+                        const error = new Error(msg.error);
+                        if (msg.cancelled) {
+                            (error as any).cancelled = true;
+                        }
+                        finalize(error);
+                        return;
+                    }
+                    if (msg.cancelled) {
+                        const error = new Error("Translation cancelled.");
+                        (error as any).cancelled = true;
+                        finalize(error);
                         return;
                     }
                     if (msg.results) {
@@ -1785,7 +1938,11 @@ if ((window as any).hasRun) {
                 }
             });
 
-            activeHtmlTranslation = { requestId, port };
+            activeHtmlTranslation = { requestId, port, runId };
+            if (runId && activeFullPageRun?.runId === runId) {
+                activeFullPageRun.htmlTranslationRequestId = requestId;
+                activeFullPageRun.htmlTranslationPort = port;
+            }
             console.log("startHtmlTranslation: sending request", {
                 requestId,
                 unitCount: units.length,
@@ -2673,11 +2830,20 @@ if ((window as any).hasRun) {
         console.log("Starting translatePageV3 (region-based HTML-preserving)...");
 
         stopTranslationFlag = false;
+        const runId = `run-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const run: FullPageTranslationRun = {
+            runId,
+            cancelled: false,
+            parentElements: new Set<Element>(),
+            htmlTranslationRequestId: null,
+            htmlTranslationPort: null,
+        };
+        activeFullPageRun = run;
 
         displayLoadingIndicatorState(t("contentPreparing", "Preparing..."), "preparing");
 
         // Use region-based collection to preserve images/non-text nodes
-        const units = collectRegionTranslationUnits();
+        const units = collectRegionTranslationUnits(runId);
         const totalChunks = units.length;
 
         if (units.length === 0) {
@@ -2687,6 +2853,9 @@ if ((window as any).hasRun) {
                 "done",
             );
             setTimeout(() => removeLoadingIndicator(), 60000);
+            if (activeFullPageRun?.runId === runId) {
+                activeFullPageRun = null;
+            }
             return;
         }
 
@@ -2727,6 +2896,7 @@ if ((window as any).hasRun) {
         for (const unit of units) {
             const total = unit.totalChunks || 1;
             parentElements.add(unit.parentElement);
+            run.parentElements.add(unit.parentElement);
 
             let entry = regionChunks.get(unit.regionId);
             if (!entry) {
@@ -2766,6 +2936,9 @@ if ((window as any).hasRun) {
             );
         };
 
+        const isRunActive = () =>
+            activeFullPageRun?.runId === runId && !activeFullPageRun.cancelled;
+
         const markRegionError = (
             regionId: string,
             entry: RegionEntry,
@@ -2785,6 +2958,9 @@ if ((window as any).hasRun) {
         };
 
         const applyRegionIfReady = (regionId: string, entry: RegionEntry) => {
+            if (!isRunActive()) {
+                return;
+            }
             if (entry.applied || entry.hasError) {
                 return;
             }
@@ -2837,6 +3013,7 @@ if ((window as any).hasRun) {
             // Use surgical region replacement instead of replacing all children
             const applied = applyRegionTranslation(
                 entry.parentElement,
+                runId,
                 regionId,
                 combinedHtml,
             );
@@ -2859,6 +3036,9 @@ if ((window as any).hasRun) {
             results: HtmlTranslationResultItem[],
             batchInfo: HtmlTranslationOnUpdateMeta | null = null,
         ) => {
+            if (!isRunActive()) {
+                return;
+            }
             if (!Array.isArray(results) || results.length === 0) {
                 return;
             }
@@ -2932,6 +3112,12 @@ if ((window as any).hasRun) {
         };
 
         const finalizeTranslation = () => {
+            if (!isRunActive()) {
+                for (const element of parentElements) {
+                    cleanupOrphanedMarkers(element, runId);
+                }
+                return;
+            }
             // Apply any remaining regions that haven't been applied yet
             for (const [regionId, entry] of regionChunks) {
                 if (entry.applied || entry.hasError) {
@@ -2951,7 +3137,7 @@ if ((window as any).hasRun) {
 
             // Clean up any orphaned markers from failed regions
             for (const element of parentElements) {
-                cleanupOrphanedMarkers(element);
+                cleanupOrphanedMarkers(element, runId);
             }
 
             const summary =
@@ -2973,6 +3159,9 @@ if ((window as any).hasRun) {
             });
 
             isTranslated = true;
+            if (activeFullPageRun?.runId === runId) {
+                activeFullPageRun = null;
+            }
             setTimeout(() => removeLoadingIndicator(), 60000);
         };
 
@@ -2981,16 +3170,40 @@ if ((window as any).hasRun) {
                 unitsForTranslation,
                 null,
                 handleTranslationResults,
+                runId,
             );
             console.log(
                 `translatePageV3: received ${receivedResults} translation results`,
             );
             finalizeTranslation();
         } catch (error) {
+            const wasCancelled =
+                (error as any)?.cancelled ||
+                activeFullPageRun?.runId !== runId ||
+                run.cancelled;
+            if (wasCancelled) {
+                console.log("translatePageV3 cancelled");
+                for (const element of parentElements) {
+                    cleanupOrphanedMarkers(element, runId);
+                }
+                displayLoadingIndicatorState(
+                    t("contentTranslationStoppedByUser", "Translation stopped by user."),
+                    "stopped",
+                    {
+                        current: translatedChunks,
+                        total: totalChunks,
+                    },
+                );
+                if (activeFullPageRun?.runId === runId) {
+                    activeFullPageRun = null;
+                }
+                setTimeout(() => removeLoadingIndicator(), 60000);
+                return;
+            }
             console.error("translatePageV3 error:", error);
             // Clean up markers even on error
             for (const element of parentElements) {
-                cleanupOrphanedMarkers(element);
+                cleanupOrphanedMarkers(element, runId);
             }
             displayLoadingIndicatorState(
                 t(
@@ -3004,12 +3217,44 @@ if ((window as any).hasRun) {
                     total: totalChunks,
                 },
             );
+            if (activeFullPageRun?.runId === runId) {
+                activeFullPageRun = null;
+            }
             setTimeout(() => removeLoadingIndicator(), 60000);
         }
     }
 
     function stopTranslation(): void {
         stopTranslationFlag = true;
+        const run = activeFullPageRun;
+        if (run) {
+            run.cancelled = true;
+            for (const element of run.parentElements) {
+                cleanupOrphanedMarkers(element, run.runId);
+            }
+            try {
+                run.htmlTranslationPort?.postMessage({
+                    action: "cancelHTMLTranslation",
+                    requestId: run.htmlTranslationRequestId || undefined,
+                });
+            } catch (error) {
+                console.warn("Failed to send HTML translation cancel:", error);
+            }
+            try {
+                run.htmlTranslationPort?.disconnect();
+            } catch (error) {
+                console.warn("Failed to disconnect HTML translation port:", error);
+            }
+            if (activeHtmlTranslation?.runId === run.runId) {
+                activeHtmlTranslation = null;
+            }
+            activeFullPageRun = null;
+            displayLoadingIndicatorState(
+                t("contentTranslationStoppedByUser", "Translation stopped by user."),
+                "stopped",
+            );
+            setTimeout(() => removeLoadingIndicator(), 60000);
+        }
         console.log("Translation stopped");
     }
 
