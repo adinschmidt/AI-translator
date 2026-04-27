@@ -238,21 +238,58 @@ function calculateBackoffDelay(attempt: number, hintMs: number | null): number {
     return Math.min(baseDelay + jitter, RATE_LIMIT_MAX_DELAY_MS);
 }
 
-async function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+function isAbortError(error: any): boolean {
+    return (
+        error?.name === "AbortError" ||
+        error?.code === "ABORT_ERR" ||
+        error?.cancelled === true
+    );
+}
+
+function throwIfAborted(signal?: AbortSignal | null): void {
+    if (signal?.aborted) {
+        const error = new Error("Translation cancelled.");
+        (error as any).name = "AbortError";
+        (error as any).cancelled = true;
+        throw error;
+    }
+}
+
+async function sleep(ms: number, signal?: AbortSignal | null): Promise<void> {
+    throwIfAborted(signal);
+    return new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+            signal?.removeEventListener("abort", onAbort);
+            resolve();
+        }, ms);
+        const onAbort = () => {
+            clearTimeout(timeoutId);
+            const error = new Error("Translation cancelled.");
+            (error as any).name = "AbortError";
+            (error as any).cancelled = true;
+            reject(error);
+        };
+        signal?.addEventListener("abort", onAbort, { once: true });
+    });
 }
 
 async function withRateLimitRetry<T>(
     fn: () => Promise<T>,
     context: string = "API call",
+    signal?: AbortSignal | null,
 ): Promise<T> {
     let lastError: any;
 
     for (let attempt = 0; attempt <= RATE_LIMIT_MAX_RETRIES; attempt++) {
+        throwIfAborted(signal);
         try {
             return await fn();
         } catch (error) {
             lastError = error;
+
+            if (isAbortError(error) || signal?.aborted) {
+                throw error;
+            }
 
             if (!isRateLimitError(error)) {
                 // Not a rate limit error, don't retry
@@ -275,7 +312,7 @@ async function withRateLimitRetry<T>(
                     `retrying in ${Math.round(delayMs / 1000)}s...`,
             );
 
-            await sleep(delayMs);
+            await sleep(delayMs, signal);
         }
     }
 
@@ -1060,7 +1097,9 @@ async function translateHTMLBatch(
     batch: HTMLUnit[],
     settings: EffectiveProviderSettings,
     isRetry: boolean = false,
+    signal?: AbortSignal | null,
 ): Promise<HTMLTranslationResult[]> {
+    throwIfAborted(signal);
     const { apiKey, apiEndpoint, apiType, modelName, translationInstructions } = settings;
 
     const combinedInput = batch.map((u) => u.html).join(HTML_UNIT_SEPARATOR);
@@ -1094,8 +1133,10 @@ async function translateHTMLBatch(
                 system: systemPrompt,
                 prompt: userPrompt,
                 maxTokens: MAX_BATCH_OUTPUT_TOKENS,
+                abortSignal: signal || undefined,
             }),
         `translateHTMLBatch (${batch.length} units)`,
+        signal,
     );
 
     let outputText = result.text || "";
@@ -1149,7 +1190,9 @@ async function translateHTMLUnits(
     units: HTMLUnit[],
     targetLanguage: string | null = null,
     onBatchResults: OnBatchResultsCallback | null = null,
+    signal?: AbortSignal | null,
 ): Promise<HTMLTranslationResult[]> {
+    throwIfAborted(signal);
     if (!units || units.length === 0) {
         return [];
     }
@@ -1277,27 +1320,34 @@ async function translateHTMLUnits(
         batchCount: number,
         subBatchIndex: number | null = null,
     ): Promise<HTMLTranslationResult[]> => {
+        throwIfAborted(signal);
         const meta = buildBatchMeta(batchIndex, batchCount, batch, subBatchIndex);
         logBatchStart(meta);
         try {
             const results = restoreBatchResults(
-                await translateHTMLBatch(batch, settings, false),
+                await translateHTMLBatch(batch, settings, false, signal),
             );
             const batchErrors = results.filter((result) => result.error).length;
             logBatchComplete(meta, batchErrors);
             reportBatchResults(results, meta);
             return results;
         } catch (error) {
+            if (isAbortError(error) || signal?.aborted) {
+                throw error;
+            }
             console.error("translateHTMLBatch error:", error);
             try {
                 const results = restoreBatchResults(
-                    await translateHTMLBatch(batch, settings, true),
+                    await translateHTMLBatch(batch, settings, true, signal),
                 );
                 const batchErrors = results.filter((result) => result.error).length;
                 logBatchComplete(meta, batchErrors);
                 reportBatchResults(results, meta);
                 return results;
             } catch (retryError) {
+                if (isAbortError(retryError) || signal?.aborted) {
+                    throw retryError;
+                }
                 if (shouldSplitBatch(error) || shouldSplitBatch(retryError)) {
                     if (batch.length === 1) {
                         const errorMessage =
@@ -1350,6 +1400,7 @@ async function translateHTMLUnits(
 
     const allResults: HTMLTranslationResult[] = [];
     for (let index = 0; index < batches.length; index++) {
+        throwIfAborted(signal);
         const batch = batches[index];
         const batchIndex = index + 1;
         const batchResults = await translateBatchWithFallback(
@@ -2434,10 +2485,24 @@ const onConnect = (port: chrome.runtime.Port): void => {
         return;
     }
 
+    let htmlTranslationAbortController: AbortController | null = null;
+    let activeRequestId: string | null = null;
+
     const portMessageListener: PortMessageListener = (
         message: any,
         port: chrome.runtime.Port,
     ) => {
+        if (message?.action === "cancelHTMLTranslation") {
+            if (
+                !message.requestId ||
+                !activeRequestId ||
+                message.requestId === activeRequestId
+            ) {
+                htmlTranslationAbortController?.abort();
+            }
+            return;
+        }
+
         if (message?.action !== "startHTMLTranslation") {
             return;
         }
@@ -2463,6 +2528,11 @@ const onConnect = (port: chrome.runtime.Port): void => {
             return;
         }
 
+        htmlTranslationAbortController?.abort();
+        htmlTranslationAbortController = new AbortController();
+        activeRequestId = requestId;
+        const signal = htmlTranslationAbortController.signal;
+
         const postResult = (payload: HtmlTranslationResultPortMessage) => {
             try {
                 port.postMessage(payload);
@@ -2486,7 +2556,7 @@ const onConnect = (port: chrome.runtime.Port): void => {
             });
         };
 
-        translateHTMLUnits(units, targetLanguage, onBatchResults)
+        translateHTMLUnits(units, targetLanguage, onBatchResults, signal)
             .then(() => {
                 postResult({
                     action: "htmlTranslationResult",
@@ -2495,16 +2565,31 @@ const onConnect = (port: chrome.runtime.Port): void => {
                 });
             })
             .catch((error) => {
+                const cancelled = isAbortError(error) || signal.aborted;
                 postResult({
                     action: "htmlTranslationResult",
                     requestId,
-                    error: (error as any)?.message || "Translation failed",
+                    error: cancelled
+                        ? "Translation cancelled."
+                        : (error as any)?.message || "Translation failed",
+                    cancelled,
                     done: true,
                 });
+            })
+            .finally(() => {
+                if (activeRequestId === requestId) {
+                    activeRequestId = null;
+                    htmlTranslationAbortController = null;
+                }
             });
     };
 
     port.onMessage.addListener(portMessageListener);
+    port.onDisconnect.addListener(() => {
+        htmlTranslationAbortController?.abort();
+        htmlTranslationAbortController = null;
+        activeRequestId = null;
+    });
 };
 
 chrome.runtime.onInstalled.addListener(() => {
