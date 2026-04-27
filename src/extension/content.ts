@@ -1316,6 +1316,7 @@ if ((window as any).hasRun) {
                 !seenElements.has(root) &&
                 !BLOCK_LEVEL_TAGS.has(root.tagName) &&
                 !STRUCTURAL_BOUNDARY_TAGS.has(root.tagName) &&
+                !containsInteractiveControls(root) &&
                 (root.textContent || "").trim().length >= 2
             ) {
                 seenElements.add(root);
