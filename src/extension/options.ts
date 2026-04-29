@@ -20,6 +20,7 @@ import {
     providerRequiresModelApiKey,
     resolveProviderFallbackModels,
 } from "../shared/provider-behavior";
+import { normalizeProviderSettingsMap } from "../shared/translation-profile";
 import {
     SETTINGS_MODE_BASIC,
     SETTINGS_MODE_ADVANCED,
@@ -1162,28 +1163,10 @@ async function loadSettings(): Promise<void> {
             redactSensitiveDataInput.checked = redactionEnabled;
         }
 
-        providerSettings = result.providerSettings || {};
-        let shouldPersistProviderSettingsNormalization = false;
+        const normalizedProviderSettings = normalizeProviderSettingsMap(result);
+        providerSettings = normalizedProviderSettings.providerSettings;
 
-        if (
-            !result.providerSettings &&
-            (result.apiKey || result.apiEndpoint || result.modelName)
-        ) {
-            const legacyProvider = (result.apiType as Provider) || "openai";
-            providerSettings[legacyProvider] = {
-                apiKey: result.apiKey || "",
-                apiEndpoint:
-                    result.apiEndpoint ||
-                    PROVIDER_DEFAULTS[legacyProvider]?.apiEndpoint ||
-                    "",
-                modelName:
-                    canonicalizeProviderModelName(
-                        legacyProvider,
-                        result.modelName ||
-                            PROVIDER_DEFAULTS[legacyProvider]?.modelName ||
-                            "",
-                    ) || "",
-            };
+        if (normalizedProviderSettings.migratedLegacyProviderSettings) {
             console.log(
                 "options.ts: Migrated legacy settings into providerSettings:",
                 providerSettings,
@@ -1196,34 +1179,7 @@ async function loadSettings(): Promise<void> {
             });
         }
 
-        for (const provider of PROVIDERS) {
-            if (!providerSettings[provider]) {
-                providerSettings[provider] = resolveProviderDefaults(provider);
-            } else {
-                const base = resolveProviderDefaults(provider);
-                const resolvedModelName =
-                    providerSettings[provider].modelName || base.modelName;
-                const canonicalModelName = canonicalizeProviderModelName(
-                    provider,
-                    resolvedModelName,
-                );
-                if (canonicalModelName !== resolvedModelName) {
-                    shouldPersistProviderSettingsNormalization = true;
-                }
-
-                providerSettings[provider] = {
-                    apiKey: providerSettings[provider].apiKey || "",
-                    apiEndpoint:
-                        providerSettings[provider].apiEndpoint || base.apiEndpoint,
-                    modelName: canonicalModelName,
-                    translationInstructions:
-                        providerSettings[provider].translationInstructions ||
-                        DEFAULT_TRANSLATION_INSTRUCTIONS,
-                };
-            }
-        }
-
-        if (shouldPersistProviderSettingsNormalization) {
+        if (normalizedProviderSettings.normalizedProviderSettings) {
             setStorage({ providerSettings }).catch((error) => {
                 console.error(
                     "options.ts: Error persisting canonicalized provider settings:",

@@ -6,7 +6,6 @@ import { createOpenAI } from "@ai-sdk/openai";
 import {
     STORAGE_KEYS,
     getStorage,
-    getEffectiveProviderSettings,
     type StorageGetResult,
     type EffectiveProviderSettings,
 } from "../shared/storage";
@@ -24,10 +23,7 @@ import {
     STREAM_PORT_NAME,
 } from "../shared/messaging";
 import {
-    SETTINGS_MODE_BASIC,
-    SETTINGS_MODE_ADVANCED,
     BASIC_TARGET_LANGUAGE_DEFAULT,
-    ADVANCED_TARGET_LANGUAGE_DEFAULT,
     DEBUG_MODE_DEFAULT,
     UI_THEME_DEFAULT,
     DEFAULT_TRANSLATION_INSTRUCTIONS,
@@ -53,7 +49,6 @@ import {
     createRequestId,
     isInstructModelName,
     stripThinkBlocks,
-    REDACTION_MODE_DEFAULT,
     type RedactionMode,
 } from "../shared/constants/settings";
 import {
@@ -69,11 +64,7 @@ import {
     shouldStripProviderReasoning,
     shouldUseStreamingForSelectedText,
 } from "../shared/provider-behavior";
-import {
-    getBasicTargetLanguageLabel,
-    buildBasicTranslationInstructions,
-    buildTranslationInstructionsWithDetection,
-} from "../shared/constants/languages";
+import { resolveTranslationProfile } from "../shared/translation-profile";
 import {
     ensureI18nReady,
     getActiveUILocale,
@@ -905,8 +896,7 @@ async function translateElementText(
         STORAGE_KEYS.BASIC_TARGET_LANGUAGE,
     ]);
 
-    const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
-    const settings = getEffectiveProviderSettings(storage, mode);
+    const { provider: settings } = resolveTranslationProfile(storage);
 
     const {
         apiKey: finalKey,
@@ -1099,12 +1089,8 @@ async function translateHTMLUnits(
         STORAGE_KEYS.REDACTION_MODE,
     ]);
 
-    const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
-    const settings = getEffectiveProviderSettings(
-        storage,
-        mode,
-        targetLanguage || undefined,
-    );
+    const profile = resolveTranslationProfile(storage, { targetLanguage });
+    const settings = profile.provider;
 
     if (!settings.apiEndpoint || (!settings.apiKey && settings.apiType !== "ollama")) {
         throw new Error(
@@ -1113,7 +1099,7 @@ async function translateHTMLUnits(
     }
 
     // Redact sensitive data in each HTML unit before sending to the API.
-    const redactionMode: RedactionMode = storage.redactionMode || REDACTION_MODE_DEFAULT;
+    const redactionMode = profile.redactionMode;
     const restoreByUnitId = new Map<
         string | number,
         (translatedHtml: string) => string
@@ -1520,16 +1506,15 @@ async function getSettingsAndTranslate(
         STORAGE_KEYS.DEBUG_MODE,
         STORAGE_KEYS.REDACTION_MODE,
     ]);
-    const debugModeEnabled =
-        typeof storage.debugMode === "boolean" ? storage.debugMode : DEBUG_MODE_DEFAULT;
+    const profile = resolveTranslationProfile(storage);
+    const debugModeEnabled = profile.debugMode;
 
     // Redact sensitive data before it reaches any provider API.
-    const redactionMode: RedactionMode = storage.redactionMode || REDACTION_MODE_DEFAULT;
-    const preparedInput = prepareTranslationInput(textToTranslate, redactionMode);
+    const preparedInput = prepareTranslationInput(textToTranslate, profile.redactionMode);
     textToTranslate = preparedInput.text;
 
-    const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
-    const settings = getEffectiveProviderSettings(storage, mode);
+    const mode = profile.mode;
+    const settings = profile.provider;
 
     const {
         apiKey: finalKey,
@@ -1834,61 +1819,34 @@ async function getSettingsAndTranslateWithDetection(
         STORAGE_KEYS.DEBUG_MODE,
         STORAGE_KEYS.REDACTION_MODE,
     ]);
-    const debugModeEnabled =
-        typeof storage.debugMode === "boolean" ? storage.debugMode : DEBUG_MODE_DEFAULT;
+    const profile = resolveTranslationProfile(storage, {
+        detectedLanguage,
+        detectedLanguageName,
+        locale: getActiveUILocale(),
+        useDetectedLanguageInstructions: true,
+    });
+    const debugModeEnabled = profile.debugMode;
 
     // Redact sensitive data before it reaches any provider API.
-    const redactionMode: RedactionMode = storage.redactionMode || REDACTION_MODE_DEFAULT;
-    const preparedInput = prepareTranslationInput(textToTranslate, redactionMode);
+    const preparedInput = prepareTranslationInput(textToTranslate, profile.redactionMode);
     textToTranslate = preparedInput.text;
 
-    const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
-    const settings = getEffectiveProviderSettings(storage, mode);
+    const mode = profile.mode;
+    const settings = profile.provider;
 
     const {
         apiKey: finalKey,
         apiEndpoint: finalEndpoint,
         apiType: finalType,
         modelName: finalModel,
+        translationInstructions: finalInstructions,
     } = settings;
     const selectedModelName =
         finalModel ||
         PROVIDER_DEFAULTS[finalType]?.modelName ||
         PROVIDER_DEFAULTS.openai?.modelName;
 
-    let targetLanguageLabel: string;
-    let finalInstructions: string;
-
-    if (mode === SETTINGS_MODE_BASIC) {
-        const languageValue =
-            storage.basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
-        targetLanguageLabel = getBasicTargetLanguageLabel(
-            languageValue,
-            getActiveUILocale(),
-        );
-        settings.apiEndpoint =
-            PROVIDER_DEFAULTS[finalType]?.apiEndpoint || settings.apiEndpoint;
-        settings.modelName = PROVIDER_DEFAULTS[finalType]?.modelName;
-        finalInstructions = buildTranslationInstructionsWithDetection(
-            detectedLanguage,
-            detectedLanguageName,
-            targetLanguageLabel,
-            "",
-        );
-    } else {
-        const languageValue =
-            storage.advancedTargetLanguage || ADVANCED_TARGET_LANGUAGE_DEFAULT;
-        targetLanguageLabel = getBasicTargetLanguageLabel(
-            languageValue,
-            getActiveUILocale(),
-        );
-        finalInstructions = buildTranslationInstructionsWithDetection(
-            detectedLanguage,
-            detectedLanguageName,
-            targetLanguageLabel,
-            storage.extraInstructions || "",
-        );
-    }
+    const targetLanguageLabel = profile.targetLanguageLabel;
 
     const resolvedRequestId = requestId || createRequestId();
 
@@ -2211,14 +2169,8 @@ const messageListener: MessageListener = (
             STORAGE_KEYS.ADVANCED_TARGET_LANGUAGE,
         ])
             .then((settings) => {
-                const mode = settings.settingsMode || SETTINGS_MODE_BASIC;
-                const targetLanguage =
-                    mode === SETTINGS_MODE_BASIC
-                        ? settings.basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT
-                        : settings.advancedTargetLanguage ||
-                          ADVANCED_TARGET_LANGUAGE_DEFAULT;
-
-                sendResponse({ targetLanguage });
+                const profile = resolveTranslationProfile(settings);
+                sendResponse({ targetLanguage: profile.targetLanguage });
             })
             .catch((error) => {
                 console.error("Error getting target language:", error);
@@ -2239,20 +2191,14 @@ const messageListener: MessageListener = (
             STORAGE_KEYS.ADVANCED_TARGET_LANGUAGE,
         ])
             .then((storage) => {
-                const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
-                const settings = getEffectiveProviderSettings(storage, mode);
-
-                const targetLanguage =
-                    mode === SETTINGS_MODE_BASIC
-                        ? storage.basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT
-                        : storage.advancedTargetLanguage ||
-                          ADVANCED_TARGET_LANGUAGE_DEFAULT;
+                const profile = resolveTranslationProfile(storage);
+                const settings = profile.provider;
 
                 sendResponse({
                     provider: settings.apiType,
                     endpoint: settings.apiEndpoint,
                     model: settings.modelName,
-                    targetLanguage,
+                    targetLanguage: profile.targetLanguage,
                     translationInstructions: settings.translationInstructions,
                 });
             })
