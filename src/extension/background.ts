@@ -62,6 +62,14 @@ import {
     type Provider,
 } from "../shared/constants/providers";
 import {
+    normalizeProviderBaseUrl,
+    resolveProviderHeaders,
+    resolveProviderMaxTokens,
+    shouldRetrySelectedTextWithoutStreaming,
+    shouldStripProviderReasoning,
+    shouldUseStreamingForSelectedText,
+} from "../shared/provider-behavior";
+import {
     getBasicTargetLanguageLabel,
     buildBasicTranslationInstructions,
     buildTranslationInstructionsWithDetection,
@@ -319,66 +327,8 @@ async function withRateLimitRetry<T>(
     throw lastError;
 }
 
-function normalizeOpenAIBaseUrl(apiEndpoint: string, provider: Provider): string {
-    const fallback = PROVIDER_DEFAULTS[provider]?.apiEndpoint || "";
-    const endpoint = (apiEndpoint || fallback).trim();
-    if (!endpoint) {
-        return "";
-    }
-
-    let base = endpoint.replace(/\/+$/, "");
-    if (base.endsWith("/chat/completions")) {
-        base = base.slice(0, -"/chat/completions".length);
-    }
-
-    if (provider === "ollama" && !base.endsWith("/v1")) {
-        base = `${base}/v1`;
-    }
-
-    return base;
-}
-
-function normalizeAnthropicBaseUrl(apiEndpoint: string): string {
-    const fallback = PROVIDER_DEFAULTS.anthropic.apiEndpoint || "";
-    const endpoint = (apiEndpoint || fallback).trim();
-    if (!endpoint) {
-        return "";
-    }
-
-    let base = endpoint.replace(/\/+$/, "");
-    if (base.endsWith("/messages")) {
-        base = base.slice(0, -"/messages".length);
-    }
-
-    return base;
-}
-
-function normalizeGoogleBaseUrl(apiEndpoint: string): string {
-    const fallback = PROVIDER_DEFAULTS.google.apiEndpoint || "";
-    const endpoint = (apiEndpoint || fallback).trim();
-    if (!endpoint) {
-        return "";
-    }
-
-    let base = endpoint.replace(/\/+$/, "");
-    const modelsIndex = base.indexOf("/models/");
-    if (modelsIndex !== -1) {
-        base = base.slice(0, modelsIndex);
-    }
-
-    if (base.endsWith(":generateContent")) {
-        base = base.replace(/:generateContent$/, "");
-    }
-
-    return base;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isCerebrasQwenModelName(modelName: unknown): boolean {
-    return typeof modelName === "string" && modelName.toLowerCase().includes("qwen");
 }
 
 function extractTextParts(value: unknown): string[] {
@@ -406,7 +356,7 @@ function pickFirstUsableTranslation(provider: Provider, candidates: string[]): s
             continue;
         }
 
-        const cleaned = shouldStripThinkBlocks(provider)
+        const cleaned = shouldStripProviderReasoning(provider)
             ? stripThinkBlocks(candidate)
             : candidate;
 
@@ -463,7 +413,7 @@ function extractFallbackTranslationFromResponseBody(
 }
 
 function extractThinkTaggedFallback(provider: Provider, text: string): string {
-    if (!shouldStripThinkBlocks(provider) || !/<\/?think\b/i.test(text)) {
+    if (!shouldStripProviderReasoning(provider) || !/<\/?think\b/i.test(text)) {
         return "";
     }
 
@@ -670,7 +620,7 @@ function resolveProviderModel(
     if (provider === "anthropic") {
         const anthropic = createAnthropic({
             apiKey,
-            baseURL: normalizeAnthropicBaseUrl(apiEndpoint) || undefined,
+            baseURL: normalizeProviderBaseUrl(provider, apiEndpoint) || undefined,
         });
         return anthropic(modelName);
     }
@@ -678,81 +628,19 @@ function resolveProviderModel(
     if (provider === "google") {
         const google = createGoogleGenerativeAI({
             apiKey,
-            baseURL: normalizeGoogleBaseUrl(apiEndpoint) || undefined,
+            baseURL: normalizeProviderBaseUrl(provider, apiEndpoint) || undefined,
         });
         return google(modelName);
     }
 
-    const baseURL = normalizeOpenAIBaseUrl(apiEndpoint, provider);
-    const headers =
-        provider === "openrouter"
-            ? {
-                  "HTTP-Referer": "https://github.com/",
-                  "X-Title": "AI Translator Extension",
-              }
-            : undefined;
+    const baseURL = normalizeProviderBaseUrl(provider, apiEndpoint);
+    const headers = resolveProviderHeaders(provider);
     const openai = createOpenAI({
         apiKey: apiKey || "ollama",
         baseURL: baseURL || undefined,
         headers,
     });
     return openai(modelName);
-}
-
-function resolveMaxTokens(provider: Provider, isFullPage: boolean): number | undefined {
-    if (provider === "openrouter") {
-        return isFullPage ? 8192 : 2048;
-    }
-
-    if (provider === "google") {
-        return isFullPage ? 65536 : 8000;
-    }
-
-    if (provider === "groq" || provider === "cerebras") {
-        return undefined;
-    }
-
-    return isFullPage ? 4000 : 800;
-}
-
-function shouldStripThinkBlocks(provider: Provider): boolean {
-    return provider === "groq" || provider === "cerebras";
-}
-
-function shouldUseStreamingForSelectedText(
-    provider: Provider,
-    modelName: string,
-): boolean {
-    if (
-        provider === "cerebras" &&
-        isCerebrasQwenModelName(modelName) &&
-        isInstructModelName(modelName)
-    ) {
-        return false;
-    }
-
-    return true;
-}
-
-function shouldRetrySelectedTextWithoutStreaming(
-    error: unknown,
-    provider: Provider,
-    modelName: string,
-): boolean {
-    const message = String((error as any)?.message || error || "").toLowerCase();
-    if (message.includes("no translation text")) {
-        return true;
-    }
-
-    if (
-        provider === "cerebras" &&
-        isCerebrasQwenModelName(modelName) &&
-        isInstructModelName(modelName)
-    ) {
-        return true;
-    }
-
-    return false;
 }
 
 function startStreamKeepAlive(): ReturnType<typeof setInterval> {
@@ -1141,7 +1029,7 @@ async function translateHTMLBatch(
 
     let outputText = result.text || "";
 
-    if (shouldStripThinkBlocks(apiType)) {
+    if (shouldStripProviderReasoning(apiType)) {
         outputText = stripThinkBlocks(outputText);
     }
 
@@ -1443,7 +1331,7 @@ async function streamSelectedTranslation(
     const systemPrompt = shouldUseInstructPrompt
         ? INSTRUCT_SYSTEM_PROMPT
         : DEFAULT_SYSTEM_PROMPT;
-    const maxTokens = resolveMaxTokens(provider, false);
+    const maxTokens = resolveProviderMaxTokens(provider, false);
     const model = resolveProviderModel(provider, apiKey, apiEndpoint, selectedModelName);
 
     const controller = new AbortController();
@@ -1572,7 +1460,7 @@ async function translateTextApiCall(
         ? INSTRUCT_SYSTEM_PROMPT
         : DEFAULT_SYSTEM_PROMPT;
     const model = resolveProviderModel(provider, apiKey, apiEndpoint, selectedModelName);
-    const maxTokens = resolveMaxTokens(provider, isFullPage);
+    const maxTokens = resolveProviderMaxTokens(provider, isFullPage);
 
     try {
         const result = await withRateLimitRetry(
