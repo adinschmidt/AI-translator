@@ -62,6 +62,12 @@ export function resolveSettingsMode(storage: StorageGetResult): SettingsMode {
     return storage.settingsMode || SETTINGS_MODE_BASIC;
 }
 
+export function resolveDebugMode(storage: StorageGetResult): boolean {
+    return typeof storage.debugMode === "boolean"
+        ? storage.debugMode
+        : DEBUG_MODE_DEFAULT;
+}
+
 export function resolveTargetLanguage(
     storage: StorageGetResult,
     mode: SettingsMode = resolveSettingsMode(storage),
@@ -164,7 +170,7 @@ export function resolveTranslationProfile(
         targetLanguage,
         targetLanguageLabel,
         provider,
-        debugMode: storage.debugMode ?? DEBUG_MODE_DEFAULT,
+        debugMode: resolveDebugMode(storage),
         redactionMode: storage.redactionMode || REDACTION_MODE_DEFAULT,
     };
 }
