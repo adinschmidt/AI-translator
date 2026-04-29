@@ -28,6 +28,15 @@ import {
     UI_LANGUAGE_STORAGE_KEY,
 } from "../shared/i18n";
 import {
+    createCancelHTMLTranslationPortMessage,
+    createHtmlTranslationRequestId,
+    createStartHTMLTranslationPortMessage,
+    getHtmlTranslationBatchInfo,
+    isHtmlTranslationResultPortMessage,
+    isStreamTranslationUpdateMessage,
+    type StreamTranslationUpdateMessage,
+} from "../shared/runtime-jobs";
+import {
     FullPageTranslationRun,
     type HtmlTranslationOnUpdateMeta,
     type HtmlTranslationResultItem,
@@ -1769,13 +1778,9 @@ if ((window as any).hasRun) {
 
         activeStreamPort = port;
 
-        const portMessageListener: PortMessageListener = (message, port) => {
-            if (
-                message &&
-                typeof message === "object" &&
-                (message as any).action === "streamTranslationUpdate"
-            ) {
-                handleStreamUpdate(message as any);
+        const portMessageListener: PortMessageListener = (message) => {
+            if (isStreamTranslationUpdateMessage(message)) {
+                handleStreamUpdate(message);
             }
         };
 
@@ -1806,7 +1811,7 @@ if ((window as any).hasRun) {
                 return;
             }
 
-            const requestId = `html-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            const requestId = createHtmlTranslationRequestId();
             const port = chrome.runtime.connect({ name: HTML_TRANSLATION_PORT_NAME });
             let settled = false;
             const collectedResults: HtmlTranslationResultItem[] = [];
@@ -1855,12 +1860,8 @@ if ((window as any).hasRun) {
             };
 
             port.onMessage.addListener((message) => {
-                if (
-                    message &&
-                    typeof message === "object" &&
-                    (message as any).action === "htmlTranslationResult"
-                ) {
-                    const msg = message as any;
+                if (isHtmlTranslationResultPortMessage(message)) {
+                    const msg = message;
                     if (msg.requestId !== requestId) {
                         return;
                     }
@@ -1879,25 +1880,10 @@ if ((window as any).hasRun) {
                         return;
                     }
                     if (msg.results) {
-                        const batchInfo: HtmlTranslationOnUpdateMeta | null =
-                            typeof msg.batchIndex === "number" &&
-                            typeof msg.batchCount === "number"
-                                ? {
-                                      batchIndex: msg.batchIndex,
-                                      batchCount: msg.batchCount,
-                                      batchSize: msg.batchSize,
-                                  }
-                                : null;
-                        if (
-                            batchInfo &&
-                            typeof msg.subBatchIndex === "number" &&
-                            typeof msg.subBatchCount === "number"
-                        ) {
-                            batchInfo.subBatchIndex = msg.subBatchIndex;
-                            batchInfo.subBatchCount = msg.subBatchCount;
-                            batchInfo.subBatchSize = msg.subBatchSize;
-                        }
-                        handleResults(msg.results, batchInfo);
+                        handleResults(
+                            msg.results as HtmlTranslationResultItem[],
+                            getHtmlTranslationBatchInfo(msg),
+                        );
                     }
                     if (msg.done) {
                         finalize(null, collectedResults);
@@ -1923,12 +1909,13 @@ if ((window as any).hasRun) {
                 requestId,
                 unitCount: units.length,
             });
-            port.postMessage({
-                action: "startHTMLTranslation",
-                requestId,
-                units,
-                targetLanguage,
-            });
+            port.postMessage(
+                createStartHTMLTranslationPortMessage(
+                    requestId,
+                    units,
+                    targetLanguage,
+                ),
+            );
         });
     }
 
@@ -3035,10 +3022,11 @@ if ((window as any).hasRun) {
                 cleanupOrphanedMarkers(element, run.runId);
             }
             try {
-                run.htmlTranslationPort?.postMessage({
-                    action: "cancelHTMLTranslation",
-                    requestId: run.htmlTranslationRequestId || undefined,
-                });
+                run.htmlTranslationPort?.postMessage(
+                    createCancelHTMLTranslationPortMessage(
+                        run.htmlTranslationRequestId,
+                    ),
+                );
             } catch (error) {
                 console.warn("Failed to send HTML translation cancel:", error);
             }
@@ -3396,8 +3384,8 @@ if ((window as any).hasRun) {
         addCloseButton(popup);
     }
 
-    function handleStreamUpdate(message: any): void {
-        if (!message?.requestId) {
+    function handleStreamUpdate(message: StreamTranslationUpdateMessage): void {
+        if (!message.requestId) {
             return;
         }
 

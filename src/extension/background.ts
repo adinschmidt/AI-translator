@@ -17,7 +17,6 @@ import {
     type ContentToBackgroundMessage,
     type BackgroundToContentMessage,
     type DisplayTranslationMessage,
-    type StartHTMLTranslationPortMessage,
     type HtmlTranslationResultPortMessage,
     HTML_TRANSLATION_PORT_NAME,
     STREAM_PORT_NAME,
@@ -63,6 +62,12 @@ import {
     shouldStripProviderReasoning,
 } from "../shared/provider-behavior";
 import { resolveTranslationProfile } from "../shared/translation-profile";
+import {
+    createHtmlTranslationResultPortMessage,
+    createStreamTranslationUpdateMessage,
+    isCancelHTMLTranslationPortMessage,
+    isStartHTMLTranslationPortMessage,
+} from "../shared/runtime-jobs";
 import {
     hasUsableProviderSettings,
     resolveSelectedModelName,
@@ -793,13 +798,14 @@ function sendStreamUpdate(
     }
 
     try {
-        streamState.port.postMessage({
-            action: "streamTranslationUpdate",
-            requestId: streamState.requestId,
-            text,
-            detectedLanguageName,
-            targetLanguageName,
-        });
+        streamState.port.postMessage(
+            createStreamTranslationUpdateMessage({
+                requestId: streamState.requestId,
+                text,
+                detectedLanguageName,
+                targetLanguageName,
+            }),
+        );
     } catch (error) {
         console.warn("Failed to post stream update:", error);
     }
@@ -2179,11 +2185,8 @@ const onConnect = (port: chrome.runtime.Port): void => {
     let htmlTranslationAbortController: AbortController | null = null;
     let activeRequestId: string | null = null;
 
-    const portMessageListener: PortMessageListener = (
-        message: any,
-        port: chrome.runtime.Port,
-    ) => {
-        if (message?.action === "cancelHTMLTranslation") {
+    const portMessageListener: PortMessageListener = (message, port) => {
+        if (isCancelHTMLTranslationPortMessage(message)) {
             if (
                 !message.requestId ||
                 !activeRequestId ||
@@ -2194,24 +2197,24 @@ const onConnect = (port: chrome.runtime.Port): void => {
             return;
         }
 
-        if (message?.action !== "startHTMLTranslation") {
+        if (!isStartHTMLTranslationPortMessage(message)) {
             return;
         }
 
         const { units, targetLanguage, requestId } = message;
 
-        if (!requestId) {
-            port.postMessage({
-                action: "htmlTranslationResult",
-                error: "Missing request ID",
-                done: true,
-            });
-            return;
-        }
+        const postResult = (
+            payload: Omit<HtmlTranslationResultPortMessage, "action">,
+        ) => {
+            try {
+                port.postMessage(createHtmlTranslationResultPortMessage(payload));
+            } catch (error) {
+                console.warn("Failed to post HTML translation update:", error);
+            }
+        };
 
-        if (!Array.isArray(units) || units.length === 0) {
-            port.postMessage({
-                action: "htmlTranslationResult",
+        if (units.length === 0) {
+            postResult({
                 requestId,
                 error: "No units provided",
                 done: true,
@@ -2224,17 +2227,8 @@ const onConnect = (port: chrome.runtime.Port): void => {
         activeRequestId = requestId;
         const signal = htmlTranslationAbortController.signal;
 
-        const postResult = (payload: HtmlTranslationResultPortMessage) => {
-            try {
-                port.postMessage(payload);
-            } catch (error) {
-                console.warn("Failed to post HTML translation update:", error);
-            }
-        };
-
         const onBatchResults: OnBatchResultsCallback = (batchResults, meta) => {
             postResult({
-                action: "htmlTranslationResult",
                 requestId,
                 results: batchResults,
                 batchIndex: meta?.batchIndex,
@@ -2247,10 +2241,9 @@ const onConnect = (port: chrome.runtime.Port): void => {
             });
         };
 
-        translateHTMLUnits(units, targetLanguage, onBatchResults, signal)
+        translateHTMLUnits(units as HTMLUnit[], targetLanguage, onBatchResults, signal)
             .then(() => {
                 postResult({
-                    action: "htmlTranslationResult",
                     requestId,
                     done: true,
                 });
@@ -2258,7 +2251,6 @@ const onConnect = (port: chrome.runtime.Port): void => {
             .catch((error) => {
                 const cancelled = isAbortError(error) || signal.aborted;
                 postResult({
-                    action: "htmlTranslationResult",
                     requestId,
                     error: cancelled
                         ? "Translation cancelled."

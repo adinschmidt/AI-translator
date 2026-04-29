@@ -168,7 +168,7 @@ export type AnyExtensionMessage = BackgroundToContentMessage | ContentToBackgrou
 export interface StartHTMLTranslationPortMessage {
     action: "startHTMLTranslation";
     units: unknown[];
-    targetLanguage: string;
+    targetLanguage: string | null;
     requestId: string;
 }
 
