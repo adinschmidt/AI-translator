@@ -8,11 +8,19 @@ import {
     PROVIDERS,
     PROVIDER_DEFAULTS,
     PROVIDER_DISPLAY_NAMES,
-    CEREBRAS_SUPPORTED_MODELS,
     canonicalizeProviderModelName,
     resolveProviderDefaults,
     type Provider,
 } from "../shared/constants/providers";
+import {
+    MODEL_FETCHABLE_PROVIDERS,
+    buildProviderModelsUrl,
+    normalizeProviderModelList,
+    parseProviderModels,
+    providerRequiresModelApiKey,
+    resolveProviderFallbackModels,
+} from "../shared/provider-behavior";
+import { normalizeProviderSettingsMap } from "../shared/translation-profile";
 import {
     SETTINGS_MODE_BASIC,
     SETTINGS_MODE_ADVANCED,
@@ -143,44 +151,6 @@ const PROVIDER_DOC_ANCHORS: Record<Provider, string> = {
     qwen: "qwen-alibaba-dashscope",
     cerebras: "cerebras",
     ollama: "ollama-local",
-};
-
-const MODEL_FETCHABLE_PROVIDERS = new Set<Provider>(PROVIDERS);
-const OPENAI_COMPATIBLE_MODEL_ENDPOINT_PROVIDERS = new Set<Provider>([
-    "openai",
-    "groq",
-    "grok",
-    "openrouter",
-    "deepseek",
-    "mistral",
-    "qwen",
-    "cerebras",
-]);
-
-const PROVIDER_FALLBACK_MODELS: Record<Provider, string[]> = {
-    openai: [PROVIDER_DEFAULTS.openai.modelName],
-    anthropic: [PROVIDER_DEFAULTS.anthropic.modelName],
-    google: [PROVIDER_DEFAULTS.google.modelName],
-    groq: [
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
-        "meta-llama/llama-4-maverick-17b-128e-instruct",
-        "meta-llama/llama-4-scout-17b-16e-instruct",
-        "moonshotai/kimi-k2-instruct",
-        "qwen/qwen3-32b",
-        "openai/gpt-oss-120b",
-        "openai/gpt-oss-20b",
-        "groq/compound",
-        "groq/compound-mini",
-        "allam-2-7b",
-    ],
-    grok: [PROVIDER_DEFAULTS.grok.modelName],
-    openrouter: [PROVIDER_DEFAULTS.openrouter.modelName],
-    deepseek: [PROVIDER_DEFAULTS.deepseek.modelName],
-    mistral: [PROVIDER_DEFAULTS.mistral.modelName],
-    qwen: [PROVIDER_DEFAULTS.qwen.modelName],
-    cerebras: [...CEREBRAS_SUPPORTED_MODELS],
-    ollama: [PROVIDER_DEFAULTS.ollama.modelName],
 };
 
 interface ProviderModelOptionsState {
@@ -561,20 +531,6 @@ async function fetchOllamaModels(baseUrl: string): Promise<string[]> {
     }
 }
 
-function normalizeModelList(models: string[]): string[] {
-    const seen = new Set<string>();
-    const deduped: string[] = [];
-    for (const model of models) {
-        const normalized = model.trim();
-        if (!normalized || seen.has(normalized)) {
-            continue;
-        }
-        seen.add(normalized);
-        deduped.push(normalized);
-    }
-    return deduped;
-}
-
 function truncateErrorDetails(details: string, maxLength = 180): string {
     const normalized = details.replace(/\s+/g, " ").trim();
     if (!normalized) {
@@ -597,266 +553,6 @@ async function fetchJsonOrThrow(url: string, init?: RequestInit): Promise<any> {
         );
     }
     return response.json();
-}
-
-function resolveModelIdentifier(item: any): string {
-    if (typeof item === "string") {
-        return item;
-    }
-
-    if (typeof item?.id === "string" && item.id.trim()) {
-        return item.id;
-    }
-
-    if (typeof item?.name === "string" && item.name.trim()) {
-        return item.name;
-    }
-
-    return "";
-}
-
-function resolveStringArray(value: unknown): string[] {
-    if (!Array.isArray(value)) {
-        return [];
-    }
-
-    return value
-        .filter((entry): entry is string => typeof entry === "string")
-        .map((entry) => entry.trim().toLowerCase())
-        .filter(Boolean);
-}
-
-function resolveModelCapabilityHints(item: any): string[] {
-    const hints = [
-        ...resolveStringArray(item?.modalities),
-        ...resolveStringArray(item?.input_modalities),
-        ...resolveStringArray(item?.output_modalities),
-        ...resolveStringArray(item?.supported_modalities),
-        ...resolveStringArray(item?.architecture?.modalities),
-        ...resolveStringArray(item?.architecture?.input_modalities),
-        ...resolveStringArray(item?.architecture?.output_modalities),
-        ...resolveStringArray(item?.capabilities?.modalities),
-        ...resolveStringArray(item?.capabilities?.input_modalities),
-        ...resolveStringArray(item?.capabilities?.output_modalities),
-    ];
-
-    return hints;
-}
-
-function resolveSupportedGenerationMethods(item: any): string[] {
-    return resolveStringArray(item?.supportedGenerationMethods);
-}
-
-function hasTextGenerationMethod(item: any): boolean {
-    const methods = resolveSupportedGenerationMethods(item);
-    if (methods.length === 0) {
-        return false;
-    }
-
-    return methods.some((method) => {
-        return (
-            method.includes("generatecontent") ||
-            method.includes("chat") ||
-            method.includes("message") ||
-            method.includes("completion")
-        );
-    });
-}
-
-function looksLikeNonTextModelIdentifier(modelId: string): boolean {
-    const normalized = modelId.trim().toLowerCase();
-    if (!normalized) {
-        return false;
-    }
-
-    return (
-        normalized.includes("whisper") ||
-        normalized.includes("transcribe") ||
-        normalized.includes("transcription") ||
-        normalized.includes("tts") ||
-        normalized.includes("text-to-speech") ||
-        normalized.includes("speech-to-text") ||
-        normalized.includes("embedding") ||
-        normalized.includes("moderation")
-    );
-}
-
-function isTextCapableModel(item: any): boolean {
-    const capabilityHints = resolveModelCapabilityHints(item);
-    if (capabilityHints.length > 0) {
-        const hasTextHint = capabilityHints.some((hint) => {
-            return (
-                hint === "text" ||
-                hint.includes("text") ||
-                hint.includes("chat") ||
-                hint.includes("language")
-            );
-        });
-
-        if (hasTextHint) {
-            return true;
-        }
-
-        const hasExplicitNonTextHint = capabilityHints.some((hint) => {
-            return (
-                hint.includes("audio") ||
-                hint.includes("speech") ||
-                hint.includes("transcription") ||
-                hint.includes("tts") ||
-                hint.includes("embedding") ||
-                hint.includes("moderation")
-            );
-        });
-
-        if (hasExplicitNonTextHint) {
-            return false;
-        }
-    }
-
-    if (hasTextGenerationMethod(item)) {
-        return true;
-    }
-
-    const modelId = resolveModelIdentifier(item);
-    if (modelId && looksLikeNonTextModelIdentifier(modelId)) {
-        return false;
-    }
-
-    return true;
-}
-
-function parseOpenAICompatibleModels(data: any): string[] {
-    const dataItems: any[] = Array.isArray(data?.data) ? data.data : [];
-
-    if (dataItems.length > 0) {
-        return normalizeModelList(
-            dataItems
-                .filter((item) => isTextCapableModel(item))
-                .map((item) => resolveModelIdentifier(item))
-                .filter((model): model is string => typeof model === "string"),
-        );
-    }
-
-    const modelItems: any[] = Array.isArray(data?.models) ? data.models : [];
-
-    return normalizeModelList(
-        modelItems
-            .filter((item) => isTextCapableModel(item))
-            .map((item) => resolveModelIdentifier(item))
-            .filter((model): model is string => typeof model === "string"),
-    );
-}
-
-function parseAnthropicModels(data: any): string[] {
-    const fromData: any[] = Array.isArray(data?.data) ? data.data : [];
-    return normalizeModelList(
-        fromData
-            .filter((item) => isTextCapableModel(item))
-            .map((item) => resolveModelIdentifier(item))
-            .filter((model): model is string => typeof model === "string"),
-    );
-}
-
-function parseGoogleModels(data: any): string[] {
-    const models = Array.isArray(data?.models) ? data.models : [];
-    const normalized = models
-        .filter((item: any) => {
-            const methods = resolveSupportedGenerationMethods(item);
-            if (methods.length > 0) {
-                return methods.includes("generatecontent");
-            }
-
-            return isTextCapableModel(item);
-        })
-        .map((item: any) => {
-            const name = resolveModelIdentifier(item);
-            return name.replace(/^models\//, "");
-        });
-    return normalizeModelList(normalized);
-}
-
-function buildModelsPathFromOpenAICompatibleEndpoint(pathname: string): string {
-    let path = pathname.replace(/\/+$/, "");
-    path = path.replace(/\/chat\/completions$/i, "");
-    path = path.replace(/\/completions$/i, "");
-    path = path.replace(/\/responses$/i, "");
-
-    if (!path || path === "/") {
-        path = "/v1";
-    }
-
-    if (!path.endsWith("/models")) {
-        path = `${path}/models`;
-    }
-
-    return path;
-}
-
-function buildModelsPathFromAnthropicEndpoint(pathname: string): string {
-    let path = pathname.replace(/\/+$/, "");
-    path = path.replace(/\/messages$/i, "");
-
-    if (!path || path === "/") {
-        path = "/v1";
-    }
-
-    if (!path.endsWith("/models")) {
-        path = `${path}/models`;
-    }
-
-    return path;
-}
-
-function buildModelsPathFromGoogleEndpoint(pathname: string): string {
-    let path = pathname.replace(/\/+$/, "");
-    path = path.replace(/\/models\/[^/]+:[^/]+$/i, "");
-
-    if (!path || path === "/") {
-        path = "/v1beta";
-    }
-
-    if (!path.endsWith("/models")) {
-        path = `${path}/models`;
-    }
-
-    return path;
-}
-
-function buildModelsUrl(
-    endpoint: string,
-    provider: Provider,
-    pathResolver: (pathname: string) => string,
-): string {
-    const fallbackEndpoint = PROVIDER_DEFAULTS[provider].apiEndpoint;
-    const endpointToUse = endpoint.trim() || fallbackEndpoint;
-
-    let parsed: URL;
-    try {
-        parsed = new URL(endpointToUse);
-    } catch {
-        return "";
-    }
-
-    parsed.hash = "";
-    parsed.search = "";
-    parsed.pathname = pathResolver(parsed.pathname || "/");
-    return parsed.toString();
-}
-
-function buildOpenAICompatibleModelsUrl(endpoint: string, provider: Provider): string {
-    return buildModelsUrl(
-        endpoint,
-        provider,
-        buildModelsPathFromOpenAICompatibleEndpoint,
-    );
-}
-
-function buildAnthropicModelsUrl(endpoint: string): string {
-    return buildModelsUrl(endpoint, "anthropic", buildModelsPathFromAnthropicEndpoint);
-}
-
-function buildGoogleModelsUrl(endpoint: string): string {
-    return buildModelsUrl(endpoint, "google", buildModelsPathFromGoogleEndpoint);
 }
 
 function getProviderDisplayName(provider: Provider): string {
@@ -883,10 +579,11 @@ function resolveModelFetchSettings(provider: Provider): {
 }
 
 function resolveFallbackModels(provider: Provider, currentModel = ""): string[] {
-    const defaults = PROVIDER_DEFAULTS[provider]?.modelName || "";
-    const fallback = PROVIDER_FALLBACK_MODELS[provider] || [];
-    const canonicalCurrent = canonicalizeProviderModelName(provider, currentModel);
-    return normalizeModelList([...fallback, defaults, canonicalCurrent].filter(Boolean));
+    return resolveProviderFallbackModels(
+        provider,
+        currentModel,
+        canonicalizeProviderModelName,
+    );
 }
 
 function setModelListStatus(message: string): void {
@@ -1084,65 +781,42 @@ async function fetchProviderModels(
         return fetchOllamaModels(apiEndpoint || PROVIDER_DEFAULTS.ollama.apiEndpoint);
     }
 
-    const requiresApiKey = provider !== "openrouter";
-
-    if (requiresApiKey && !apiKey) {
+    if (providerRequiresModelApiKey(provider) && !apiKey) {
         throw new Error(
             t("optionsModelErrorAddApiKey", "Add an API key to fetch live models."),
         );
     }
 
+    const modelsUrl = buildProviderModelsUrl(apiEndpoint, provider);
+    if (!modelsUrl) {
+        throw new Error(
+            t("optionsModelErrorInvalidEndpointUrl", "Invalid endpoint URL."),
+        );
+    }
+
+    if (provider === "google") {
+        const url = new URL(modelsUrl);
+        url.searchParams.set("key", apiKey);
+        const data = await fetchJsonOrThrow(url.toString());
+        return parseProviderModels(provider, data);
+    }
+
     if (provider === "anthropic") {
-        const modelsUrl = buildAnthropicModelsUrl(apiEndpoint);
-        if (!modelsUrl) {
-            throw new Error(
-                t("optionsModelErrorInvalidEndpointUrl", "Invalid endpoint URL."),
-            );
-        }
         const data = await fetchJsonOrThrow(modelsUrl, {
             headers: {
                 "x-api-key": apiKey,
                 "anthropic-version": "2023-06-01",
             },
         });
-        return parseAnthropicModels(data);
+        return parseProviderModels(provider, data);
     }
 
-    if (provider === "google") {
-        const modelsUrl = buildGoogleModelsUrl(apiEndpoint);
-        if (!modelsUrl) {
-            throw new Error(
-                t("optionsModelErrorInvalidEndpointUrl", "Invalid endpoint URL."),
-            );
-        }
-        const url = new URL(modelsUrl);
-        url.searchParams.set("key", apiKey);
-        const data = await fetchJsonOrThrow(url.toString());
-        return parseGoogleModels(data);
-    }
-
-    if (OPENAI_COMPATIBLE_MODEL_ENDPOINT_PROVIDERS.has(provider)) {
-        const modelsUrl = buildOpenAICompatibleModelsUrl(apiEndpoint, provider);
-        if (!modelsUrl) {
-            throw new Error(
-                t("optionsModelErrorInvalidEndpointUrl", "Invalid endpoint URL."),
-            );
-        }
-        const data = await fetchJsonOrThrow(modelsUrl, {
-            headers: {
-                Authorization: `Bearer ${apiKey}`,
-            },
-        });
-        return parseOpenAICompatibleModels(data);
-    }
-
-    throw new Error(
-        t(
-            "optionsModelErrorNotConfiguredForProvider",
-            "Model fetching is not configured for $1.",
-            provider,
-        ),
-    );
+    const data = await fetchJsonOrThrow(modelsUrl, {
+        headers: {
+            Authorization: `Bearer ${apiKey}`,
+        },
+    });
+    return parseProviderModels(provider, data);
 }
 
 async function refreshModelOptionsForProvider(
@@ -1183,7 +857,7 @@ async function refreshModelOptionsForProvider(
             );
         }
 
-        const dynamicModels = normalizeModelList(
+        const dynamicModels = normalizeProviderModelList(
             (
                 await fetchProviderModels(provider, settings.apiEndpoint, settings.apiKey)
             ).map((model) => canonicalizeProviderModelName(provider, model)),
@@ -1199,7 +873,7 @@ async function refreshModelOptionsForProvider(
         }
 
         nextState = {
-            models: normalizeModelList([...dynamicModels, settings.modelName]),
+            models: normalizeProviderModelList([...dynamicModels, settings.modelName]),
             source: "dynamic",
             statusText: t(
                 "optionsModelStatusLoadedFromProvider",
@@ -1489,28 +1163,10 @@ async function loadSettings(): Promise<void> {
             redactSensitiveDataInput.checked = redactionEnabled;
         }
 
-        providerSettings = result.providerSettings || {};
-        let shouldPersistProviderSettingsNormalization = false;
+        const normalizedProviderSettings = normalizeProviderSettingsMap(result);
+        providerSettings = normalizedProviderSettings.providerSettings;
 
-        if (
-            !result.providerSettings &&
-            (result.apiKey || result.apiEndpoint || result.modelName)
-        ) {
-            const legacyProvider = (result.apiType as Provider) || "openai";
-            providerSettings[legacyProvider] = {
-                apiKey: result.apiKey || "",
-                apiEndpoint:
-                    result.apiEndpoint ||
-                    PROVIDER_DEFAULTS[legacyProvider]?.apiEndpoint ||
-                    "",
-                modelName:
-                    canonicalizeProviderModelName(
-                        legacyProvider,
-                        result.modelName ||
-                            PROVIDER_DEFAULTS[legacyProvider]?.modelName ||
-                            "",
-                    ) || "",
-            };
+        if (normalizedProviderSettings.migratedLegacyProviderSettings) {
             console.log(
                 "options.ts: Migrated legacy settings into providerSettings:",
                 providerSettings,
@@ -1523,34 +1179,7 @@ async function loadSettings(): Promise<void> {
             });
         }
 
-        for (const provider of PROVIDERS) {
-            if (!providerSettings[provider]) {
-                providerSettings[provider] = resolveProviderDefaults(provider);
-            } else {
-                const base = resolveProviderDefaults(provider);
-                const resolvedModelName =
-                    providerSettings[provider].modelName || base.modelName;
-                const canonicalModelName = canonicalizeProviderModelName(
-                    provider,
-                    resolvedModelName,
-                );
-                if (canonicalModelName !== resolvedModelName) {
-                    shouldPersistProviderSettingsNormalization = true;
-                }
-
-                providerSettings[provider] = {
-                    apiKey: providerSettings[provider].apiKey || "",
-                    apiEndpoint:
-                        providerSettings[provider].apiEndpoint || base.apiEndpoint,
-                    modelName: canonicalModelName,
-                    translationInstructions:
-                        providerSettings[provider].translationInstructions ||
-                        DEFAULT_TRANSLATION_INSTRUCTIONS,
-                };
-            }
-        }
-
-        if (shouldPersistProviderSettingsNormalization) {
+        if (normalizedProviderSettings.normalizedProviderSettings) {
             setStorage({ providerSettings }).catch((error) => {
                 console.error(
                     "options.ts: Error persisting canonicalized provider settings:",

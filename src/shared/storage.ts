@@ -1,18 +1,6 @@
 import type { Provider, ProviderSettings } from "./constants/providers";
 import type { SettingsMode, UITheme, RedactionMode } from "./constants/settings";
-import {
-    PROVIDERS,
-    PROVIDER_DEFAULTS,
-    canonicalizeProviderModelName,
-} from "./constants/providers";
-import {
-    DEFAULT_TRANSLATION_INSTRUCTIONS,
-    BASIC_TARGET_LANGUAGE_DEFAULT,
-} from "./constants/settings";
-import {
-    getBasicTargetLanguageLabel,
-    buildBasicTranslationInstructions,
-} from "./constants/languages";
+import { resolveEffectiveProviderSettings } from "./translation-profile";
 
 export type { Provider, ProviderSettings, SettingsMode };
 
@@ -171,69 +159,5 @@ export function getEffectiveProviderSettings(
     mode: SettingsMode,
     targetLanguage?: string,
 ): EffectiveProviderSettings {
-    let activeProvider: Provider =
-        storage.apiType &&
-        (storage.providerSettings?.[storage.apiType as Provider] ||
-            PROVIDERS.includes(storage.apiType))
-            ? (storage.apiType as Provider)
-            : "openai";
-
-    const providerSettings = storage.providerSettings || {};
-
-    const perProvider = providerSettings[activeProvider];
-
-    if (perProvider) {
-        const effective: EffectiveProviderSettings = {
-            apiKey: perProvider.apiKey || "",
-            apiEndpoint:
-                perProvider.apiEndpoint ||
-                PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint ||
-                "",
-            modelName: canonicalizeProviderModelName(
-                activeProvider,
-                perProvider.modelName ||
-                    PROVIDER_DEFAULTS[activeProvider]?.modelName ||
-                    "",
-            ),
-            translationInstructions:
-                perProvider.translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS,
-            apiType: activeProvider,
-        };
-
-        if (mode === "basic" && targetLanguage) {
-            const languageValue = targetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
-            const languageLabel = getBasicTargetLanguageLabel(languageValue);
-            effective.apiEndpoint =
-                PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || effective.apiEndpoint;
-            effective.modelName = PROVIDER_DEFAULTS[activeProvider]?.modelName;
-            effective.translationInstructions =
-                buildBasicTranslationInstructions(languageLabel);
-        }
-
-        return effective;
-    }
-
-    const effective: EffectiveProviderSettings = {
-        apiKey: storage.apiKey || "",
-        apiEndpoint:
-            storage.apiEndpoint || PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || "",
-        modelName: canonicalizeProviderModelName(
-            activeProvider,
-            storage.modelName || PROVIDER_DEFAULTS[activeProvider]?.modelName || "",
-        ),
-        translationInstructions: DEFAULT_TRANSLATION_INSTRUCTIONS,
-        apiType: activeProvider,
-    };
-
-    if (mode === "basic" && targetLanguage) {
-        const languageValue = targetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
-        const languageLabel = getBasicTargetLanguageLabel(languageValue);
-        effective.apiEndpoint =
-            PROVIDER_DEFAULTS[activeProvider]?.apiEndpoint || effective.apiEndpoint;
-        effective.modelName = PROVIDER_DEFAULTS[activeProvider]?.modelName;
-        effective.translationInstructions =
-            buildBasicTranslationInstructions(languageLabel);
-    }
-
-    return effective;
+    return resolveEffectiveProviderSettings(storage, mode, targetLanguage);
 }

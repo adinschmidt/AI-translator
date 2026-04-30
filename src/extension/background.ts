@@ -6,7 +6,6 @@ import { createOpenAI } from "@ai-sdk/openai";
 import {
     STORAGE_KEYS,
     getStorage,
-    getEffectiveProviderSettings,
     type StorageGetResult,
     type EffectiveProviderSettings,
 } from "../shared/storage";
@@ -18,16 +17,12 @@ import {
     type ContentToBackgroundMessage,
     type BackgroundToContentMessage,
     type DisplayTranslationMessage,
-    type StartHTMLTranslationPortMessage,
     type HtmlTranslationResultPortMessage,
     HTML_TRANSLATION_PORT_NAME,
     STREAM_PORT_NAME,
 } from "../shared/messaging";
 import {
-    SETTINGS_MODE_BASIC,
-    SETTINGS_MODE_ADVANCED,
     BASIC_TARGET_LANGUAGE_DEFAULT,
-    ADVANCED_TARGET_LANGUAGE_DEFAULT,
     DEBUG_MODE_DEFAULT,
     UI_THEME_DEFAULT,
     DEFAULT_TRANSLATION_INSTRUCTIONS,
@@ -53,7 +48,6 @@ import {
     createRequestId,
     isInstructModelName,
     stripThinkBlocks,
-    REDACTION_MODE_DEFAULT,
     type RedactionMode,
 } from "../shared/constants/settings";
 import {
@@ -62,10 +56,25 @@ import {
     type Provider,
 } from "../shared/constants/providers";
 import {
-    getBasicTargetLanguageLabel,
-    buildBasicTranslationInstructions,
-    buildTranslationInstructionsWithDetection,
-} from "../shared/constants/languages";
+    normalizeProviderBaseUrl,
+    resolveProviderHeaders,
+    resolveProviderMaxTokens,
+    shouldStripProviderReasoning,
+} from "../shared/provider-behavior";
+import { resolveTranslationProfile } from "../shared/translation-profile";
+import {
+    createHtmlTranslationResultPortMessage,
+    createStreamTranslationUpdateMessage,
+    isCancelHTMLTranslationPortMessage,
+    isStartHTMLTranslationPortMessage,
+} from "../shared/runtime-jobs";
+import {
+    hasUsableProviderSettings,
+    resolveSelectedModelName,
+    runSelectedTextTranslationRequest,
+    type SelectedTextTranslationErrorMeta,
+    type SelectedTextTranslationRequest,
+} from "./translation-request";
 import {
     ensureI18nReady,
     getActiveUILocale,
@@ -319,66 +328,8 @@ async function withRateLimitRetry<T>(
     throw lastError;
 }
 
-function normalizeOpenAIBaseUrl(apiEndpoint: string, provider: Provider): string {
-    const fallback = PROVIDER_DEFAULTS[provider]?.apiEndpoint || "";
-    const endpoint = (apiEndpoint || fallback).trim();
-    if (!endpoint) {
-        return "";
-    }
-
-    let base = endpoint.replace(/\/+$/, "");
-    if (base.endsWith("/chat/completions")) {
-        base = base.slice(0, -"/chat/completions".length);
-    }
-
-    if (provider === "ollama" && !base.endsWith("/v1")) {
-        base = `${base}/v1`;
-    }
-
-    return base;
-}
-
-function normalizeAnthropicBaseUrl(apiEndpoint: string): string {
-    const fallback = PROVIDER_DEFAULTS.anthropic.apiEndpoint || "";
-    const endpoint = (apiEndpoint || fallback).trim();
-    if (!endpoint) {
-        return "";
-    }
-
-    let base = endpoint.replace(/\/+$/, "");
-    if (base.endsWith("/messages")) {
-        base = base.slice(0, -"/messages".length);
-    }
-
-    return base;
-}
-
-function normalizeGoogleBaseUrl(apiEndpoint: string): string {
-    const fallback = PROVIDER_DEFAULTS.google.apiEndpoint || "";
-    const endpoint = (apiEndpoint || fallback).trim();
-    if (!endpoint) {
-        return "";
-    }
-
-    let base = endpoint.replace(/\/+$/, "");
-    const modelsIndex = base.indexOf("/models/");
-    if (modelsIndex !== -1) {
-        base = base.slice(0, modelsIndex);
-    }
-
-    if (base.endsWith(":generateContent")) {
-        base = base.replace(/:generateContent$/, "");
-    }
-
-    return base;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isCerebrasQwenModelName(modelName: unknown): boolean {
-    return typeof modelName === "string" && modelName.toLowerCase().includes("qwen");
 }
 
 function extractTextParts(value: unknown): string[] {
@@ -406,7 +357,7 @@ function pickFirstUsableTranslation(provider: Provider, candidates: string[]): s
             continue;
         }
 
-        const cleaned = shouldStripThinkBlocks(provider)
+        const cleaned = shouldStripProviderReasoning(provider)
             ? stripThinkBlocks(candidate)
             : candidate;
 
@@ -463,7 +414,7 @@ function extractFallbackTranslationFromResponseBody(
 }
 
 function extractThinkTaggedFallback(provider: Provider, text: string): string {
-    if (!shouldStripThinkBlocks(provider) || !/<\/?think\b/i.test(text)) {
+    if (!shouldStripProviderReasoning(provider) || !/<\/?think\b/i.test(text)) {
         return "";
     }
 
@@ -548,6 +499,110 @@ function getTranslationErrorMessage(error: unknown): string {
     }
 
     return t("contentTranslationErrorUnknown", "Translation Error: Unknown error");
+}
+
+function notifySelectedTranslationLoading(
+    request: SelectedTextTranslationRequest,
+): void {
+    if (request.targetLanguageName || request.detectedLanguageName) {
+        notifyContentScriptWithDetection(
+            request.tabId,
+            t("contentTranslating", "Translating..."),
+            false,
+            false,
+            true,
+            request.detectedLanguageName,
+            request.targetLanguageName,
+            request.requestId,
+        );
+        return;
+    }
+
+    notifyContentScript(
+        request.tabId,
+        t("contentTranslating", "Translating..."),
+        false,
+        false,
+        true,
+        request.requestId,
+    );
+}
+
+function notifySelectedTranslationSuccess(
+    request: SelectedTextTranslationRequest,
+    translatedText: string,
+): void {
+    if (request.targetLanguageName || request.detectedLanguageName) {
+        notifyContentScriptWithDetection(
+            request.tabId,
+            translatedText,
+            false,
+            false,
+            false,
+            request.detectedLanguageName,
+            request.targetLanguageName,
+            request.requestId,
+        );
+        return;
+    }
+
+    notifyContentScript(
+        request.tabId,
+        translatedText,
+        false,
+        false,
+        false,
+        request.requestId,
+    );
+}
+
+function notifySelectedTranslationError(
+    request: SelectedTextTranslationRequest,
+    error: unknown,
+    context: string,
+    meta: SelectedTextTranslationErrorMeta,
+): void {
+    console.error("Translation error:", error);
+    const errorMsg = getTranslationErrorMessage(error);
+    const debugInfo = request.debugModeEnabled
+        ? buildDebugErrorDetails(error, context, {
+              ...meta,
+              detectedLanguage: request.detectedLanguage || undefined,
+              targetLanguageLabel: request.targetLanguageName || undefined,
+          })
+        : null;
+
+    if (request.debugModeEnabled) {
+        console.error("[AI Translator Debug] Selected translation failed", {
+            requestId: request.requestId,
+            debugInfo,
+        });
+    }
+
+    if (request.targetLanguageName || request.detectedLanguageName) {
+        notifyContentScriptWithDetection(
+            request.tabId,
+            errorMsg,
+            false,
+            true,
+            false,
+            request.detectedLanguageName,
+            request.targetLanguageName,
+            request.requestId,
+            debugInfo,
+        );
+        return;
+    }
+
+    notifyContentScript(
+        request.tabId,
+        errorMsg,
+        false,
+        true,
+        false,
+        request.requestId,
+        debugInfo,
+    );
 }
 
 function buildDebugErrorDetails(
@@ -670,7 +725,7 @@ function resolveProviderModel(
     if (provider === "anthropic") {
         const anthropic = createAnthropic({
             apiKey,
-            baseURL: normalizeAnthropicBaseUrl(apiEndpoint) || undefined,
+            baseURL: normalizeProviderBaseUrl(provider, apiEndpoint) || undefined,
         });
         return anthropic(modelName);
     }
@@ -678,81 +733,19 @@ function resolveProviderModel(
     if (provider === "google") {
         const google = createGoogleGenerativeAI({
             apiKey,
-            baseURL: normalizeGoogleBaseUrl(apiEndpoint) || undefined,
+            baseURL: normalizeProviderBaseUrl(provider, apiEndpoint) || undefined,
         });
         return google(modelName);
     }
 
-    const baseURL = normalizeOpenAIBaseUrl(apiEndpoint, provider);
-    const headers =
-        provider === "openrouter"
-            ? {
-                  "HTTP-Referer": "https://github.com/",
-                  "X-Title": "AI Translator Extension",
-              }
-            : undefined;
+    const baseURL = normalizeProviderBaseUrl(provider, apiEndpoint);
+    const headers = resolveProviderHeaders(provider);
     const openai = createOpenAI({
         apiKey: apiKey || "ollama",
         baseURL: baseURL || undefined,
         headers,
     });
     return openai(modelName);
-}
-
-function resolveMaxTokens(provider: Provider, isFullPage: boolean): number | undefined {
-    if (provider === "openrouter") {
-        return isFullPage ? 8192 : 2048;
-    }
-
-    if (provider === "google") {
-        return isFullPage ? 65536 : 8000;
-    }
-
-    if (provider === "groq" || provider === "cerebras") {
-        return undefined;
-    }
-
-    return isFullPage ? 4000 : 800;
-}
-
-function shouldStripThinkBlocks(provider: Provider): boolean {
-    return provider === "groq" || provider === "cerebras";
-}
-
-function shouldUseStreamingForSelectedText(
-    provider: Provider,
-    modelName: string,
-): boolean {
-    if (
-        provider === "cerebras" &&
-        isCerebrasQwenModelName(modelName) &&
-        isInstructModelName(modelName)
-    ) {
-        return false;
-    }
-
-    return true;
-}
-
-function shouldRetrySelectedTextWithoutStreaming(
-    error: unknown,
-    provider: Provider,
-    modelName: string,
-): boolean {
-    const message = String((error as any)?.message || error || "").toLowerCase();
-    if (message.includes("no translation text")) {
-        return true;
-    }
-
-    if (
-        provider === "cerebras" &&
-        isCerebrasQwenModelName(modelName) &&
-        isInstructModelName(modelName)
-    ) {
-        return true;
-    }
-
-    return false;
 }
 
 function startStreamKeepAlive(): ReturnType<typeof setInterval> {
@@ -805,13 +798,14 @@ function sendStreamUpdate(
     }
 
     try {
-        streamState.port.postMessage({
-            action: "streamTranslationUpdate",
-            requestId: streamState.requestId,
-            text,
-            detectedLanguageName,
-            targetLanguageName,
-        });
+        streamState.port.postMessage(
+            createStreamTranslationUpdateMessage({
+                requestId: streamState.requestId,
+                text,
+                detectedLanguageName,
+                targetLanguageName,
+            }),
+        );
     } catch (error) {
         console.warn("Failed to post stream update:", error);
     }
@@ -1017,8 +1011,7 @@ async function translateElementText(
         STORAGE_KEYS.BASIC_TARGET_LANGUAGE,
     ]);
 
-    const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
-    const settings = getEffectiveProviderSettings(storage, mode);
+    const { provider: settings } = resolveTranslationProfile(storage);
 
     const {
         apiKey: finalKey,
@@ -1141,7 +1134,7 @@ async function translateHTMLBatch(
 
     let outputText = result.text || "";
 
-    if (shouldStripThinkBlocks(apiType)) {
+    if (shouldStripProviderReasoning(apiType)) {
         outputText = stripThinkBlocks(outputText);
     }
 
@@ -1211,12 +1204,8 @@ async function translateHTMLUnits(
         STORAGE_KEYS.REDACTION_MODE,
     ]);
 
-    const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
-    const settings = getEffectiveProviderSettings(
-        storage,
-        mode,
-        targetLanguage || undefined,
-    );
+    const profile = resolveTranslationProfile(storage, { targetLanguage });
+    const settings = profile.provider;
 
     if (!settings.apiEndpoint || (!settings.apiKey && settings.apiType !== "ollama")) {
         throw new Error(
@@ -1225,7 +1214,7 @@ async function translateHTMLUnits(
     }
 
     // Redact sensitive data in each HTML unit before sending to the API.
-    const redactionMode: RedactionMode = storage.redactionMode || REDACTION_MODE_DEFAULT;
+    const redactionMode = profile.redactionMode;
     const restoreByUnitId = new Map<
         string | number,
         (translatedHtml: string) => string
@@ -1443,7 +1432,7 @@ async function streamSelectedTranslation(
     const systemPrompt = shouldUseInstructPrompt
         ? INSTRUCT_SYSTEM_PROMPT
         : DEFAULT_SYSTEM_PROMPT;
-    const maxTokens = resolveMaxTokens(provider, false);
+    const maxTokens = resolveProviderMaxTokens(provider, false);
     const model = resolveProviderModel(provider, apiKey, apiEndpoint, selectedModelName);
 
     const controller = new AbortController();
@@ -1572,7 +1561,7 @@ async function translateTextApiCall(
         ? INSTRUCT_SYSTEM_PROMPT
         : DEFAULT_SYSTEM_PROMPT;
     const model = resolveProviderModel(provider, apiKey, apiEndpoint, selectedModelName);
-    const maxTokens = resolveMaxTokens(provider, isFullPage);
+    const maxTokens = resolveProviderMaxTokens(provider, isFullPage);
 
     try {
         const result = await withRateLimitRetry(
@@ -1632,16 +1621,15 @@ async function getSettingsAndTranslate(
         STORAGE_KEYS.DEBUG_MODE,
         STORAGE_KEYS.REDACTION_MODE,
     ]);
-    const debugModeEnabled =
-        typeof storage.debugMode === "boolean" ? storage.debugMode : DEBUG_MODE_DEFAULT;
+    const profile = resolveTranslationProfile(storage);
+    const debugModeEnabled = profile.debugMode;
 
     // Redact sensitive data before it reaches any provider API.
-    const redactionMode: RedactionMode = storage.redactionMode || REDACTION_MODE_DEFAULT;
-    const preparedInput = prepareTranslationInput(textToTranslate, redactionMode);
+    const preparedInput = prepareTranslationInput(textToTranslate, profile.redactionMode);
     textToTranslate = preparedInput.text;
 
-    const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
-    const settings = getEffectiveProviderSettings(storage, mode);
+    const mode = profile.mode;
+    const settings = profile.provider;
 
     const {
         apiKey: finalKey,
@@ -1650,10 +1638,7 @@ async function getSettingsAndTranslate(
         modelName: finalModel,
         translationInstructions: finalInstructions,
     } = settings;
-    const selectedModelName =
-        finalModel ||
-        PROVIDER_DEFAULTS[finalType]?.modelName ||
-        PROVIDER_DEFAULTS.openai?.modelName;
+    const selectedModelName = resolveSelectedModelName(settings);
 
     const resolvedRequestId = requestId || createRequestId();
 
@@ -1669,7 +1654,7 @@ async function getSettingsAndTranslate(
         });
     }
 
-    if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
+    if (!hasUsableProviderSettings(settings)) {
         const errorMsg = t(
             "errorApiKeyOrEndpointNotSet",
             "Translation Error: API Key or Endpoint not set. Please configure in extension settings.",
@@ -1697,164 +1682,53 @@ async function getSettingsAndTranslate(
     }
 
     if (!isFullPage) {
-        notifyContentScript(
-            tabId,
-            t("contentTranslating", "Translating..."),
-            false,
-            false,
-            true,
-            resolvedRequestId,
-        );
-
-        if (!shouldUseStreamingForSelectedText(finalType, selectedModelName)) {
-            translateTextApiCall(
+        void runSelectedTextTranslationRequest(
+            {
+                tabId,
+                requestId: resolvedRequestId,
                 textToTranslate,
-                finalKey,
-                finalEndpoint,
-                finalType,
-                false,
-                selectedModelName,
-                finalInstructions,
-            )
-                .then((translation) => {
-                    notifyContentScript(
-                        tabId,
-                        preparedInput.restoreTranslatedOutput(translation),
+                settings,
+                mode,
+                debugModeEnabled,
+                detectedLanguage: null,
+                detectedLanguageName: null,
+                targetLanguageName: null,
+                restoreTranslatedOutput: preparedInput.restoreTranslatedOutput,
+                debugContexts: {
+                    nonStreaming: "selected-translation",
+                    streaming: "selected-translation-stream",
+                },
+            },
+            {
+                notifyLoading: notifySelectedTranslationLoading,
+                notifySuccess: notifySelectedTranslationSuccess,
+                notifyError: notifySelectedTranslationError,
+                stream: (request) =>
+                    streamSelectedTranslation(
+                        request.tabId,
+                        request.requestId,
+                        request.textToTranslate,
+                        request.settings.apiKey,
+                        request.settings.apiEndpoint,
+                        request.settings.apiType,
+                        resolveSelectedModelName(request.settings),
+                        request.settings.translationInstructions,
+                        request.detectedLanguageName,
+                        request.targetLanguageName,
+                        request.restoreTranslatedOutput,
+                    ),
+                translate: (request) =>
+                    translateTextApiCall(
+                        request.textToTranslate,
+                        request.settings.apiKey,
+                        request.settings.apiEndpoint,
+                        request.settings.apiType,
                         false,
-                        false,
-                        false,
-                        resolvedRequestId,
-                    );
-                })
-                .catch((error) => {
-                    console.error("Translation error:", error);
-                    const errorMsg = getTranslationErrorMessage(error);
-                    const debugInfo = debugModeEnabled
-                        ? buildDebugErrorDetails(error, "selected-translation", {
-                              tabId,
-                              provider: finalType,
-                              model: selectedModelName,
-                              isStreaming: false,
-                              mode,
-                          })
-                        : null;
-                    if (debugModeEnabled) {
-                        console.error(
-                            "[AI Translator Debug] Selected translation failed",
-                            {
-                                requestId: resolvedRequestId,
-                                debugInfo,
-                            },
-                        );
-                    }
-                    notifyContentScript(
-                        tabId,
-                        errorMsg,
-                        false,
-                        true,
-                        false,
-                        resolvedRequestId,
-                        debugInfo,
-                    );
-                });
-            return;
-        }
-
-        streamSelectedTranslation(
-            tabId,
-            resolvedRequestId,
-            textToTranslate,
-            finalKey,
-            finalEndpoint,
-            finalType,
-            selectedModelName,
-            finalInstructions,
-            null,
-            null,
-            preparedInput.restoreTranslatedOutput,
-        )
-            .then((translation) => {
-                if (translation === null) {
-                    return;
-                }
-                notifyContentScript(
-                    tabId,
-                    translation,
-                    false,
-                    false,
-                    false,
-                    resolvedRequestId,
-                );
-            })
-            .catch(async (error) => {
-                if (
-                    shouldRetrySelectedTextWithoutStreaming(
-                        error,
-                        finalType,
-                        selectedModelName,
-                    )
-                ) {
-                    console.warn(
-                        "Streaming selected translation failed; retrying without streaming.",
-                    );
-                    try {
-                        const fallbackTranslation = await translateTextApiCall(
-                            textToTranslate,
-                            finalKey,
-                            finalEndpoint,
-                            finalType,
-                            false,
-                            selectedModelName,
-                            finalInstructions,
-                        );
-                        notifyContentScript(
-                            tabId,
-                            preparedInput.restoreTranslatedOutput(fallbackTranslation),
-                            false,
-                            false,
-                            false,
-                            resolvedRequestId,
-                        );
-                        return;
-                    } catch (fallbackError) {
-                        console.error(
-                            "Selected-text fallback translation error:",
-                            fallbackError,
-                        );
-                        error = fallbackError;
-                    }
-                }
-
-                console.error("Translation error:", error);
-                const errorMsg = getTranslationErrorMessage(error);
-                const debugInfo = debugModeEnabled
-                    ? buildDebugErrorDetails(error, "selected-translation-stream", {
-                          tabId,
-                          provider: finalType,
-                          model: selectedModelName,
-                          isStreaming: true,
-                          mode,
-                      })
-                    : null;
-                if (debugModeEnabled) {
-                    console.error(
-                        "[AI Translator Debug] Streaming selected translation failed",
-                        {
-                            requestId: resolvedRequestId,
-                            debugInfo,
-                        },
-                    );
-                }
-                notifyContentScript(
-                    tabId,
-                    errorMsg,
-                    false,
-                    true,
-                    false,
-                    resolvedRequestId,
-                    debugInfo,
-                );
-            });
+                        resolveSelectedModelName(request.settings),
+                        request.settings.translationInstructions,
+                    ),
+            },
+        );
         return;
     }
 
@@ -1946,61 +1820,31 @@ async function getSettingsAndTranslateWithDetection(
         STORAGE_KEYS.DEBUG_MODE,
         STORAGE_KEYS.REDACTION_MODE,
     ]);
-    const debugModeEnabled =
-        typeof storage.debugMode === "boolean" ? storage.debugMode : DEBUG_MODE_DEFAULT;
+    const profile = resolveTranslationProfile(storage, {
+        detectedLanguage,
+        detectedLanguageName,
+        locale: getActiveUILocale(),
+        useDetectedLanguageInstructions: true,
+    });
+    const debugModeEnabled = profile.debugMode;
 
     // Redact sensitive data before it reaches any provider API.
-    const redactionMode: RedactionMode = storage.redactionMode || REDACTION_MODE_DEFAULT;
-    const preparedInput = prepareTranslationInput(textToTranslate, redactionMode);
+    const preparedInput = prepareTranslationInput(textToTranslate, profile.redactionMode);
     textToTranslate = preparedInput.text;
 
-    const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
-    const settings = getEffectiveProviderSettings(storage, mode);
+    const mode = profile.mode;
+    const settings = profile.provider;
 
     const {
         apiKey: finalKey,
         apiEndpoint: finalEndpoint,
         apiType: finalType,
         modelName: finalModel,
+        translationInstructions: finalInstructions,
     } = settings;
-    const selectedModelName =
-        finalModel ||
-        PROVIDER_DEFAULTS[finalType]?.modelName ||
-        PROVIDER_DEFAULTS.openai?.modelName;
+    const selectedModelName = resolveSelectedModelName(settings);
 
-    let targetLanguageLabel: string;
-    let finalInstructions: string;
-
-    if (mode === SETTINGS_MODE_BASIC) {
-        const languageValue =
-            storage.basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
-        targetLanguageLabel = getBasicTargetLanguageLabel(
-            languageValue,
-            getActiveUILocale(),
-        );
-        settings.apiEndpoint =
-            PROVIDER_DEFAULTS[finalType]?.apiEndpoint || settings.apiEndpoint;
-        settings.modelName = PROVIDER_DEFAULTS[finalType]?.modelName;
-        finalInstructions = buildTranslationInstructionsWithDetection(
-            detectedLanguage,
-            detectedLanguageName,
-            targetLanguageLabel,
-            "",
-        );
-    } else {
-        const languageValue =
-            storage.advancedTargetLanguage || ADVANCED_TARGET_LANGUAGE_DEFAULT;
-        targetLanguageLabel = getBasicTargetLanguageLabel(
-            languageValue,
-            getActiveUILocale(),
-        );
-        finalInstructions = buildTranslationInstructionsWithDetection(
-            detectedLanguage,
-            detectedLanguageName,
-            targetLanguageLabel,
-            storage.extraInstructions || "",
-        );
-    }
+    const targetLanguageLabel = profile.targetLanguageLabel;
 
     const resolvedRequestId = requestId || createRequestId();
 
@@ -2019,7 +1863,7 @@ async function getSettingsAndTranslateWithDetection(
         });
     }
 
-    if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
+    if (!hasUsableProviderSettings(settings)) {
         const errorMsg = t(
             "errorApiKeyOrEndpointNotSet",
             "Translation Error: API Key or Endpoint not set. Please configure in extension settings.",
@@ -2055,188 +1899,53 @@ async function getSettingsAndTranslateWithDetection(
     }
 
     if (!isFullPage) {
-        notifyContentScriptWithDetection(
-            tabId,
-            t("contentTranslating", "Translating..."),
-            false,
-            false,
-            true,
-            detectedLanguageName,
-            targetLanguageLabel,
-            resolvedRequestId,
-        );
-
-        if (!shouldUseStreamingForSelectedText(finalType, selectedModelName)) {
-            translateTextApiCall(
+        void runSelectedTextTranslationRequest(
+            {
+                tabId,
+                requestId: resolvedRequestId,
                 textToTranslate,
-                finalKey,
-                finalEndpoint,
-                finalType,
-                false,
-                selectedModelName,
-                finalInstructions,
-            )
-                .then((translation) => {
-                    notifyContentScriptWithDetection(
-                        tabId,
-                        preparedInput.restoreTranslatedOutput(translation),
+                settings,
+                mode,
+                debugModeEnabled,
+                detectedLanguage,
+                detectedLanguageName,
+                targetLanguageName: targetLanguageLabel,
+                restoreTranslatedOutput: preparedInput.restoreTranslatedOutput,
+                debugContexts: {
+                    nonStreaming: "selected-translation-detection",
+                    streaming: "selected-translation-stream-detection",
+                },
+            },
+            {
+                notifyLoading: notifySelectedTranslationLoading,
+                notifySuccess: notifySelectedTranslationSuccess,
+                notifyError: notifySelectedTranslationError,
+                stream: (request) =>
+                    streamSelectedTranslation(
+                        request.tabId,
+                        request.requestId,
+                        request.textToTranslate,
+                        request.settings.apiKey,
+                        request.settings.apiEndpoint,
+                        request.settings.apiType,
+                        resolveSelectedModelName(request.settings),
+                        request.settings.translationInstructions,
+                        request.detectedLanguageName,
+                        request.targetLanguageName,
+                        request.restoreTranslatedOutput,
+                    ),
+                translate: (request) =>
+                    translateTextApiCall(
+                        request.textToTranslate,
+                        request.settings.apiKey,
+                        request.settings.apiEndpoint,
+                        request.settings.apiType,
                         false,
-                        false,
-                        false,
-                        detectedLanguageName,
-                        targetLanguageLabel,
-                        resolvedRequestId,
-                    );
-                })
-                .catch((error) => {
-                    console.error("Translation error:", error);
-                    const errorMsg = getTranslationErrorMessage(error);
-                    const debugInfo = debugModeEnabled
-                        ? buildDebugErrorDetails(
-                              error,
-                              "selected-translation-detection",
-                              {
-                                  tabId,
-                                  provider: finalType,
-                                  model: selectedModelName,
-                                  isStreaming: false,
-                                  mode,
-                                  detectedLanguage,
-                                  targetLanguageLabel,
-                              },
-                          )
-                        : null;
-                    if (debugModeEnabled) {
-                        console.error(
-                            "[AI Translator Debug] Selected translation with detection failed",
-                            {
-                                requestId: resolvedRequestId,
-                                debugInfo,
-                            },
-                        );
-                    }
-                    notifyContentScriptWithDetection(
-                        tabId,
-                        errorMsg,
-                        false,
-                        true,
-                        false,
-                        detectedLanguageName,
-                        targetLanguageLabel,
-                        resolvedRequestId,
-                        debugInfo,
-                    );
-                });
-            return;
-        }
-
-        streamSelectedTranslation(
-            tabId,
-            resolvedRequestId,
-            textToTranslate,
-            finalKey,
-            finalEndpoint,
-            finalType,
-            selectedModelName,
-            finalInstructions,
-            detectedLanguageName,
-            targetLanguageLabel,
-            preparedInput.restoreTranslatedOutput,
-        )
-            .then((translation) => {
-                if (translation === null) {
-                    return;
-                }
-                notifyContentScriptWithDetection(
-                    tabId,
-                    translation,
-                    false,
-                    false,
-                    false,
-                    detectedLanguageName,
-                    targetLanguageLabel,
-                    resolvedRequestId,
-                );
-            })
-            .catch(async (error) => {
-                if (
-                    shouldRetrySelectedTextWithoutStreaming(
-                        error,
-                        finalType,
-                        selectedModelName,
-                    )
-                ) {
-                    console.warn(
-                        "Streaming selected translation with detection failed; retrying without streaming.",
-                    );
-                    try {
-                        const fallbackTranslation = await translateTextApiCall(
-                            textToTranslate,
-                            finalKey,
-                            finalEndpoint,
-                            finalType,
-                            false,
-                            selectedModelName,
-                            finalInstructions,
-                        );
-                        notifyContentScriptWithDetection(
-                            tabId,
-                            preparedInput.restoreTranslatedOutput(fallbackTranslation),
-                            false,
-                            false,
-                            false,
-                            detectedLanguageName,
-                            targetLanguageLabel,
-                            resolvedRequestId,
-                        );
-                        return;
-                    } catch (fallbackError) {
-                        console.error(
-                            "Selected-text fallback translation with detection error:",
-                            fallbackError,
-                        );
-                        error = fallbackError;
-                    }
-                }
-
-                console.error("Translation error:", error);
-                const errorMsg = getTranslationErrorMessage(error);
-                const debugInfo = debugModeEnabled
-                    ? buildDebugErrorDetails(
-                          error,
-                          "selected-translation-stream-detection",
-                          {
-                              tabId,
-                              provider: finalType,
-                              model: selectedModelName,
-                              isStreaming: true,
-                              mode,
-                              detectedLanguage,
-                              targetLanguageLabel,
-                          },
-                      )
-                    : null;
-                if (debugModeEnabled) {
-                    console.error(
-                        "[AI Translator Debug] Streaming selected translation with detection failed",
-                        {
-                            requestId: resolvedRequestId,
-                            debugInfo,
-                        },
-                    );
-                }
-                notifyContentScriptWithDetection(
-                    tabId,
-                    errorMsg,
-                    false,
-                    true,
-                    false,
-                    detectedLanguageName,
-                    targetLanguageLabel,
-                    resolvedRequestId,
-                    debugInfo,
-                );
-            });
+                        resolveSelectedModelName(request.settings),
+                        request.settings.translationInstructions,
+                    ),
+            },
+        );
         return;
     }
 
@@ -2323,14 +2032,8 @@ const messageListener: MessageListener = (
             STORAGE_KEYS.ADVANCED_TARGET_LANGUAGE,
         ])
             .then((settings) => {
-                const mode = settings.settingsMode || SETTINGS_MODE_BASIC;
-                const targetLanguage =
-                    mode === SETTINGS_MODE_BASIC
-                        ? settings.basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT
-                        : settings.advancedTargetLanguage ||
-                          ADVANCED_TARGET_LANGUAGE_DEFAULT;
-
-                sendResponse({ targetLanguage });
+                const profile = resolveTranslationProfile(settings);
+                sendResponse({ targetLanguage: profile.targetLanguage });
             })
             .catch((error) => {
                 console.error("Error getting target language:", error);
@@ -2351,20 +2054,14 @@ const messageListener: MessageListener = (
             STORAGE_KEYS.ADVANCED_TARGET_LANGUAGE,
         ])
             .then((storage) => {
-                const mode = storage.settingsMode || SETTINGS_MODE_BASIC;
-                const settings = getEffectiveProviderSettings(storage, mode);
-
-                const targetLanguage =
-                    mode === SETTINGS_MODE_BASIC
-                        ? storage.basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT
-                        : storage.advancedTargetLanguage ||
-                          ADVANCED_TARGET_LANGUAGE_DEFAULT;
+                const profile = resolveTranslationProfile(storage);
+                const settings = profile.provider;
 
                 sendResponse({
                     provider: settings.apiType,
                     endpoint: settings.apiEndpoint,
                     model: settings.modelName,
-                    targetLanguage,
+                    targetLanguage: profile.targetLanguage,
                     translationInstructions: settings.translationInstructions,
                 });
             })
@@ -2488,11 +2185,8 @@ const onConnect = (port: chrome.runtime.Port): void => {
     let htmlTranslationAbortController: AbortController | null = null;
     let activeRequestId: string | null = null;
 
-    const portMessageListener: PortMessageListener = (
-        message: any,
-        port: chrome.runtime.Port,
-    ) => {
-        if (message?.action === "cancelHTMLTranslation") {
+    const portMessageListener: PortMessageListener = (message, port) => {
+        if (isCancelHTMLTranslationPortMessage(message)) {
             if (
                 !message.requestId ||
                 !activeRequestId ||
@@ -2503,24 +2197,24 @@ const onConnect = (port: chrome.runtime.Port): void => {
             return;
         }
 
-        if (message?.action !== "startHTMLTranslation") {
+        if (!isStartHTMLTranslationPortMessage(message)) {
             return;
         }
 
         const { units, targetLanguage, requestId } = message;
 
-        if (!requestId) {
-            port.postMessage({
-                action: "htmlTranslationResult",
-                error: "Missing request ID",
-                done: true,
-            });
-            return;
-        }
+        const postResult = (
+            payload: Omit<HtmlTranslationResultPortMessage, "action">,
+        ) => {
+            try {
+                port.postMessage(createHtmlTranslationResultPortMessage(payload));
+            } catch (error) {
+                console.warn("Failed to post HTML translation update:", error);
+            }
+        };
 
-        if (!Array.isArray(units) || units.length === 0) {
-            port.postMessage({
-                action: "htmlTranslationResult",
+        if (units.length === 0) {
+            postResult({
                 requestId,
                 error: "No units provided",
                 done: true,
@@ -2533,17 +2227,8 @@ const onConnect = (port: chrome.runtime.Port): void => {
         activeRequestId = requestId;
         const signal = htmlTranslationAbortController.signal;
 
-        const postResult = (payload: HtmlTranslationResultPortMessage) => {
-            try {
-                port.postMessage(payload);
-            } catch (error) {
-                console.warn("Failed to post HTML translation update:", error);
-            }
-        };
-
         const onBatchResults: OnBatchResultsCallback = (batchResults, meta) => {
             postResult({
-                action: "htmlTranslationResult",
                 requestId,
                 results: batchResults,
                 batchIndex: meta?.batchIndex,
@@ -2556,10 +2241,9 @@ const onConnect = (port: chrome.runtime.Port): void => {
             });
         };
 
-        translateHTMLUnits(units, targetLanguage, onBatchResults, signal)
+        translateHTMLUnits(units as HTMLUnit[], targetLanguage, onBatchResults, signal)
             .then(() => {
                 postResult({
-                    action: "htmlTranslationResult",
                     requestId,
                     done: true,
                 });
@@ -2567,7 +2251,6 @@ const onConnect = (port: chrome.runtime.Port): void => {
             .catch((error) => {
                 const cancelled = isAbortError(error) || signal.aborted;
                 postResult({
-                    action: "htmlTranslationResult",
                     requestId,
                     error: cancelled
                         ? "Translation cancelled."

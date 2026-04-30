@@ -27,6 +27,23 @@ import {
     initializeI18nFromStorage,
     UI_LANGUAGE_STORAGE_KEY,
 } from "../shared/i18n";
+import {
+    createCancelHTMLTranslationPortMessage,
+    createHtmlTranslationRequestId,
+    createStartHTMLTranslationPortMessage,
+    getHtmlTranslationBatchInfo,
+    isHtmlTranslationResultPortMessage,
+    isStreamTranslationUpdateMessage,
+    type StreamTranslationUpdateMessage,
+} from "../shared/runtime-jobs";
+import {
+    FullPageTranslationRun,
+    type HtmlTranslationOnUpdateMeta,
+    type HtmlTranslationResultItem,
+    type PageTranslationProgress,
+    type PageTranslationSummary,
+    type RegionTranslationUnit,
+} from "./page-translation-run";
 
 declare global {
     interface Window {
@@ -469,19 +486,6 @@ if ((window as any).hasRun) {
         startIndex: number; // childNodes index of first node
         endIndex: number; // childNodes index of last node (inclusive)
         nodes: Node[]; // actual Node references for serialization
-    }
-
-    /**
-     * A translation unit for a single region within a unit element.
-     * Multiple RegionTranslationUnits may exist for one parent element.
-     */
-    interface RegionTranslationUnit {
-        parentElement: Element; // The unit element containing this region
-        runId: string; // Full-page translation run that owns the markers
-        regionId: string; // UUID for marker identification
-        html: string; // Serialized simplified HTML
-        chunkIndex?: number; // For chunked regions
-        totalChunks?: number; // For chunked regions
     }
 
     type NodeClassification = "TRANSLATABLE" | "BOUNDARY" | "SKIP";
@@ -1601,14 +1605,6 @@ if ((window as any).hasRun) {
 
     let activeHtmlTranslation: ActiveHtmlTranslation | null = null;
 
-    interface FullPageTranslationRun {
-        runId: string;
-        cancelled: boolean;
-        parentElements: Set<Element>;
-        htmlTranslationRequestId: string | null;
-        htmlTranslationPort: chrome.runtime.Port | null;
-    }
-
     let activeFullPageRun: FullPageTranslationRun | null = null;
 
     const messageListener: MessageListener = (request: unknown, sender, sendResponse) => {
@@ -1782,13 +1778,9 @@ if ((window as any).hasRun) {
 
         activeStreamPort = port;
 
-        const portMessageListener: PortMessageListener = (message, port) => {
-            if (
-                message &&
-                typeof message === "object" &&
-                (message as any).action === "streamTranslationUpdate"
-            ) {
-                handleStreamUpdate(message as any);
+        const portMessageListener: PortMessageListener = (message) => {
+            if (isStreamTranslationUpdateMessage(message)) {
+                handleStreamUpdate(message);
             }
         };
 
@@ -1801,21 +1793,6 @@ if ((window as any).hasRun) {
             }
         });
     });
-
-    interface HtmlTranslationOnUpdateMeta {
-        batchIndex?: number;
-        batchCount?: number;
-        batchSize?: number;
-        subBatchIndex?: number;
-        subBatchCount?: number;
-        subBatchSize?: number;
-    }
-
-    interface HtmlTranslationResultItem {
-        id: string | number;
-        translatedHtml: string;
-        error?: string;
-    }
 
     function startHtmlTranslation(
         units: TranslationRequestUnit[],
@@ -1834,7 +1811,7 @@ if ((window as any).hasRun) {
                 return;
             }
 
-            const requestId = `html-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            const requestId = createHtmlTranslationRequestId();
             const port = chrome.runtime.connect({ name: HTML_TRANSLATION_PORT_NAME });
             let settled = false;
             const collectedResults: HtmlTranslationResultItem[] = [];
@@ -1883,12 +1860,8 @@ if ((window as any).hasRun) {
             };
 
             port.onMessage.addListener((message) => {
-                if (
-                    message &&
-                    typeof message === "object" &&
-                    (message as any).action === "htmlTranslationResult"
-                ) {
-                    const msg = message as any;
+                if (isHtmlTranslationResultPortMessage(message)) {
+                    const msg = message;
                     if (msg.requestId !== requestId) {
                         return;
                     }
@@ -1907,25 +1880,10 @@ if ((window as any).hasRun) {
                         return;
                     }
                     if (msg.results) {
-                        const batchInfo: HtmlTranslationOnUpdateMeta | null =
-                            typeof msg.batchIndex === "number" &&
-                            typeof msg.batchCount === "number"
-                                ? {
-                                      batchIndex: msg.batchIndex,
-                                      batchCount: msg.batchCount,
-                                      batchSize: msg.batchSize,
-                                  }
-                                : null;
-                        if (
-                            batchInfo &&
-                            typeof msg.subBatchIndex === "number" &&
-                            typeof msg.subBatchCount === "number"
-                        ) {
-                            batchInfo.subBatchIndex = msg.subBatchIndex;
-                            batchInfo.subBatchCount = msg.subBatchCount;
-                            batchInfo.subBatchSize = msg.subBatchSize;
-                        }
-                        handleResults(msg.results, batchInfo);
+                        handleResults(
+                            msg.results as HtmlTranslationResultItem[],
+                            getHtmlTranslationBatchInfo(msg),
+                        );
                     }
                     if (msg.done) {
                         finalize(null, collectedResults);
@@ -1951,12 +1909,13 @@ if ((window as any).hasRun) {
                 requestId,
                 unitCount: units.length,
             });
-            port.postMessage({
-                action: "startHTMLTranslation",
-                requestId,
-                units,
-                targetLanguage,
-            });
+            port.postMessage(
+                createStartHTMLTranslationPortMessage(
+                    requestId,
+                    units,
+                    targetLanguage,
+                ),
+            );
         });
     }
 
@@ -2835,20 +2794,15 @@ if ((window as any).hasRun) {
 
         stopTranslationFlag = false;
         const runId = `run-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const run: FullPageTranslationRun = {
-            runId,
-            cancelled: false,
-            parentElements: new Set<Element>(),
-            htmlTranslationRequestId: null,
-            htmlTranslationPort: null,
-        };
+        const run = new FullPageTranslationRun(runId);
         activeFullPageRun = run;
 
         displayLoadingIndicatorState(t("contentPreparing", "Preparing..."), "preparing");
 
         // Use region-based collection to preserve images/non-text nodes
         const units = collectRegionTranslationUnits(runId);
-        const totalChunks = units.length;
+        run.setUnits(units);
+        const totalChunks = run.totalChunks;
 
         if (units.length === 0) {
             console.log("No region translation units found");
@@ -2883,156 +2837,40 @@ if ((window as any).hasRun) {
             },
         );
 
-        // Track by regionId instead of element (multiple regions per element possible)
-        interface RegionEntry {
-            parentElement: Element;
-            chunks: Map<number, { translatedHtml: string; error?: string }>;
-            totalChunks: number;
-            translatedChunkIndices: Set<number>;
-            applied: boolean;
-            hasError: boolean;
-        }
-        const regionChunks = new Map<string, RegionEntry>();
-
-        // Track which parent elements have regions for cleanup
-        const parentElements = new Set<Element>();
-
-        for (const unit of units) {
-            const total = unit.totalChunks || 1;
-            parentElements.add(unit.parentElement);
-            run.parentElements.add(unit.parentElement);
-
-            let entry = regionChunks.get(unit.regionId);
-            if (!entry) {
-                entry = {
-                    parentElement: unit.parentElement,
-                    chunks: new Map(),
-                    totalChunks: total,
-                    translatedChunkIndices: new Set(),
-                    applied: false,
-                    hasError: false,
-                };
-                regionChunks.set(unit.regionId, entry);
-            } else {
-                entry.totalChunks = Math.max(entry.totalChunks, total);
-            }
-        }
-
-        let successCount = 0;
-        let errorCount = 0;
-        let translatedChunks = 0;
         let receivedResults = 0;
-        let latestBatchInfo: HtmlTranslationOnUpdateMeta | null = null;
-
-        const updateChunkProgress = () => {
-            displayLoadingIndicatorState(
-                getChunkProgressMessage(
-                    translatedChunks,
-                    totalChunks,
-                    errorCount,
-                    latestBatchInfo,
-                ),
-                "translating",
-                {
-                    current: translatedChunks,
-                    total: totalChunks,
-                },
-            );
-        };
 
         const isRunActive = () =>
             activeFullPageRun?.runId === runId && !activeFullPageRun.cancelled;
 
-        const markRegionError = (
+        const applyRegionForRun = (
+            parentElement: Element,
             regionId: string,
-            entry: RegionEntry,
-            message: string,
-            logMessage?: string,
-        ) => {
-            if (entry.hasError) {
-                return;
-            }
-            entry.hasError = true;
-            errorCount++;
-            if (logMessage) {
-                console.warn(logMessage);
-            }
-            // Note: We don't mark the whole element as error since other regions may succeed
-            console.warn(`Region ${regionId} failed: ${message}`);
-        };
-
-        const applyRegionIfReady = (regionId: string, entry: RegionEntry) => {
+            translatedHtml: string,
+        ): boolean => {
             if (!isRunActive()) {
-                return;
+                return false;
             }
-            if (entry.applied || entry.hasError) {
-                return;
-            }
-            if (entry.chunks.size < entry.totalChunks) {
-                return;
-            }
-
-            const orderedChunks = Array.from(entry.chunks.entries())
-                .sort((a, b) => a[0] - b[0])
-                .map(([, chunk]) => chunk);
-
-            const errorChunk = orderedChunks.find((chunk) => chunk.error);
-            if (errorChunk) {
-                markRegionError(
-                    regionId,
-                    entry,
-                    errorChunk.error || "Chunk translation error",
-                    `translatePageV3: region ${regionId} has chunk error: ${errorChunk.error}`,
-                );
-                return;
-            }
-
-            const missingChunk = orderedChunks.find(
-                (chunk) => !chunk.translatedHtml || !chunk.translatedHtml.trim(),
-            );
-            if (missingChunk) {
-                markRegionError(
-                    regionId,
-                    entry,
-                    "Missing chunk translation",
-                    `translatePageV3: region ${regionId} has missing chunk translation`,
-                );
-                return;
-            }
-
-            const combinedHtml = orderedChunks
-                .map((chunk) => chunk.translatedHtml)
-                .join(" ");
-
-            if (!combinedHtml.trim()) {
-                markRegionError(
-                    regionId,
-                    entry,
-                    "Empty combined translation",
-                    `translatePageV3: region ${regionId} has empty combined translation`,
-                );
-                return;
-            }
-
-            // Use surgical region replacement instead of replacing all children
-            const applied = applyRegionTranslation(
-                entry.parentElement,
+            return applyRegionTranslation(
+                parentElement,
                 runId,
                 regionId,
-                combinedHtml,
+                translatedHtml,
             );
-            if (applied) {
-                successCount++;
-                entry.applied = true;
-                return;
-            }
+        };
 
-            // Fallback: if surgical apply failed but we have text, leave original content
-            // (markers will be cleaned up later)
-            markRegionError(
-                regionId,
-                entry,
-                "Region apply failed, preserving original content",
+        const updateChunkProgress = (progress: PageTranslationProgress) => {
+            displayLoadingIndicatorState(
+                getChunkProgressMessage(
+                    progress.translatedChunks,
+                    progress.totalChunks,
+                    progress.errorCount,
+                    progress.batchInfo,
+                ),
+                "translating",
+                {
+                    current: progress.translatedChunks,
+                    total: progress.totalChunks,
+                },
             );
         };
 
@@ -3048,7 +2886,6 @@ if ((window as any).hasRun) {
             }
 
             if (batchInfo?.batchIndex && batchInfo?.batchCount) {
-                latestBatchInfo = batchInfo;
                 const batchSizeLabel =
                     typeof batchInfo.batchSize === "number"
                         ? `, ${batchInfo.batchSize} units`
@@ -3069,97 +2906,44 @@ if ((window as any).hasRun) {
 
             receivedResults += results.length;
 
-            for (const result of results) {
-                const unit = units[result.id as number];
-                if (!unit) {
-                    console.warn(`translatePageV3: no unit found for id ${result.id}`);
-                    continue;
-                }
-
-                const entry = regionChunks.get(unit.regionId);
-                if (!entry) {
-                    continue;
-                }
-
-                const chunkIndex = unit.chunkIndex ?? 0;
-                const translatedHtml =
-                    typeof result.translatedHtml === "string"
-                        ? result.translatedHtml
-                        : "";
-                const hasTranslation = translatedHtml.trim().length > 0;
-
-                if (hasTranslation && !entry.translatedChunkIndices.has(chunkIndex)) {
-                    entry.translatedChunkIndices.add(chunkIndex);
-                    translatedChunks++;
-                }
-
-                entry.chunks.set(chunkIndex, {
-                    translatedHtml,
-                    error: result.error,
-                });
-
-                if (result.error) {
-                    markRegionError(
-                        unit.regionId,
-                        entry,
-                        result.error || "Chunk translation error",
-                        `translatePageV3: region ${unit.regionId} has chunk error: ${result.error}`,
-                    );
-                }
-
-                if (!entry.hasError) {
-                    applyRegionIfReady(unit.regionId, entry);
-                }
-            }
-
-            updateChunkProgress();
+            const progress = run.handleResults(
+                results,
+                batchInfo,
+                applyRegionForRun,
+            );
+            updateChunkProgress(progress);
         };
 
         const finalizeTranslation = () => {
             if (!isRunActive()) {
-                for (const element of parentElements) {
+                for (const element of run.parentElements) {
                     cleanupOrphanedMarkers(element, runId);
                 }
                 return;
             }
-            // Apply any remaining regions that haven't been applied yet
-            for (const [regionId, entry] of regionChunks) {
-                if (entry.applied || entry.hasError) {
-                    continue;
-                }
-                if (entry.chunks.size < entry.totalChunks) {
-                    markRegionError(
-                        regionId,
-                        entry,
-                        "Missing chunk translation",
-                        `translatePageV3: region ${regionId} missing chunk results`,
-                    );
-                    continue;
-                }
-                applyRegionIfReady(regionId, entry);
-            }
+            const summary: PageTranslationSummary = run.finalize(applyRegionForRun);
 
             // Clean up any orphaned markers from failed regions
-            for (const element of parentElements) {
+            for (const element of run.parentElements) {
                 cleanupOrphanedMarkers(element, runId);
             }
 
-            const summary =
-                errorCount > 0
+            const summaryMessage =
+                summary.errorCount > 0
                     ? t(
                           "contentSummaryDoneWithErrors",
                           "Done. $1 regions translated, $2 errors",
-                          [String(successCount), String(errorCount)],
+                          [String(summary.successCount), String(summary.errorCount)],
                       )
                     : t(
                           "contentSummaryDone",
                           "Done. $1 regions translated",
-                          String(successCount),
+                          String(summary.successCount),
                       );
-            const summaryState = errorCount > 0 ? "error" : "done";
-            displayLoadingIndicatorState(summary, summaryState, {
-                current: translatedChunks,
-                total: totalChunks,
+            const summaryState = summary.errorCount > 0 ? "error" : "done";
+            displayLoadingIndicatorState(summaryMessage, summaryState, {
+                current: summary.translatedChunks,
+                total: summary.totalChunks,
             });
 
             isTranslated = true;
@@ -3187,15 +2971,16 @@ if ((window as any).hasRun) {
                 run.cancelled;
             if (wasCancelled) {
                 console.log("translatePageV3 cancelled");
-                for (const element of parentElements) {
+                const progress = run.getProgress();
+                for (const element of run.parentElements) {
                     cleanupOrphanedMarkers(element, runId);
                 }
                 displayLoadingIndicatorState(
                     t("contentTranslationStoppedByUser", "Translation stopped by user."),
                     "stopped",
                     {
-                        current: translatedChunks,
-                        total: totalChunks,
+                        current: progress.translatedChunks,
+                        total: progress.totalChunks,
                     },
                 );
                 if (activeFullPageRun?.runId === runId) {
@@ -3206,7 +2991,7 @@ if ((window as any).hasRun) {
             }
             console.error("translatePageV3 error:", error);
             // Clean up markers even on error
-            for (const element of parentElements) {
+            for (const element of run.parentElements) {
                 cleanupOrphanedMarkers(element, runId);
             }
             displayLoadingIndicatorState(
@@ -3232,15 +3017,16 @@ if ((window as any).hasRun) {
         stopTranslationFlag = true;
         const run = activeFullPageRun;
         if (run) {
-            run.cancelled = true;
+            run.cancel();
             for (const element of run.parentElements) {
                 cleanupOrphanedMarkers(element, run.runId);
             }
             try {
-                run.htmlTranslationPort?.postMessage({
-                    action: "cancelHTMLTranslation",
-                    requestId: run.htmlTranslationRequestId || undefined,
-                });
+                run.htmlTranslationPort?.postMessage(
+                    createCancelHTMLTranslationPortMessage(
+                        run.htmlTranslationRequestId,
+                    ),
+                );
             } catch (error) {
                 console.warn("Failed to send HTML translation cancel:", error);
             }
@@ -3598,8 +3384,8 @@ if ((window as any).hasRun) {
         addCloseButton(popup);
     }
 
-    function handleStreamUpdate(message: any): void {
-        if (!message?.requestId) {
+    function handleStreamUpdate(message: StreamTranslationUpdateMessage): void {
+        if (!message.requestId) {
             return;
         }
 
