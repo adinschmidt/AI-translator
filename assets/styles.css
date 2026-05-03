@@ -182,10 +182,6 @@
     }
 }
 
-body {
-    position: relative;
-}
-
 #ai-translator-selection-translate-button {
     position: absolute;
     z-index: 2147483647 !important;
