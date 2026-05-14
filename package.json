@@ -9,18 +9,18 @@
         "build:zip": "bun run build.ts --zip"
     },
     "devDependencies": {
-        "@tailwindcss/cli": "^4.2.2",
-        "@types/chrome": "^0.1.36",
-        "bun-types": "latest",
-        "tailwindcss": "^4.2.2"
+        "@tailwindcss/cli": "4.2.2",
+        "@types/chrome": "0.1.36",
+        "bun-types": "1.3.6",
+        "tailwindcss": "4.2.2"
     },
     "dependencies": {
-        "ai": "^4.3.16",
-        "@ai-sdk/openai": "^1.3.22",
-        "@ai-sdk/anthropic": "^1.2.12",
-        "@ai-sdk/google": "^1.2.17",
-        "@ai-sdk/mistral": "^1.2.8",
-        "@ai-sdk/xai": "^1.2.16",
-        "eld": "^2.0.2"
+        "ai": "4.3.19",
+        "@ai-sdk/openai": "1.3.24",
+        "@ai-sdk/anthropic": "1.2.12",
+        "@ai-sdk/google": "1.2.22",
+        "@ai-sdk/mistral": "1.2.8",
+        "@ai-sdk/xai": "1.2.18",
+        "eld": "2.0.2"
     }
 }
