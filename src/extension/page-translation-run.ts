@@ -3,6 +3,8 @@ export interface RegionTranslationUnit {
     runId: string;
     regionId: string;
     html: string;
+    leadingWhitespace?: string;
+    trailingWhitespace?: string;
     chunkIndex?: number;
     totalChunks?: number;
 }
@@ -46,6 +48,8 @@ interface RegionEntry {
     translatedChunkIndices: Set<number>;
     applied: boolean;
     hasError: boolean;
+    leadingWhitespace: string;
+    trailingWhitespace: string;
 }
 
 export class FullPageTranslationRun {
@@ -89,10 +93,18 @@ export class FullPageTranslationRun {
                     translatedChunkIndices: new Set(),
                     applied: false,
                     hasError: false,
+                    leadingWhitespace: unit.leadingWhitespace || "",
+                    trailingWhitespace: unit.trailingWhitespace || "",
                 };
                 this.regionChunks.set(unit.regionId, entry);
             } else {
                 entry.totalChunks = Math.max(entry.totalChunks, total);
+                if (!entry.leadingWhitespace && unit.leadingWhitespace) {
+                    entry.leadingWhitespace = unit.leadingWhitespace;
+                }
+                if (!entry.trailingWhitespace && unit.trailingWhitespace) {
+                    entry.trailingWhitespace = unit.trailingWhitespace;
+                }
             }
         }
     }
@@ -266,7 +278,18 @@ export class FullPageTranslationRun {
             return;
         }
 
-        if (applyRegionTranslation(entry.parentElement, regionId, combinedHtml)) {
+        const htmlWithBoundaryWhitespace = this.applyBoundaryWhitespace(
+            combinedHtml,
+            entry,
+        );
+
+        if (
+            applyRegionTranslation(
+                entry.parentElement,
+                regionId,
+                htmlWithBoundaryWhitespace,
+            )
+        ) {
             this.successCount++;
             entry.applied = true;
             return;
@@ -277,5 +300,19 @@ export class FullPageTranslationRun {
             entry,
             "Region apply failed, preserving original content",
         );
+    }
+
+    private applyBoundaryWhitespace(html: string, entry: RegionEntry): string {
+        let result = html;
+
+        if (entry.leadingWhitespace && !/^\s/.test(result)) {
+            result = entry.leadingWhitespace + result;
+        }
+
+        if (entry.trailingWhitespace && !/\s$/.test(result)) {
+            result += entry.trailingWhitespace;
+        }
+
+        return result;
     }
 }

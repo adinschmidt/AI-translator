@@ -298,6 +298,42 @@ if ((window as any).hasRun) {
         return childContent;
     }
 
+    function getAllowedInlineElementParts(
+        element: Element,
+    ): { open: string; close: string } | null {
+        const tagName = element.tagName.toLowerCase();
+
+        if (!HTML_UNIT_ALLOWED_TAGS.has(tagName)) {
+            return null;
+        }
+
+        const attrs: string[] = [];
+        for (const attr of Array.from(element.attributes)) {
+            if (!HTML_UNIT_ALLOWED_ATTRS.has(attr.name)) {
+                continue;
+            }
+
+            if (attr.name === "href") {
+                const sanitized = sanitizeUnitHref(attr.value);
+                if (sanitized) {
+                    attrs.push(`href="${escapeHtmlAttr(sanitized)}"`);
+                }
+                continue;
+            }
+
+            attrs.push(`${attr.name}="${escapeHtmlAttr(attr.value)}"`);
+        }
+
+        const attrStr = attrs.length ? " " + attrs.join(" ") : "";
+        const open = `<${tagName}${attrStr}>`;
+
+        if (tagName === "br" || tagName === "wbr") {
+            return { open, close: "" };
+        }
+
+        return { open, close: `</${tagName}>` };
+    }
+
     function splitIntoSentences(text: string): string[] {
         const sentences: string[] = [];
         const sentenceEnders = /[.!?]+\s+/g;
@@ -525,6 +561,14 @@ if ((window as any).hasRun) {
             const el = node as Element;
             const tag = el.tagName.toUpperCase();
 
+            if (
+                isHiddenElement(el) ||
+                isElementMarkedNoTranslate(el) ||
+                isInteractiveElement(el)
+            ) {
+                return "BOUNDARY";
+            }
+
             // BR and WBR are always boundaries
             if (tag === "BR" || tag === "WBR") {
                 return "BOUNDARY";
@@ -558,6 +602,21 @@ if ((window as any).hasRun) {
             html += getNodeSimplifiedHTML(node);
         }
         return html.replace(/\s+/g, " ").trim();
+    }
+
+    function getRegionBoundaryWhitespace(region: Region): {
+        leadingWhitespace: string;
+        trailingWhitespace: string;
+    } {
+        let rawHtml = "";
+        for (const node of region.nodes) {
+            rawHtml += getNodeSimplifiedHTML(node);
+        }
+
+        return {
+            leadingWhitespace: /^\s/.test(rawHtml) ? " " : "",
+            trailingWhitespace: /\s$/.test(rawHtml) ? " " : "",
+        };
     }
 
     /**
@@ -718,12 +777,23 @@ if ((window as any).hasRun) {
                         chunks.push({ html: textChunk, nodeIndices: [i] });
                     }
                 } else if (node.nodeType === Node.ELEMENT_NODE) {
-                    const subChunks = splitHTMLUnitByChildNodes(
-                        node as Element,
-                        maxChars,
-                    );
-                    for (const subChunk of subChunks) {
-                        chunks.push({ html: subChunk.html, nodeIndices: [i] });
+                    const inlineParts = getAllowedInlineElementParts(node as Element);
+                    if (inlineParts?.close) {
+                        const subChunks = splitHTMLUnitByChildNodes(
+                            node as Element,
+                            maxChars,
+                        );
+                        for (const subChunk of subChunks) {
+                            if (!subChunk.html) {
+                                continue;
+                            }
+                            chunks.push({
+                                html: `${inlineParts.open}${subChunk.html}${inlineParts.close}`,
+                                nodeIndices: [i],
+                            });
+                        }
+                    } else {
+                        chunks.push({ html: nodeHTML, nodeIndices: [i] });
                     }
                 }
                 continue;
@@ -768,19 +838,30 @@ if ((window as any).hasRun) {
      * @param unitEl The unit element to process
      * @returns Array of RegionTranslationUnits for all regions in the element
      */
-    function collectRegionUnitsFromElement(
+    function collectDirectRegionUnitsFromElement(
         unitEl: Element,
         runId: string,
+        coveredElements?: WeakSet<Element>,
     ): RegionTranslationUnit[] {
         const units: RegionTranslationUnit[] = [];
         const regions = identifyRegions(unitEl);
 
         for (const region of regions) {
-            const regionId = insertRegionMarkers(unitEl, region, runId);
             const html = serializeRegionNodes(region.nodes);
 
             if (html.length === 0) {
                 continue;
+            }
+
+            const regionId = insertRegionMarkers(unitEl, region, runId);
+            const boundaryWhitespace = getRegionBoundaryWhitespace(region);
+
+            if (coveredElements) {
+                for (const node of region.nodes) {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        coveredElements.add(node as Element);
+                    }
+                }
             }
 
             if (html.length > MAX_HTML_UNIT_CHARS) {
@@ -792,6 +873,7 @@ if ((window as any).hasRun) {
                             runId,
                             regionId: regionId,
                             html: chunks[i].html,
+                            ...boundaryWhitespace,
                             chunkIndex: i,
                             totalChunks: chunks.length,
                         });
@@ -803,15 +885,29 @@ if ((window as any).hasRun) {
                     runId,
                     regionId: regionId,
                     html: html,
+                    ...boundaryWhitespace,
                 });
             }
         }
+
+        return units;
+    }
+
+    function collectRegionUnitsFromElement(
+        unitEl: Element,
+        runId: string,
+    ): RegionTranslationUnit[] {
+        const units = collectDirectRegionUnitsFromElement(unitEl, runId);
 
         for (const child of Array.from(unitEl.children)) {
             if (classifyNode(child) !== "BOUNDARY") {
                 continue;
             }
-            if (SKIP_TAGS.has(child.tagName) || isHiddenElement(child)) {
+            if (
+                SKIP_TAGS.has(child.tagName) ||
+                isHiddenElement(child) ||
+                isElementMarkedNoTranslate(child)
+            ) {
                 continue;
             }
             if (isExtensionUI(child) || containsInteractiveControls(child)) {
@@ -966,7 +1062,29 @@ if ((window as any).hasRun) {
         if (el.getAttribute("aria-hidden") === "true") {
             return true;
         }
+        if (el.getAttribute("inert") !== null) {
+            return true;
+        }
+        try {
+            const style = window.getComputedStyle(el);
+            if (
+                style.display === "none" ||
+                style.visibility === "hidden" ||
+                style.visibility === "collapse"
+            ) {
+                return true;
+            }
+        } catch {
+            // Some host nodes can throw while styles are resolving; keep walking.
+        }
         return false;
+    }
+
+    function isElementMarkedNoTranslate(el: Element): boolean {
+        if (!el || el.nodeType !== Node.ELEMENT_NODE) {
+            return false;
+        }
+        return Boolean(el.closest('[translate="no"], [translate="false"], .notranslate'));
     }
 
     function isExtensionUI(el: Element): boolean {
@@ -981,15 +1099,19 @@ if ((window as any).hasRun) {
         return false;
     }
 
-    function containsInteractiveControls(el: Element): boolean {
+    function isInteractiveElement(el: Element): boolean {
         if (INTERACTIVE_TAGS.has(el.tagName)) {
             return true;
         }
-        if (
+        return (
             el.getAttribute("role") === "button" ||
             el.getAttribute("contenteditable") === "true" ||
             (el as any).isContentEditable
-        ) {
+        );
+    }
+
+    function containsInteractiveControls(el: Element): boolean {
+        if (isInteractiveElement(el)) {
             return true;
         }
         const interactiveDescendant = el.querySelector(
@@ -1028,7 +1150,13 @@ if ((window as any).hasRun) {
         const el = node as Element;
         const tagName = el.tagName.toLowerCase();
 
-        if (SKIP_TAGS.has(el.tagName) || !HTML_UNIT_ALLOWED_TAGS.has(tagName)) {
+        if (
+            SKIP_TAGS.has(el.tagName) ||
+            isHiddenElement(el) ||
+            isElementMarkedNoTranslate(el) ||
+            isInteractiveElement(el) ||
+            !HTML_UNIT_ALLOWED_TAGS.has(tagName)
+        ) {
             return false;
         }
 
@@ -1074,6 +1202,10 @@ if ((window as any).hasRun) {
         }
 
         if (isHiddenElement(el)) {
+            return false;
+        }
+
+        if (isElementMarkedNoTranslate(el)) {
             return false;
         }
 
@@ -1222,6 +1354,10 @@ if ((window as any).hasRun) {
                 return;
             }
 
+            if (isElementMarkedNoTranslate(root) || isInteractiveElement(root)) {
+                return;
+            }
+
             if (isExtensionUI(root)) {
                 return;
             }
@@ -1299,6 +1435,10 @@ if ((window as any).hasRun) {
                 return;
             }
 
+            if (isElementMarkedNoTranslate(root) || isInteractiveElement(root)) {
+                return;
+            }
+
             if (isExtensionUI(root)) {
                 return;
             }
@@ -1328,7 +1468,21 @@ if ((window as any).hasRun) {
                 return;
             }
 
+            if (!seenElements.has(root) && (root.textContent || "").trim().length >= 2) {
+                const directRegionUnits = collectDirectRegionUnitsFromElement(
+                    root,
+                    runId,
+                    seenElements,
+                );
+                if (directRegionUnits.length > 0) {
+                    units.push(...directRegionUnits);
+                }
+            }
+
             for (const child of Array.from(root.children)) {
+                if (seenElements.has(child)) {
+                    continue;
+                }
                 traverse(child);
             }
         }
