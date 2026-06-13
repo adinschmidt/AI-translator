@@ -261,6 +261,16 @@ if ((window as any).hasRun) {
         }
 
         const el = node as Element;
+        const cached = simplifiedHtmlCache.get(el);
+        if (cached !== undefined) {
+            return cached;
+        }
+        const result = computeElementSimplifiedHTML(el);
+        simplifiedHtmlCache.set(el, result);
+        return result;
+    }
+
+    function computeElementSimplifiedHTML(el: Element): string {
         const tagName = el.tagName.toLowerCase();
 
         if (SKIP_TAGS.has(el.tagName)) {
@@ -1061,11 +1071,13 @@ if ((window as any).hasRun) {
     let hiddenElementCache = new WeakMap<Element, boolean>();
     let structuralBoundaryCache = new WeakMap<Element, boolean>();
     let interactiveControlsCache = new WeakMap<Element, boolean>();
+    let simplifiedHtmlCache = new WeakMap<Element, string>();
 
     function resetCollectionAnalysisCaches(): void {
         hiddenElementCache = new WeakMap<Element, boolean>();
         structuralBoundaryCache = new WeakMap<Element, boolean>();
         interactiveControlsCache = new WeakMap<Element, boolean>();
+        simplifiedHtmlCache = new WeakMap<Element, string>();
     }
 
     function computeIsHiddenElement(el: Element): boolean {
