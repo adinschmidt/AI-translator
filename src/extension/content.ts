@@ -1229,12 +1229,15 @@ if ((window as any).hasRun) {
             }
         }
 
+        // getNodeSimplifiedHTML already emits only allow-listed tags/attributes
+        // with escaped values, so the serialized output is safe by construction.
+        // The translated result is sanitized again at apply time
+        // (applyRegionTranslation), which is the real security boundary, so a
+        // per-node DOMPurify round-trip here is redundant and expensive — and its
+        // exact-equality check spuriously demoted legitimately safe inline
+        // elements to BOUNDARY (dropping their translation).
         const serialized = getNodeSimplifiedHTML(el);
-        if (!serialized.trim()) {
-            return false;
-        }
-
-        return sanitizeTranslatedHTML(serialized) === serialized;
+        return serialized.trim().length > 0;
     }
 
     function isSafeTranslationUnit(el: Element): boolean {
