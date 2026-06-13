@@ -1052,10 +1052,23 @@ if ((window as any).hasRun) {
         }
     }
 
-    function isHiddenElement(el: Element): boolean {
-        if (!el || el.nodeType !== Node.ELEMENT_NODE) {
-            return false;
-        }
+    // Per-collection-pass memoization caches. They are reset at the start of
+    // each region-collection pass (collectRegionTranslationUnits), which runs
+    // synchronously and is the only path that exercises the cached predicates.
+    // Caching is safe within a pass because the element structure is not mutated
+    // during collection — only comment markers are inserted, and these predicates
+    // only inspect element tags, attributes, and computed styles.
+    let hiddenElementCache = new WeakMap<Element, boolean>();
+    let structuralBoundaryCache = new WeakMap<Element, boolean>();
+    let interactiveControlsCache = new WeakMap<Element, boolean>();
+
+    function resetCollectionAnalysisCaches(): void {
+        hiddenElementCache = new WeakMap<Element, boolean>();
+        structuralBoundaryCache = new WeakMap<Element, boolean>();
+        interactiveControlsCache = new WeakMap<Element, boolean>();
+    }
+
+    function computeIsHiddenElement(el: Element): boolean {
         if ((el as any).hidden || el.getAttribute("hidden") !== null) {
             return true;
         }
@@ -1078,6 +1091,19 @@ if ((window as any).hasRun) {
             // Some host nodes can throw while styles are resolving; keep walking.
         }
         return false;
+    }
+
+    function isHiddenElement(el: Element): boolean {
+        if (!el || el.nodeType !== Node.ELEMENT_NODE) {
+            return false;
+        }
+        const cached = hiddenElementCache.get(el);
+        if (cached !== undefined) {
+            return cached;
+        }
+        const result = computeIsHiddenElement(el);
+        hiddenElementCache.set(el, result);
+        return result;
     }
 
     function isElementMarkedNoTranslate(el: Element): boolean {
@@ -1111,31 +1137,43 @@ if ((window as any).hasRun) {
     }
 
     function containsInteractiveControls(el: Element): boolean {
-        if (isInteractiveElement(el)) {
-            return true;
+        const cached = interactiveControlsCache.get(el);
+        if (cached !== undefined) {
+            return cached;
         }
-        const interactiveDescendant = el.querySelector(
-            'button, input, textarea, select, [role="button"], [contenteditable="true"]',
-        );
-        return interactiveDescendant !== null;
+        let result = isInteractiveElement(el);
+        if (!result) {
+            for (const child of Array.from(el.children)) {
+                if (containsInteractiveControls(child)) {
+                    result = true;
+                    break;
+                }
+            }
+        }
+        interactiveControlsCache.set(el, result);
+        return result;
     }
 
     function hasDescendantStructuralBoundary(el: Element): boolean {
-        for (const descendant of Array.from(el.querySelectorAll("*"))) {
+        const cached = structuralBoundaryCache.get(el);
+        if (cached !== undefined) {
+            return cached;
+        }
+        let result = false;
+        for (const child of Array.from(el.children)) {
             if (
-                STRUCTURAL_BOUNDARY_TAGS.has(descendant.tagName) ||
-                BLOCK_LEVEL_TAGS.has(descendant.tagName)
+                STRUCTURAL_BOUNDARY_TAGS.has(child.tagName) ||
+                BLOCK_LEVEL_TAGS.has(child.tagName) ||
+                (child.tagName === "DIV" &&
+                    (child.textContent?.trim().length ?? 0) > 0) ||
+                hasDescendantStructuralBoundary(child)
             ) {
-                return true;
-            }
-            if (
-                descendant.tagName === "DIV" &&
-                descendant.textContent?.trim().length
-            ) {
-                return true;
+                result = true;
+                break;
             }
         }
-        return false;
+        structuralBoundaryCache.set(el, result);
+        return result;
     }
 
     function canRoundTripInlineSubtree(node: Node): boolean {
@@ -1419,6 +1457,7 @@ if ((window as any).hasRun) {
      * @returns Array of RegionTranslationUnits for all regions across all unit elements
      */
     function collectRegionTranslationUnits(runId: string): RegionTranslationUnit[] {
+        resetCollectionAnalysisCaches();
         const units: RegionTranslationUnit[] = [];
         const seenElements = new WeakSet<Element>();
 
