@@ -2397,9 +2397,15 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     } else if (info.menuItemId === "translateFullPage") {
         console.log("Action: Translate Full Page requested for tab:", tabId);
 
+        // Target only the top frame. The content script runs in all_frames, so
+        // an untargeted sendMessage would broadcast to every subframe — each
+        // (including cross-origin ad/embed iframes) would independently spin up
+        // its own translation run, batches, and loading indicator, multiplying
+        // API cost and cluttering the UI.
         chrome.tabs.sendMessage(
             tabId,
             { action: "startElementTranslation" },
+            { frameId: 0 },
             (response) => {
                 if (chrome.runtime.lastError) {
                     console.error(
