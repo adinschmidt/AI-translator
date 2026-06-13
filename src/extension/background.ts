@@ -990,52 +990,6 @@ function notifyContentScriptWithDetection(
     });
 }
 
-async function translateElementText(
-    textToTranslate: string,
-    elementPath: string,
-    tabId: number,
-): Promise<string> {
-    console.log(
-        `Translating element text (length: ${textToTranslate.length}) for path: ${elementPath}`,
-    );
-
-    const storage = await getStorage([
-        STORAGE_KEYS.API_KEY,
-        STORAGE_KEYS.API_ENDPOINT,
-        STORAGE_KEYS.API_TYPE,
-        STORAGE_KEYS.MODEL_NAME,
-        STORAGE_KEYS.PROVIDER_SETTINGS,
-        STORAGE_KEYS.SETTINGS_MODE,
-        STORAGE_KEYS.BASIC_TARGET_LANGUAGE,
-    ]);
-
-    const { provider: settings } = resolveTranslationProfile(storage);
-
-    const {
-        apiKey: finalKey,
-        apiEndpoint: finalEndpoint,
-        apiType: finalType,
-        modelName: finalModel,
-        translationInstructions: finalInstructions,
-    } = settings;
-
-    if (!finalEndpoint || (!finalKey && finalType !== "ollama")) {
-        throw new Error(
-            "API Key or Endpoint not set. Please configure in extension settings.",
-        );
-    }
-
-    return translateTextApiCall(
-        textToTranslate,
-        finalKey,
-        finalEndpoint,
-        finalType,
-        false,
-        finalModel,
-        finalInstructions,
-    );
-}
-
 function estimateTokens(text: string): number {
     if (!text) return 0;
     return Math.ceil(text.length / CHARS_PER_TOKEN_ESTIMATE);
@@ -2134,62 +2088,6 @@ const messageListener: MessageListener = (
         return;
     }
 
-    if (request.action === "translateHTMLUnits") {
-        console.log("Received translateHTMLUnits request:", {
-            unitCount: request.units?.length,
-        });
-
-        if (
-            !request.units ||
-            !Array.isArray(request.units) ||
-            request.units.length === 0
-        ) {
-            sendResponse({ status: "error", error: "No units provided" });
-            return;
-        }
-
-        translateHTMLUnits(request.units, request.targetLanguage)
-            .then((results) => {
-                console.log("translateHTMLUnits completed, count:", results.length);
-                sendResponse({ results });
-            })
-            .catch((error) => {
-                console.error("translateHTMLUnits error:", error);
-                sendResponse({ status: "error", error: (error as any).message });
-            });
-
-        return true;
-    }
-
-    if (request.action === "translateElement") {
-        console.log("Received translateElement request:", {
-            textLength: request.text?.length,
-            elementPath: request.elementPath,
-        });
-
-        if (sender.tab?.id) {
-            translateElementText(request.text, request.elementPath, sender.tab.id)
-                .then((translation) => {
-                    console.log(
-                        "Element translation completed for:",
-                        request.elementPath,
-                    );
-                    sendResponse({ translatedText: translation });
-                })
-                .catch((error) => {
-                    console.error("Element translation error:", error);
-                    sendResponse({
-                        status: "error",
-                        error: (error as any).message,
-                        elementPath: request.elementPath,
-                    });
-                });
-        } else {
-            console.error("Could not get sender tab ID for element translation.");
-            sendResponse({ status: "error", error: "No sender tab ID" });
-        }
-        return true;
-    }
 };
 
 const onConnect = (port: chrome.runtime.Port): void => {

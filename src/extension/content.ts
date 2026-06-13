@@ -183,7 +183,6 @@ if ((window as any).hasRun) {
     ];
 
     const MAX_HTML_UNIT_CHARS = 12000;
-    const CHARS_PER_TOKEN_ESTIMATE = 4;
 
     const HTML_UNIT_ALLOWED_TAGS = new Set([
         "a",
@@ -242,15 +241,6 @@ if ((window as any).hasRun) {
     }
 
     void initializeI18nFromStorage();
-
-    function htmlUnitNeedsSplitting(html: string): boolean {
-        return html.length > MAX_HTML_UNIT_CHARS;
-    }
-
-    function estimateHTMLTokens(html: string): number {
-        if (!html) return 0;
-        return Math.ceil(html.length / CHARS_PER_TOKEN_ESTIMATE);
-    }
 
     function getNodeSimplifiedHTML(node: Node): string {
         if (node.nodeType === Node.TEXT_NODE) {
@@ -1277,70 +1267,6 @@ if ((window as any).hasRun) {
         return true;
     }
 
-    function extractUnitHTML(element: Element): string {
-        if (!element || element.nodeType !== Node.ELEMENT_NODE) {
-            return "";
-        }
-
-        const clone = element.cloneNode(true);
-
-        function processNode(node: Node): string {
-            if (node.nodeType === Node.TEXT_NODE) {
-                return node.textContent || "";
-            }
-
-            if (node.nodeType !== Node.ELEMENT_NODE) {
-                return "";
-            }
-
-            const el = node as Element;
-            const tagName = el.tagName.toLowerCase();
-
-            if (SKIP_TAGS.has(el.tagName)) {
-                return "";
-            }
-
-            let childContent = "";
-            for (const child of Array.from(el.childNodes)) {
-                childContent += processNode(child);
-            }
-
-            if (HTML_UNIT_ALLOWED_TAGS.has(tagName)) {
-                const attrs: string[] = [];
-                for (const attr of Array.from(el.attributes)) {
-                    if (HTML_UNIT_ALLOWED_ATTRS.has(attr.name)) {
-                        if (attr.name === "href") {
-                            const sanitized = sanitizeUnitHref(attr.value);
-                            if (sanitized) {
-                                attrs.push(`href="${escapeHtmlAttr(sanitized)}"`);
-                            }
-                        } else {
-                            attrs.push(`${attr.name}="${escapeHtmlAttr(attr.value)}"`);
-                        }
-                    }
-                }
-
-                if (tagName === "br" || tagName === "wbr") {
-                    return `<${tagName}${attrs.length ? " " + attrs.join(" ") : ""}>`;
-                }
-
-                const attrStr = attrs.length ? " " + attrs.join(" ") : "";
-                return `<${tagName}${attrStr}>${childContent}</${tagName}>`;
-            }
-
-            return childContent;
-        }
-
-        let result = "";
-        for (const child of Array.from(clone.childNodes)) {
-            result += processNode(child);
-        }
-
-        result = result.replace(/\s+/g, " ").trim();
-
-        return result;
-    }
-
     function sanitizeUnitHref(href: string): string | null {
         if (!href || typeof href !== "string") {
             return null;
@@ -1375,13 +1301,6 @@ if ((window as any).hasRun) {
             .replace(/>/g, "&gt;");
     }
 
-    interface HTMLTranslationUnit {
-        element: Element;
-        html: string;
-        chunkIndex?: number;
-        totalChunks?: number;
-    }
-
     // Minimal unit type for translation requests (element not needed for background)
     interface TranslationRequestUnit {
         id?: number;
@@ -1390,80 +1309,8 @@ if ((window as any).hasRun) {
         totalChunks?: number;
     }
 
-    function collectHTMLTranslationUnits(): HTMLTranslationUnit[] {
-        const units: HTMLTranslationUnit[] = [];
-        const seenElements = new WeakSet<Element>();
-
-        function traverse(root: Element): void {
-            if (!root || root.nodeType !== Node.ELEMENT_NODE) {
-                return;
-            }
-
-            if (SKIP_TAGS.has(root.tagName)) {
-                return;
-            }
-
-            if (isHiddenElement(root)) {
-                return;
-            }
-
-            if (isElementMarkedNoTranslate(root) || isInteractiveElement(root)) {
-                return;
-            }
-
-            if (isExtensionUI(root)) {
-                return;
-            }
-
-            if (isSafeTranslationUnit(root) && !seenElements.has(root)) {
-                seenElements.add(root);
-
-                const html = extractUnitHTML(root);
-
-                if (html.length > 0) {
-                    if (htmlUnitNeedsSplitting(html)) {
-                        const chunks = splitHTMLUnitByChildNodes(
-                            root,
-                            MAX_HTML_UNIT_CHARS,
-                        );
-                        console.log(
-                            `HTML unit split into ${chunks.length} chunks (original: ${html.length} chars)`,
-                        );
-                        for (let i = 0; i < chunks.length; i++) {
-                            if (chunks[i].html.length > 0) {
-                                units.push({
-                                    element: root,
-                                    html: chunks[i].html,
-                                    chunkIndex: i,
-                                    totalChunks: chunks.length,
-                                });
-                            }
-                        }
-                    } else {
-                        units.push({
-                            element: root,
-                            html: html,
-                        });
-                    }
-                }
-
-                return;
-            }
-
-            for (const child of Array.from(root.children)) {
-                traverse(child);
-            }
-        }
-
-        traverse(document.body);
-
-        console.log(`collectHTMLTranslationUnits: found ${units.length} units`);
-        return units;
-    }
-
     /**
      * Collects region-based translation units from all safe unit elements on the page.
-     * This is the region-based alternative to collectHTMLTranslationUnits.
      *
      * For each "safe" unit element, identifies translatable regions (contiguous text runs)
      * and generates translation units per region. Non-text nodes (images, icons) are
@@ -1577,45 +1424,6 @@ if ((window as any).hasRun) {
         return sanitized;
     }
 
-    function applyTranslatedHTML(element: Element, translatedHtml: string): boolean {
-        if (!element || element.nodeType !== Node.ELEMENT_NODE) {
-            console.warn("applyTranslatedHTML: invalid element");
-            return false;
-        }
-
-        if (!translatedHtml || typeof translatedHtml !== "string") {
-            console.warn("applyTranslatedHTML: empty or invalid translatedHtml");
-            return false;
-        }
-
-        try {
-            const sanitized = sanitizeTranslatedHTML(translatedHtml);
-
-            if (!sanitized || sanitized.trim().length === 0) {
-                console.warn("applyTranslatedHTML: sanitization produced empty result");
-                return false;
-            }
-
-            const temp = document.createElement("template");
-            temp.innerHTML = sanitized;
-            const fragment = temp.content;
-
-            while (element.firstChild) {
-                element.removeChild(element.firstChild);
-            }
-
-            element.appendChild(fragment.cloneNode(true));
-
-            console.log(
-                `applyTranslatedHTML: applied ${sanitized.length} chars to ${element.tagName}`,
-            );
-            return true;
-        } catch (error) {
-            console.error("applyTranslatedHTML error:", error);
-            return false;
-        }
-    }
-
     const MAX_TEXT_SAMPLE_FOR_DETECTION = 512;
 
     function getLocalizedLanguageDisplayName(languageCode: string): string {
@@ -1677,9 +1485,7 @@ if ((window as any).hasRun) {
     let translationPopup: HTMLElement | null = null;
     const translationPopupsByRequestId = new Map<string, HTMLElement>();
     let loadingIndicator: HTMLElement | null = null;
-    let originalBodyContent: string | null = null;
     let isTranslated = false;
-    let stopTranslationFlag = false;
 
     let activeStreamPort: chrome.runtime.Port | null = null;
     let activeStreamRequestId: string | null = null;
@@ -1874,41 +1680,6 @@ if ((window as any).hasRun) {
                 break;
             }
 
-            case "getPageText":
-                (function () {
-                    const pageHtml = extractMainContentHTML();
-                    console.log("Extracted page HTML length:", pageHtml.length);
-                    sendResponse({ text: pageHtml });
-                })();
-                return true;
-
-            case "applyFullPageTranslation":
-                if (req.html) {
-                    try {
-                        const target = document.querySelector("main") || document.body;
-                        console.log(
-                            "Applying full page translation to target element:",
-                            target?.tagName,
-                            "Translated HTML length:",
-                            req.html.length,
-                        );
-                        if (target) {
-                            setSanitizedContent(target as HTMLElement, req.html);
-                        }
-                        removeLoadingIndicator();
-                        sendResponse({ status: "applied" });
-                    } catch (e) {
-                        console.error("Error applying full page translation:", e);
-                        removeLoadingIndicator();
-                        sendResponse({ status: "error", message: (e as Error).message });
-                    }
-                } else {
-                    console.error("applyFullPageTranslation called without html content");
-                    removeLoadingIndicator();
-                    sendResponse({ status: "error", message: "No HTML provided" });
-                }
-                break;
-
             case "extractSelectedHtml":
                 const selectedHtml = extractSelectedHtml();
                 console.log("Extracted selected HTML:", selectedHtml);
@@ -1950,11 +1721,6 @@ if ((window as any).hasRun) {
                 sendResponse({ status: "received" });
                 break;
 
-            case "elementTranslationResult":
-                handleElementTranslationResult(req);
-                sendResponse({ status: "received" });
-                break;
-
             case "showLoadingIndicator":
                 if (req.isFullPage) {
                     displayLoadingIndicator(
@@ -1973,8 +1739,6 @@ if ((window as any).hasRun) {
                 sendResponse({ status: "unknown action" });
                 break;
         }
-
-        return (req.action === "getPageText") as true | void;
     };
 
     chrome.runtime.onMessage.addListener(messageListener);
@@ -2772,193 +2536,6 @@ if ((window as any).hasRun) {
         return root.innerHTML;
     }
 
-    function extractMainContentHTML(): string {
-        const mainElement = document.querySelector("main") || document.body;
-        const clonedBody = mainElement?.cloneNode(true) as Element;
-
-        clonedBody
-            .querySelectorAll(
-                'script, style, nav, header, footer, aside, form, button, input, textarea, select, [aria-hidden="true"], noscript',
-            )
-            .forEach((el) => el.remove());
-
-        return clonedBody.innerHTML;
-    }
-
-    function getTranslatableElements(): Array<{
-        element: Element;
-        text: string;
-        path: string;
-    }> {
-        const elements: Array<{ element: Element; text: string; path: string }> = [];
-
-        const walker = document.createTreeWalker(
-            document.body,
-            NodeFilter.SHOW_ELEMENT,
-            {
-                acceptNode: function (node: Node) {
-                    const el = node as Element;
-                    if (
-                        el.parentElement &&
-                        ["SCRIPT", "STYLE", "NOSCRIPT"].includes(el.parentElement.tagName)
-                    ) {
-                        return NodeFilter.FILTER_REJECT;
-                    }
-
-                    if (
-                        el.closest(TRANSLATION_POPUP_SELECTOR) ||
-                        el.closest("#translation-loading-indicator")
-                    ) {
-                        return NodeFilter.FILTER_REJECT;
-                    }
-
-                    if (["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(el.tagName)) {
-                        return NodeFilter.FILTER_REJECT;
-                    }
-
-                    const textContent = el.textContent?.trim() || "";
-                    if (textContent.length > 3) {
-                        return NodeFilter.FILTER_ACCEPT;
-                    }
-
-                    return NodeFilter.FILTER_REJECT;
-                },
-            },
-            false,
-        );
-
-        let node;
-        while ((node = walker.nextNode())) {
-            elements.push({
-                element: node as Element,
-                text: extractPlainText(node as Element),
-                path: getElementPath(node as Element),
-            });
-        }
-
-        return elements;
-    }
-
-    function extractPlainText(element: Element): string {
-        return element.textContent.trim();
-    }
-
-    function getElementPath(element: Element): string {
-        if (element === document.body) return "body";
-
-        const parts: string[] = [];
-        while (element && element !== document.body) {
-            const part = element.tagName.toLowerCase();
-            const index =
-                Array.from(element.parentNode?.children || []).indexOf(element) + 1;
-            parts.unshift(`${part}:nth-child(${index})`);
-            element = element.parentElement!;
-        }
-        return parts.join(" > ");
-    }
-
-    function findElementByPath(path: string): Element | null {
-        try {
-            if (path.includes(" > ")) {
-                const parts = path.split(" > ");
-                let element: Element = document.body;
-
-                for (const part of parts) {
-                    const [tag, nthChild] = part.split(":nth-child(");
-                    const index = parseInt(nthChild.replace(")", "")) - 1;
-                    const children = Array.from(element.children);
-                    element = children[index];
-                    if (!element || element.tagName.toLowerCase() !== tag) {
-                        return null;
-                    }
-                }
-                return element;
-            }
-
-            if (path === "body") {
-                return document.body;
-            }
-
-            return null;
-        } catch (error) {
-            console.warn("Error finding element by path:", error);
-            return null;
-        }
-    }
-
-    async function translatePageElements(): Promise<void> {
-        console.log("Starting element-by-element page translation...");
-
-        stopTranslationFlag = false;
-
-        const elements = getTranslatableElements();
-        console.log(`Found ${elements.length} translatable elements`);
-
-        if (elements.length === 0) {
-            console.log("No translatable elements found");
-            return;
-        }
-
-        displayLoadingIndicator(
-            t(
-                "contentTranslatingElementsCount",
-                "Translating $1 elements...",
-                String(elements.length),
-            ),
-        );
-
-        const batchSize = 3;
-        const batches = [];
-        for (let i = 0; i < elements.length; i += batchSize) {
-            batches.push(elements.slice(i, i + batchSize));
-        }
-
-        let completed = 0;
-        let errorCount = 0;
-
-        for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
-            if (stopTranslationFlag) {
-                console.log("Translation stopped by user.");
-                removeLoadingIndicator();
-                displayPopup(
-                    t("contentTranslationStoppedByUser", "Translation stopped by user."),
-                    true,
-                    false,
-                );
-                return;
-            }
-
-            const batch = batches[batchIndex];
-
-            await Promise.all(
-                batch.map(async (item) => {
-                    if (stopTranslationFlag) {
-                        return;
-                    }
-
-                    try {
-                        await translateElement(item);
-                        completed++;
-                    } catch (error) {
-                        console.error("Element translation error:", error);
-                        errorCount++;
-                        markElementTranslationError(item.element, error as Error);
-                    }
-
-                    updateLoadingProgress(completed, elements.length, errorCount);
-                }),
-            );
-
-            console.log(`Completed batch ${batchIndex + 1}/${batches.length}`);
-        }
-
-        console.log(
-            `Translation complete. ${completed} elements translated, ${errorCount} errors.`,
-        );
-
-        setTimeout(() => removeLoadingIndicator(), 1000);
-    }
-
     function getChunkProgressMessage(
         translatedChunks: number,
         totalChunks: number,
@@ -3000,7 +2577,6 @@ if ((window as any).hasRun) {
     async function translatePageV3(): Promise<void> {
         console.log("Starting translatePageV3 (region-based HTML-preserving)...");
 
-        stopTranslationFlag = false;
         const runId = `run-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         const run = new FullPageTranslationRun(runId);
         activeFullPageRun = run;
@@ -3232,7 +2808,6 @@ if ((window as any).hasRun) {
     }
 
     function stopTranslation(): void {
-        stopTranslationFlag = true;
         const run = activeFullPageRun;
         if (run) {
             run.cancel();
@@ -3388,162 +2963,6 @@ if ((window as any).hasRun) {
         stopButtonEl.onclick = stopTranslation;
 
         document.body.appendChild(loadingIndicator);
-    }
-
-    function markElementTranslationError(element: Element, error: Error): void {
-        try {
-            const marker = document.createElement("span");
-            marker.textContent = t(
-                "contentTranslationErrorMarker",
-                " [translation error]",
-            );
-            marker.title =
-                error && error.message
-                    ? error.message
-                    : t("contentTranslationFailed", "Translation failed");
-            marker.style.color = "#ef4444";
-            marker.style.fontSize = "0.75em";
-            marker.style.marginLeft = "4px";
-            marker.style.fontStyle = "italic";
-            marker.style.opacity = "0.9";
-            marker.style.pointerEvents = "auto";
-            element.appendChild(marker);
-        } catch (e) {
-            console.error("Failed to mark element translation error:", e);
-        }
-    }
-
-    async function translateElement(elementData: {
-        element: Element;
-        text: string;
-        path: string;
-    }): Promise<void> {
-        return new Promise((resolve, reject) => {
-            chrome.runtime.sendMessage(
-                {
-                    action: "translateElement",
-                    text: elementData.text,
-                    elementPath: elementData.path,
-                } as ContentToBackgroundMessage,
-                (response) => {
-                    if (chrome.runtime.lastError) {
-                        reject(new Error(chrome.runtime.lastError.message));
-                        return;
-                    }
-
-                    if (response && response.translatedText) {
-                        updateElementTextInline(
-                            elementData.element,
-                            elementData.text,
-                            response.translatedText as string,
-                        );
-                        resolve();
-                    } else {
-                        reject(
-                            new Error(
-                                t(
-                                    "contentNoTranslationReceived",
-                                    "No translation received",
-                                ),
-                            ),
-                        );
-                    }
-                },
-            );
-        });
-    }
-
-    function updateElementTextInline(
-        element: Element,
-        originalText: string,
-        translatedText: string,
-    ): void {
-        try {
-            console.log(
-                `Updating element ${element.tagName} with inline text replacement`,
-            );
-            console.log(`Original: "${originalText.substring(0, 50)}..."`);
-            console.log(`Translated: "${translatedText.substring(0, 50)}..."`);
-
-            const walker = document.createTreeWalker(
-                element,
-                NodeFilter.SHOW_TEXT,
-                {
-                    acceptNode: function (node: Node) {
-                        if (!node.nodeValue?.trim()) {
-                            return NodeFilter.FILTER_REJECT;
-                        }
-                        return NodeFilter.FILTER_ACCEPT;
-                    },
-                },
-                false,
-            );
-
-            let textNode;
-            const textNodes: Text[] = [];
-            while ((textNode = walker.nextNode())) {
-                textNodes.push(textNode as Text);
-            }
-
-            if (textNodes.length === 0) {
-                console.warn("No text nodes found in element");
-                return;
-            }
-
-            const firstTextNode = textNodes[0];
-            firstTextNode.nodeValue = translatedText;
-
-            console.log(`Successfully updated text in element: ${element.tagName}`);
-        } catch (error) {
-            console.error("Error updating element text inline:", error);
-        }
-    }
-
-    function handleElementTranslationResult(req: BackgroundToContentMessage): void {
-        if ((req as any).error) {
-            console.error("Element translation error:", (req as any).error);
-            return;
-        }
-
-        if ((req as any).translatedText && (req as any).elementPath) {
-            const element = findElementByPath((req as any).elementPath);
-            if (element) {
-                updateElementTextInline(
-                    element,
-                    (req as any).originalText,
-                    (req as any).translatedText,
-                );
-                console.log(`Updated element at path ${(req as any).elementPath}`);
-            } else {
-                console.warn(
-                    `Could not find element at path: ${(req as any).elementPath}`,
-                );
-            }
-        }
-    }
-
-    function updateLoadingProgress(
-        completed: number,
-        total: number,
-        errors: number,
-    ): void {
-        if (loadingIndicator) {
-            const progress = Math.round((completed / total) * 100);
-            const errorText =
-                errors > 0
-                    ? t("contentProgressErrorSuffix", " ($1 errors)", String(errors))
-                    : "";
-            const progressText = loadingIndicator.querySelector(
-                ".progress-text",
-            ) as HTMLElement;
-            if (progressText) {
-                progressText.textContent = t(
-                    "contentTranslatingElementsProgress",
-                    "Translating elements... $1/$2 ($3%)$4",
-                    [String(completed), String(total), String(progress), errorText],
-                );
-            }
-        }
     }
 
     function displayLoadingIndicator(

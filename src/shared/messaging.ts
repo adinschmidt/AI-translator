@@ -73,15 +73,6 @@ export interface DisplayTranslationMessage extends BaseMessage {
     targetLanguageName?: string;
 }
 
-export interface GetPageTextMessage extends BaseMessage {
-    action: "getPageText";
-}
-
-export interface ApplyFullPageTranslationMessage extends BaseMessage {
-    action: "applyFullPageTranslation";
-    html: string;
-}
-
 export interface ExtractSelectedHtmlMessage extends BaseMessage {
     action: "extractSelectedHtml";
 }
@@ -93,14 +84,6 @@ export interface StartElementTranslationMessage extends BaseMessage {
     debugInfo?: string;
     translatedHtml?: string;
     requestId?: string;
-}
-
-export interface ElementTranslationResultMessage extends BaseMessage {
-    action: "elementTranslationResult";
-    originalText?: string;
-    translatedText?: string;
-    elementPath?: string;
-    error?: string;
 }
 
 export interface ShowLoadingIndicatorMessage extends BaseMessage {
@@ -133,25 +116,10 @@ export interface TranslateSelectedHtmlMessage extends BaseMessage {
     html: string;
 }
 
-export interface TranslateElementMessage extends BaseMessage {
-    action: "translateElement";
-    text: string;
-    elementPath: string;
-}
-
-export interface TranslateHTMLUnitsMessage extends BaseMessage {
-    action: "translateHTMLUnits";
-    units: unknown[];
-    targetLanguage: string;
-}
-
 export type BackgroundToContentMessage =
     | DisplayTranslationMessage
-    | GetPageTextMessage
-    | ApplyFullPageTranslationMessage
     | ExtractSelectedHtmlMessage
     | StartElementTranslationMessage
-    | ElementTranslationResultMessage
     | ShowLoadingIndicatorMessage;
 
 export type ContentToBackgroundMessage =
@@ -159,9 +127,7 @@ export type ContentToBackgroundMessage =
     | GetTargetLanguageMessage
     | GetTranslationContextMessage
     | TranslateSelectedHtmlWithDetectionMessage
-    | TranslateSelectedHtmlMessage
-    | TranslateElementMessage
-    | TranslateHTMLUnitsMessage;
+    | TranslateSelectedHtmlMessage;
 
 export type AnyExtensionMessage = BackgroundToContentMessage | ContentToBackgroundMessage;
 
