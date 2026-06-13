@@ -264,8 +264,13 @@ export class FullPageTranslationRun {
             return;
         }
 
+        // Trim each chunk before joining so a chunk that begins or ends with
+        // whitespace does not produce a doubled space at the seam. A single
+        // separating space matches how serializeRegionNodes normalizes
+        // whitespace when the chunks are first extracted.
         const combinedHtml = orderedChunks
-            .map((chunk) => chunk.translatedHtml)
+            .map((chunk) => chunk.translatedHtml.trim())
+            .filter((html) => html.length > 0)
             .join(" ");
 
         if (!combinedHtml.trim()) {
