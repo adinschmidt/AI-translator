@@ -1086,6 +1086,22 @@ function batchHTMLUnits(units: HTMLUnit[]): HTMLUnit[][] {
     return batches;
 }
 
+function resolveBatchOutputTokens(provider: Provider, combinedInput: string): number {
+    // maxTokens is only a ceiling — billing is by tokens actually produced — so
+    // budget generously above the input. Translations routinely expand, and a
+    // too-low cap truncates the response, dropping the unit separators and
+    // forcing redundant strict-retry + half-split API calls. Stay at or above
+    // the legacy floor and below the provider's full-page ceiling (going above a
+    // model's real limit would error); providers with no cap scale with input.
+    const scaled = Math.ceil(estimateTokens(combinedInput) * 3) + 512;
+    const providerCeiling = resolveProviderMaxTokens(provider, true);
+    if (providerCeiling === undefined) {
+        return Math.max(MAX_BATCH_OUTPUT_TOKENS, scaled);
+    }
+    const ceiling = Math.max(MAX_BATCH_OUTPUT_TOKENS, providerCeiling);
+    return Math.min(Math.max(MAX_BATCH_OUTPUT_TOKENS, scaled), ceiling);
+}
+
 async function translateHTMLBatch(
     batch: HTMLUnit[],
     settings: EffectiveProviderSettings,
@@ -1118,6 +1134,7 @@ async function translateHTMLBatch(
     }
 
     const model = resolveProviderModel(apiType, apiKey, apiEndpoint, modelName);
+    const maxOutputTokens = resolveBatchOutputTokens(apiType, combinedInput);
 
     const result = await withRateLimitRetry(
         () =>
@@ -1125,7 +1142,7 @@ async function translateHTMLBatch(
                 model,
                 system: systemPrompt,
                 prompt: userPrompt,
-                maxTokens: MAX_BATCH_OUTPUT_TOKENS,
+                maxTokens: maxOutputTokens,
                 abortSignal: signal || undefined,
             }),
         `translateHTMLBatch (${batch.length} units)`,
