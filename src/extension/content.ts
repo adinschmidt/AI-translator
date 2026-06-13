@@ -3178,6 +3178,16 @@ if ((window as any).hasRun) {
                 activeFullPageRun?.runId !== runId ||
                 run.cancelled;
             if (wasCancelled) {
+                if (run.cancelled) {
+                    // User-initiated stop: stopTranslation() already cleaned up
+                    // markers, rendered the stopped indicator, and cleared
+                    // activeFullPageRun. Don't render a second indicator (which
+                    // would also schedule a competing removal timer).
+                    console.log(
+                        "translatePageV3 cancelled (handled by stopTranslation)",
+                    );
+                    return;
+                }
                 console.log("translatePageV3 cancelled");
                 const progress = run.getProgress();
                 for (const element of run.parentElements) {
