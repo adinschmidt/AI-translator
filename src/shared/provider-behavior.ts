@@ -127,25 +127,6 @@ export function resolveProviderHeaders(
     };
 }
 
-export function resolveProviderMaxTokens(
-    provider: Provider,
-    isFullPage: boolean,
-): number | undefined {
-    if (provider === "openrouter") {
-        return isFullPage ? 8192 : 2048;
-    }
-
-    if (provider === "google") {
-        return isFullPage ? 65536 : 8000;
-    }
-
-    if (provider === "groq" || provider === "cerebras") {
-        return undefined;
-    }
-
-    return isFullPage ? 4000 : 800;
-}
-
 export function shouldStripProviderReasoning(provider: Provider): boolean {
     return provider === "groq" || provider === "cerebras";
 }

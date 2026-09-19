@@ -34,7 +34,6 @@ import {
     MAX_BATCH_INPUT_TOKENS,
     MAX_BATCH_UNITS,
     MAX_BATCH_INPUT_CHARS,
-    MAX_BATCH_OUTPUT_TOKENS,
     HTML_UNIT_SEPARATOR,
     MAX_UNIT_TOKENS,
     STREAM_UPDATE_THROTTLE_MS,
@@ -58,7 +57,6 @@ import {
 import {
     normalizeProviderBaseUrl,
     resolveProviderHeaders,
-    resolveProviderMaxTokens,
     shouldStripProviderReasoning,
 } from "../shared/provider-behavior";
 import { resolveTranslationProfile } from "../shared/translation-profile";
@@ -1125,7 +1123,6 @@ async function translateHTMLBatch(
                 model,
                 system: systemPrompt,
                 prompt: userPrompt,
-                maxTokens: MAX_BATCH_OUTPUT_TOKENS,
                 abortSignal: signal || undefined,
             }),
         `translateHTMLBatch (${batch.length} units)`,
@@ -1432,7 +1429,6 @@ async function streamSelectedTranslation(
     const systemPrompt = shouldUseInstructPrompt
         ? INSTRUCT_SYSTEM_PROMPT
         : DEFAULT_SYSTEM_PROMPT;
-    const maxTokens = resolveProviderMaxTokens(provider, false);
     const model = resolveProviderModel(provider, apiKey, apiEndpoint, selectedModelName);
 
     const controller = new AbortController();
@@ -1463,7 +1459,6 @@ async function streamSelectedTranslation(
             model,
             system: systemPrompt,
             prompt,
-            maxTokens: maxTokens ?? undefined,
             abortSignal: controller.signal,
         });
 
@@ -1561,7 +1556,6 @@ async function translateTextApiCall(
         ? INSTRUCT_SYSTEM_PROMPT
         : DEFAULT_SYSTEM_PROMPT;
     const model = resolveProviderModel(provider, apiKey, apiEndpoint, selectedModelName);
-    const maxTokens = resolveProviderMaxTokens(provider, isFullPage);
 
     try {
         const result = await withRateLimitRetry(
@@ -1570,7 +1564,6 @@ async function translateTextApiCall(
                     model,
                     system: systemPrompt,
                     prompt,
-                    maxTokens: maxTokens ?? undefined,
                 }),
             "translateTextApiCall",
         );
