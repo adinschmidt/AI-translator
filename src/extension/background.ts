@@ -28,7 +28,6 @@ import {
     CHARS_PER_TOKEN_ESTIMATE,
     MAX_BATCH_INPUT_TOKENS,
     MAX_BATCH_UNITS,
-    MAX_BATCH_OUTPUT_TOKENS,
     HTML_UNIT_SEPARATOR,
     STREAM_UPDATE_THROTTLE_MS,
     STREAM_KEEP_ALIVE_INTERVAL_MS,
@@ -51,7 +50,6 @@ import {
 import {
     normalizeProviderBaseUrl,
     resolveProviderHeaders,
-    resolveProviderMaxTokens,
     shouldStripProviderReasoning,
 } from "../shared/provider-behavior";
 import { resolveTranslationProfile } from "../shared/translation-profile";
@@ -1034,22 +1032,6 @@ function batchHTMLUnits(units: HTMLUnit[]): HTMLUnit[][] {
     return batches;
 }
 
-function resolveBatchOutputTokens(provider: Provider, combinedInput: string): number {
-    // maxTokens is only a ceiling — billing is by tokens actually produced — so
-    // budget generously above the input. Translations routinely expand, and a
-    // too-low cap truncates the response, dropping the unit separators and
-    // forcing redundant strict-retry + half-split API calls. Stay at or above
-    // the legacy floor and below the provider's full-page ceiling (going above a
-    // model's real limit would error); providers with no cap scale with input.
-    const scaled = Math.ceil(estimateTokens(combinedInput) * 3) + 512;
-    const providerCeiling = resolveProviderMaxTokens(provider, true);
-    if (providerCeiling === undefined) {
-        return Math.max(MAX_BATCH_OUTPUT_TOKENS, scaled);
-    }
-    const ceiling = Math.max(MAX_BATCH_OUTPUT_TOKENS, providerCeiling);
-    return Math.min(Math.max(MAX_BATCH_OUTPUT_TOKENS, scaled), ceiling);
-}
-
 async function translateHTMLBatch(
     batch: HTMLUnit[],
     settings: EffectiveProviderSettings,
@@ -1082,7 +1064,6 @@ async function translateHTMLBatch(
     }
 
     const model = resolveProviderModel(apiType, apiKey, apiEndpoint, modelName);
-    const maxOutputTokens = resolveBatchOutputTokens(apiType, combinedInput);
 
     const result = await withRateLimitRetry(
         () =>
@@ -1091,7 +1072,6 @@ async function translateHTMLBatch(
                 ...(settings.reasoning ? { reasoning: settings.reasoning } : {}),
                 system: systemPrompt,
                 prompt: userPrompt,
-                maxOutputTokens,
                 abortSignal: signal || undefined,
             }),
         `translateHTMLBatch (${batch.length} units)`,
@@ -1399,7 +1379,6 @@ async function streamSelectedTranslation(
     const systemPrompt = shouldUseInstructPrompt
         ? INSTRUCT_SYSTEM_PROMPT
         : DEFAULT_SYSTEM_PROMPT;
-    const maxTokens = resolveProviderMaxTokens(provider, false);
     const model = resolveProviderModel(provider, apiKey, apiEndpoint, selectedModelName);
 
     const controller = new AbortController();
@@ -1431,7 +1410,6 @@ async function streamSelectedTranslation(
             ...(reasoning ? { reasoning } : {}),
             system: systemPrompt,
             prompt,
-            maxOutputTokens: maxTokens,
             abortSignal: controller.signal,
         });
 
@@ -1530,7 +1508,6 @@ async function translateTextApiCall(
         ? INSTRUCT_SYSTEM_PROMPT
         : DEFAULT_SYSTEM_PROMPT;
     const model = resolveProviderModel(provider, apiKey, apiEndpoint, selectedModelName);
-    const maxTokens = resolveProviderMaxTokens(provider, isFullPage);
 
     try {
         const result = await withRateLimitRetry(
@@ -1540,7 +1517,6 @@ async function translateTextApiCall(
                     ...(reasoning ? { reasoning } : {}),
                     system: systemPrompt,
                     prompt,
-                    maxOutputTokens: maxTokens,
                 }),
             "translateTextApiCall",
         );
