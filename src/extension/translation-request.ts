@@ -6,8 +6,12 @@ import {
     shouldUseStreamingForSelectedText,
 } from "../shared/provider-behavior";
 
-export interface SelectedTextTranslationRequest {
+export interface TranslationTarget {
     tabId: number;
+    frameId: number;
+}
+
+export interface SelectedTextTranslationRequest extends TranslationTarget {
     requestId: string;
     textToTranslate: string;
     settings: EffectiveProviderSettings;

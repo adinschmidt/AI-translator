@@ -65,6 +65,7 @@ import {
     runSelectedTextTranslationRequest,
     type SelectedTextTranslationErrorMeta,
     type SelectedTextTranslationRequest,
+    type TranslationTarget,
 } from "./translation-request";
 import {
     ensureI18nReady,
@@ -497,7 +498,7 @@ function notifySelectedTranslationLoading(
 ): void {
     if (request.targetLanguageName || request.detectedLanguageName) {
         notifyContentScriptWithDetection(
-            request.tabId,
+            request,
             t("contentTranslating", "Translating..."),
             false,
             false,
@@ -510,7 +511,7 @@ function notifySelectedTranslationLoading(
     }
 
     notifyContentScript(
-        request.tabId,
+        request,
         t("contentTranslating", "Translating..."),
         false,
         false,
@@ -525,7 +526,7 @@ function notifySelectedTranslationSuccess(
 ): void {
     if (request.targetLanguageName || request.detectedLanguageName) {
         notifyContentScriptWithDetection(
-            request.tabId,
+            request,
             translatedText,
             false,
             false,
@@ -538,7 +539,7 @@ function notifySelectedTranslationSuccess(
     }
 
     notifyContentScript(
-        request.tabId,
+        request,
         translatedText,
         false,
         false,
@@ -572,7 +573,7 @@ function notifySelectedTranslationError(
 
     if (request.targetLanguageName || request.detectedLanguageName) {
         notifyContentScriptWithDetection(
-            request.tabId,
+            request,
             errorMsg,
             false,
             true,
@@ -586,7 +587,7 @@ function notifySelectedTranslationError(
     }
 
     notifyContentScript(
-        request.tabId,
+        request,
         errorMsg,
         false,
         true,
@@ -840,11 +841,11 @@ function flushStreamUpdate(
     sendStreamUpdate(streamState, text, detectedLanguageName, targetLanguageName);
 }
 
-function ensureContentScriptInjected(tabId: number): Promise<void> {
+function ensureContentScriptInjected(target: TranslationTarget): Promise<void> {
     return new Promise((resolve, reject) => {
         chrome.scripting.executeScript(
             {
-                target: { tabId: tabId },
+                target: { tabId: target.tabId, frameIds: [target.frameId] },
                 files: ["purify.min.js", "content.js"],
             },
             () => {
@@ -854,7 +855,7 @@ function ensureContentScriptInjected(tabId: number): Promise<void> {
                 }
                 chrome.scripting.insertCSS(
                     {
-                        target: { tabId: tabId },
+                        target: { tabId: target.tabId, frameIds: [target.frameId] },
                         files: ["styles.css"],
                     },
                     () => {
@@ -871,7 +872,7 @@ function ensureContentScriptInjected(tabId: number): Promise<void> {
 }
 
 function notifyContentScript(
-    tabId: number,
+    target: TranslationTarget,
     text: string,
     isFullPage: boolean,
     isError: boolean = false,
@@ -879,6 +880,7 @@ function notifyContentScript(
     requestId: string | null = null,
     debugInfo: string | null = null,
 ): void {
+    const { tabId, frameId } = target;
     const action = isFullPage
         ? isLoading
             ? "showLoadingIndicator"
@@ -910,7 +912,7 @@ function notifyContentScript(
         message.requestId = requestId;
     }
 
-    chrome.tabs.sendMessage(tabId, message, (response) => {
+    chrome.tabs.sendMessage(tabId, message, { frameId }, (response) => {
         if (chrome.runtime.lastError) {
             const errorMessage = chrome.runtime.lastError.message || "";
             if (!errorMessage.includes("Receiving end does not exist")) {
@@ -925,7 +927,7 @@ function notifyContentScript(
 }
 
 function notifyContentScriptWithDetection(
-    tabId: number,
+    target: TranslationTarget,
     text: string,
     isFullPage: boolean,
     isError: boolean,
@@ -935,6 +937,7 @@ function notifyContentScriptWithDetection(
     requestId: string | null = null,
     debugInfo: string | null = null,
 ): void {
+    const { tabId, frameId } = target;
     const action = isFullPage
         ? isLoading
             ? "showLoadingIndicator"
@@ -970,7 +973,7 @@ function notifyContentScriptWithDetection(
         message.requestId = requestId;
     }
 
-    chrome.tabs.sendMessage(tabId, message, (response) => {
+    chrome.tabs.sendMessage(tabId, message, { frameId }, (response) => {
         if (chrome.runtime.lastError) {
             const errorMessage = chrome.runtime.lastError.message || "";
             if (!errorMessage.includes("Receiving end does not exist")) {
@@ -1350,7 +1353,7 @@ async function translateHTMLUnits(
 }
 
 async function streamSelectedTranslation(
-    tabId: number,
+    target: TranslationTarget,
     requestId: string,
     textToTranslate: string,
     apiKey: string,
@@ -1363,6 +1366,7 @@ async function streamSelectedTranslation(
     restoreTranslatedOutput: ((translatedText: string) => string) | null = null,
     reasoning?: EffectiveProviderSettings["reasoning"],
 ): Promise<string | null> {
+    const { tabId, frameId } = target;
     cancelActiveStream(tabId);
 
     const userInstructions = translationInstructions || DEFAULT_TRANSLATION_INSTRUCTIONS;
@@ -1382,7 +1386,7 @@ async function streamSelectedTranslation(
     const model = resolveProviderModel(provider, apiKey, apiEndpoint, selectedModelName);
 
     const controller = new AbortController();
-    const port = chrome.tabs.connect(tabId, { name: STREAM_PORT_NAME });
+    const port = chrome.tabs.connect(tabId, { name: STREAM_PORT_NAME, frameId });
     const streamState: StreamState = {
         requestId,
         controller,
@@ -1546,10 +1550,11 @@ async function translateTextApiCall(
 
 async function getSettingsAndTranslate(
     textToTranslate: string,
-    tabId: number,
+    target: TranslationTarget,
     isFullPage: boolean,
     requestId: string | null = null,
 ): Promise<void> {
+    const { tabId } = target;
     console.log("getSettingsAndTranslate called.", {
         textToTranslate,
         tabId,
@@ -1616,7 +1621,7 @@ async function getSettingsAndTranslate(
               })
             : null;
         notifyContentScript(
-            tabId,
+            target,
             errorMsg,
             isFullPage,
             true,
@@ -1630,7 +1635,7 @@ async function getSettingsAndTranslate(
     if (!isFullPage) {
         void runSelectedTextTranslationRequest(
             {
-                tabId,
+                ...target,
                 requestId: resolvedRequestId,
                 textToTranslate,
                 settings,
@@ -1651,7 +1656,7 @@ async function getSettingsAndTranslate(
                 notifyError: notifySelectedTranslationError,
                 stream: (request) =>
                     streamSelectedTranslation(
-                        request.tabId,
+                        request,
                         request.requestId,
                         request.textToTranslate,
                         request.settings.apiKey,
@@ -1697,7 +1702,7 @@ async function getSettingsAndTranslate(
         .then((translation) => {
             console.log("Translation received (length):", translation.length);
             notifyContentScript(
-                tabId,
+                target,
                 preparedInput.restoreTranslatedOutput(translation),
                 isFullPage,
                 false,
@@ -1723,7 +1728,7 @@ async function getSettingsAndTranslate(
                 });
             }
             notifyContentScript(
-                tabId,
+                target,
                 errorMsg,
                 isFullPage,
                 true,
@@ -1736,12 +1741,13 @@ async function getSettingsAndTranslate(
 
 async function getSettingsAndTranslateWithDetection(
     textToTranslate: string,
-    tabId: number,
+    target: TranslationTarget,
     isFullPage: boolean,
     detectedLanguage: string | null,
     detectedLanguageName: string | null,
     requestId: string | null = null,
 ): Promise<void> {
+    const { tabId } = target;
     console.log("getSettingsAndTranslateWithDetection called.", {
         textToTranslate,
         tabId,
@@ -1834,7 +1840,7 @@ async function getSettingsAndTranslateWithDetection(
               )
             : null;
         notifyContentScriptWithDetection(
-            tabId,
+            target,
             errorMsg,
             isFullPage,
             true,
@@ -1850,7 +1856,7 @@ async function getSettingsAndTranslateWithDetection(
     if (!isFullPage) {
         void runSelectedTextTranslationRequest(
             {
-                tabId,
+                ...target,
                 requestId: resolvedRequestId,
                 textToTranslate,
                 settings,
@@ -1871,7 +1877,7 @@ async function getSettingsAndTranslateWithDetection(
                 notifyError: notifySelectedTranslationError,
                 stream: (request) =>
                     streamSelectedTranslation(
-                        request.tabId,
+                        request,
                         request.requestId,
                         request.textToTranslate,
                         request.settings.apiKey,
@@ -1918,7 +1924,7 @@ async function getSettingsAndTranslateWithDetection(
         .then((translation) => {
             console.log("Translation received (length):", translation.length);
             notifyContentScriptWithDetection(
-                tabId,
+                target,
                 preparedInput.restoreTranslatedOutput(translation),
                 isFullPage,
                 false,
@@ -1951,7 +1957,7 @@ async function getSettingsAndTranslateWithDetection(
                 );
             }
             notifyContentScriptWithDetection(
-                tabId,
+                target,
                 errorMsg,
                 isFullPage,
                 true,
@@ -2044,7 +2050,7 @@ const messageListener: MessageListener = (
         const requestId = createRequestId();
         getSettingsAndTranslateWithDetection(
             request.html,
-            sender.tab.id,
+            { tabId: sender.tab.id, frameId: sender.frameId ?? 0 },
             false,
             request.detectedLanguage,
             request.detectedLanguageName,
@@ -2066,7 +2072,12 @@ const messageListener: MessageListener = (
         }
 
         const requestId = createRequestId();
-        getSettingsAndTranslate(request.html, sender.tab.id, false, requestId);
+        getSettingsAndTranslate(
+            request.html,
+            { tabId: sender.tab.id, frameId: sender.frameId ?? 0 },
+            false,
+            requestId,
+        );
         sendResponse({ status: "ok" });
         return undefined;
     }
@@ -2232,9 +2243,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         return;
     }
     const tabId = tab.id;
+    const target = {
+        tabId,
+        frameId: info.menuItemId === "translateSelectedText" ? info.frameId ?? 0 : 0,
+    };
 
     try {
-        await ensureContentScriptInjected(tabId);
+        await ensureContentScriptInjected(target);
     } catch (error) {
         console.error("Could not inject content script. Aborting operation.", error);
         return;
@@ -2242,14 +2257,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
     if (info.menuItemId === "translateSelectedText" && info.selectionText) {
         console.log("Action: Translate Selected Text - Getting HTML content");
-        chrome.tabs.sendMessage(tabId, { action: "extractSelectedHtml" }, (response) => {
+        chrome.tabs.sendMessage(tabId, { action: "extractSelectedHtml" }, { frameId: target.frameId }, (response) => {
             if (chrome.runtime.lastError) {
                 console.error(
                     "Error getting selected HTML:",
                     chrome.runtime.lastError.message,
                 );
                 notifyContentScript(
-                    tabId,
+                    target,
                     t(
                         "errorCouldNotExtractSelectedContent",
                         "Could not extract selected content",
@@ -2264,13 +2279,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             if (response && response.html) {
                 console.log("Received selected HTML:", response.html);
                 const requestId = createRequestId();
-                getSettingsAndTranslate(response.html, tabId, false, requestId);
+                getSettingsAndTranslate(response.html, target, false, requestId);
             } else {
                 console.warn(
                     "No HTML content received from content script; falling back to selectionText.",
                 );
                 const requestId = createRequestId();
-                getSettingsAndTranslate(info.selectionText || "", tabId, false, requestId);
+                getSettingsAndTranslate(info.selectionText || "", target, false, requestId);
             }
         });
     } else if (info.menuItemId === "translateFullPage") {
