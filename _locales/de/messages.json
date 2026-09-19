@@ -319,5 +319,33 @@
     },
     "optionsModelStatusEndpointResetDefault": {
         "message": "Endpunkt auf Standard zurückgesetzt. Klicken Sie auf Modelle aktualisieren, um Live-Modelle zu laden."
+    },
+    "optionsReasoningOverride": {
+        "message": "Denkaufwand anpassen"
+    },
+    "optionsReasoningHelp": {
+        "message": "Wenn deaktiviert, gilt die Standardeinstellung des Anbieters. Die verfügbaren Stufen hängen vom Modell ab; nicht unterstützte Stufen können ignoriert oder abgelehnt werden."
+    },
+    "optionsReasoningLevel": {
+        "message": "Denkaufwand"
+    },
+    "optionsReasoningNone": {
+        "message": "Keiner"
+    },
+    "optionsReasoningMinimal": {
+        "message": "Minimal"
+    },
+    "optionsReasoningLow": {
+        "message": "Niedrig"
+    },
+    "optionsReasoningMedium": {
+        "message": "Mittel"
+    },
+    "optionsReasoningHigh": {
+        "message": "Hoch"
+    },
+    "optionsReasoningXhigh": {
+        "message": "Sehr hoch"
     }
+
 }

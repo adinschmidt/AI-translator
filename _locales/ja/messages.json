@@ -319,5 +319,33 @@
     },
     "optionsModelStatusEndpointResetDefault": {
         "message": "エンドポイントがデフォルトにリセットされました。「モデルを更新」をクリックしてライブモデルをロードします。"
+    },
+    "optionsReasoningOverride": {
+        "message": "推論をカスタマイズ"
+    },
+    "optionsReasoningHelp": {
+        "message": "オフの場合はプロバイダーの既定値を使用します。利用可能な推論レベルはモデルによって異なり、非対応のレベルは無視または拒否される場合があります。"
+    },
+    "optionsReasoningLevel": {
+        "message": "推論レベル"
+    },
+    "optionsReasoningNone": {
+        "message": "なし"
+    },
+    "optionsReasoningMinimal": {
+        "message": "最小"
+    },
+    "optionsReasoningLow": {
+        "message": "低"
+    },
+    "optionsReasoningMedium": {
+        "message": "中"
+    },
+    "optionsReasoningHigh": {
+        "message": "高"
+    },
+    "optionsReasoningXhigh": {
+        "message": "非常に高い"
     }
+
 }

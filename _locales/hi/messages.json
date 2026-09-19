@@ -319,5 +319,33 @@
     },
     "optionsModelStatusEndpointResetDefault": {
         "message": "एंडपॉइंट डिफ़ॉल्ट पर रीसेट हो गया। लाइव मॉडल लोड करने के लिए मॉडल ताज़ा करें पर क्लिक करें।"
+    },
+    "optionsReasoningOverride": {
+        "message": "तर्क स्तर बदलें"
+    },
+    "optionsReasoningHelp": {
+        "message": "बंद होने पर प्रदाता की डिफ़ॉल्ट सेटिंग इस्तेमाल होती है। उपलब्ध स्तर मॉडल पर निर्भर करते हैं; असमर्थित स्तरों को अनदेखा या अस्वीकार किया जा सकता है।"
+    },
+    "optionsReasoningLevel": {
+        "message": "तर्क स्तर"
+    },
+    "optionsReasoningNone": {
+        "message": "कोई नहीं"
+    },
+    "optionsReasoningMinimal": {
+        "message": "न्यूनतम"
+    },
+    "optionsReasoningLow": {
+        "message": "कम"
+    },
+    "optionsReasoningMedium": {
+        "message": "मध्यम"
+    },
+    "optionsReasoningHigh": {
+        "message": "उच्च"
+    },
+    "optionsReasoningXhigh": {
+        "message": "बहुत उच्च"
     }
+
 }

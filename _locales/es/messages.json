@@ -319,5 +319,33 @@
     },
     "optionsModelStatusEndpointResetDefault": {
         "message": "Restablecimiento del punto final a los valores predeterminados. Haga clic en Actualizar modelos para cargar modelos en vivo."
+    },
+    "optionsReasoningOverride": {
+        "message": "Personalizar razonamiento"
+    },
+    "optionsReasoningHelp": {
+        "message": "Si está desactivado, se usa el valor predeterminado del proveedor. Los niveles dependen del modelo; los no compatibles pueden ignorarse o rechazarse."
+    },
+    "optionsReasoningLevel": {
+        "message": "Nivel de razonamiento"
+    },
+    "optionsReasoningNone": {
+        "message": "Ninguno"
+    },
+    "optionsReasoningMinimal": {
+        "message": "Mínimo"
+    },
+    "optionsReasoningLow": {
+        "message": "Bajo"
+    },
+    "optionsReasoningMedium": {
+        "message": "Medio"
+    },
+    "optionsReasoningHigh": {
+        "message": "Alto"
+    },
+    "optionsReasoningXhigh": {
+        "message": "Muy alto"
     }
+
 }

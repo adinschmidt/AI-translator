@@ -1088,6 +1088,7 @@ async function translateHTMLBatch(
         () =>
             generateText({
                 model,
+                ...(settings.reasoning ? { reasoning: settings.reasoning } : {}),
                 system: systemPrompt,
                 prompt: userPrompt,
                 maxOutputTokens,
@@ -1380,6 +1381,7 @@ async function streamSelectedTranslation(
     detectedLanguageName: string | null = null,
     targetLanguageName: string | null = null,
     restoreTranslatedOutput: ((translatedText: string) => string) | null = null,
+    reasoning?: EffectiveProviderSettings["reasoning"],
 ): Promise<string | null> {
     cancelActiveStream(tabId);
 
@@ -1426,6 +1428,7 @@ async function streamSelectedTranslation(
     try {
         const result = await streamText({
             model,
+            ...(reasoning ? { reasoning } : {}),
             system: systemPrompt,
             prompt,
             maxOutputTokens: maxTokens,
@@ -1506,6 +1509,7 @@ async function translateTextApiCall(
     isFullPage: boolean,
     modelName: string,
     translationInstructions: string,
+    reasoning?: EffectiveProviderSettings["reasoning"],
 ): Promise<string> {
     console.log(
         `Sending text to AI SDK (${apiType}). FullPage: ${isFullPage}. Text length: ${textToTranslate.length}`,
@@ -1533,6 +1537,7 @@ async function translateTextApiCall(
             () =>
                 generateText({
                     model,
+                    ...(reasoning ? { reasoning } : {}),
                     system: systemPrompt,
                     prompt,
                     maxOutputTokens: maxTokens,
@@ -1681,6 +1686,7 @@ async function getSettingsAndTranslate(
                         request.detectedLanguageName,
                         request.targetLanguageName,
                         request.restoreTranslatedOutput,
+                        request.settings.reasoning,
                     ),
                 translate: (request) =>
                     translateTextApiCall(
@@ -1691,6 +1697,7 @@ async function getSettingsAndTranslate(
                         false,
                         resolveSelectedModelName(request.settings),
                         request.settings.translationInstructions,
+                        request.settings.reasoning,
                     ),
             },
         );
@@ -1709,6 +1716,7 @@ async function getSettingsAndTranslate(
         isFullPage,
         finalModel,
         finalInstructions,
+        settings.reasoning,
     )
         .then((translation) => {
             console.log("Translation received (length):", translation.length);
@@ -1898,6 +1906,7 @@ async function getSettingsAndTranslateWithDetection(
                         request.detectedLanguageName,
                         request.targetLanguageName,
                         request.restoreTranslatedOutput,
+                        request.settings.reasoning,
                     ),
                 translate: (request) =>
                     translateTextApiCall(
@@ -1908,6 +1917,7 @@ async function getSettingsAndTranslateWithDetection(
                         false,
                         resolveSelectedModelName(request.settings),
                         request.settings.translationInstructions,
+                        request.settings.reasoning,
                     ),
             },
         );
@@ -1927,6 +1937,7 @@ async function getSettingsAndTranslateWithDetection(
         isFullPage,
         finalModel,
         finalInstructions,
+        settings.reasoning,
     )
         .then((translation) => {
             console.log("Translation received (length):", translation.length);

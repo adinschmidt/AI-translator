@@ -1,5 +1,6 @@
 import {
     PROVIDERS,
+    isReasoningLevel,
     PROVIDER_DEFAULTS,
     canonicalizeProviderModelName,
     resolveProviderDefaults,
@@ -118,6 +119,14 @@ export function resolveEffectiveProviderSettings(
               apiType: activeProvider,
           };
 
+    if (
+        mode !== SETTINGS_MODE_BASIC &&
+        perProvider?.reasoningOverride === true &&
+        isReasoningLevel(perProvider.reasoningLevel)
+    ) {
+        effective.reasoning = perProvider.reasoningLevel;
+    }
+
     if (mode === SETTINGS_MODE_BASIC && targetLanguage) {
         const languageValue = targetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
         const languageLabel = getBasicTargetLanguageLabel(languageValue);
@@ -230,6 +239,10 @@ export function normalizeProviderSettingsMap(
         }
 
         providerSettings[provider] = {
+            reasoningOverride: providerSettings[provider].reasoningOverride === true,
+            reasoningLevel: isReasoningLevel(providerSettings[provider].reasoningLevel)
+                ? providerSettings[provider].reasoningLevel
+                : "low",
             apiKey: providerSettings[provider].apiKey || "",
             apiEndpoint: providerSettings[provider].apiEndpoint || base.apiEndpoint,
             modelName: canonicalModelName,

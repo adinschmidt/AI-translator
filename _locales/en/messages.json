@@ -319,5 +319,33 @@
     },
     "optionsModelStatusEndpointResetDefault": {
         "message": "Endpoint reset to default. Click Refresh Models to load live models."
+    },
+    "optionsReasoningOverride": {
+        "message": "Override reasoning"
+    },
+    "optionsReasoningHelp": {
+        "message": "Off uses the provider default. Available reasoning levels depend on the model; unsupported levels may be ignored or rejected."
+    },
+    "optionsReasoningLevel": {
+        "message": "Reasoning level"
+    },
+    "optionsReasoningNone": {
+        "message": "None"
+    },
+    "optionsReasoningMinimal": {
+        "message": "Minimal"
+    },
+    "optionsReasoningLow": {
+        "message": "Low"
+    },
+    "optionsReasoningMedium": {
+        "message": "Medium"
+    },
+    "optionsReasoningHigh": {
+        "message": "High"
+    },
+    "optionsReasoningXhigh": {
+        "message": "Extra high"
     }
+
 }

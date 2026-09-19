@@ -319,5 +319,33 @@
     },
     "optionsModelStatusEndpointResetDefault": {
         "message": "端点重置为默认值。单击“刷新模型”以加载实时模型。"
+    },
+    "optionsReasoningOverride": {
+        "message": "自定义推理"
+    },
+    "optionsReasoningHelp": {
+        "message": "关闭时使用提供商的默认设置。可用的推理级别取决于模型；不支持的级别可能被忽略或拒绝。"
+    },
+    "optionsReasoningLevel": {
+        "message": "推理级别"
+    },
+    "optionsReasoningNone": {
+        "message": "无"
+    },
+    "optionsReasoningMinimal": {
+        "message": "最低"
+    },
+    "optionsReasoningLow": {
+        "message": "低"
+    },
+    "optionsReasoningMedium": {
+        "message": "中"
+    },
+    "optionsReasoningHigh": {
+        "message": "高"
+    },
+    "optionsReasoningXhigh": {
+        "message": "极高"
     }
+
 }

@@ -319,5 +319,33 @@
     },
     "optionsModelStatusEndpointResetDefault": {
         "message": "Конечная точка сброшена до значения по умолчанию. Нажмите «Обновить модели», чтобы загрузить живые модели."
+    },
+    "optionsReasoningOverride": {
+        "message": "Настроить рассуждение"
+    },
+    "optionsReasoningHelp": {
+        "message": "Если выключено, используется настройка провайдера по умолчанию. Уровни зависят от модели; неподдерживаемые уровни могут игнорироваться или отклоняться."
+    },
+    "optionsReasoningLevel": {
+        "message": "Уровень рассуждения"
+    },
+    "optionsReasoningNone": {
+        "message": "Без рассуждения"
+    },
+    "optionsReasoningMinimal": {
+        "message": "Минимальный"
+    },
+    "optionsReasoningLow": {
+        "message": "Низкий"
+    },
+    "optionsReasoningMedium": {
+        "message": "Средний"
+    },
+    "optionsReasoningHigh": {
+        "message": "Высокий"
+    },
+    "optionsReasoningXhigh": {
+        "message": "Очень высокий"
     }
+
 }

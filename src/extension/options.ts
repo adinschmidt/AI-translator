@@ -6,6 +6,7 @@ import {
 } from "../shared/storage";
 import {
     PROVIDERS,
+    isReasoningLevel,
     PROVIDER_DEFAULTS,
     PROVIDER_DISPLAY_NAMES,
     canonicalizeProviderModelName,
@@ -60,6 +61,21 @@ const statusMessage = document.getElementById("status-message") as HTMLElement;
 const fillDefaultEndpointButton = document.getElementById(
     "fill-default-endpoint",
 ) as HTMLButtonElement;
+const reasoningOverrideInput = document.getElementById(
+    "reasoning-override",
+) as HTMLInputElement;
+const reasoningLevelSelect = document.getElementById(
+    "reasoning-level",
+) as HTMLSelectElement;
+const reasoningLevelContainer = document.getElementById(
+    "reasoning-level-container",
+) as HTMLElement;
+
+function updateReasoningControls(): void {
+    reasoningLevelContainer.classList.toggle("hidden", !reasoningOverrideInput.checked);
+    reasoningLevelSelect.disabled = !reasoningOverrideInput.checked;
+}
+
 const modelNameInput = document.getElementById("model-name") as HTMLInputElement;
 const refreshModelsButton = document.getElementById(
     "refresh-models",
@@ -1239,6 +1255,9 @@ function applyProviderToForm(provider: string): void {
     apiKeyInput.value = settings.apiKey || "";
     apiEndpointInput.value = settings.apiEndpoint || "";
     modelNameInput.value = normalizedModelName || settings.modelName || "";
+    reasoningOverrideInput.checked = settings.reasoningOverride === true;
+    reasoningLevelSelect.value = settings.reasoningLevel || "low";
+    updateReasoningControls();
 
     renderModelOptions(safeProvider, modelNameInput.value);
     updateProviderUI(provider);
@@ -1296,6 +1315,7 @@ async function saveSetting(): Promise<void> {
             buildBasicTranslationInstructions(targetLanguageLabel);
 
         providerSettings[provider] = {
+            ...providerSettings[provider],
             apiKey,
             apiEndpoint: defaults.apiEndpoint,
             modelName: defaults.modelName,
@@ -1376,6 +1396,10 @@ async function saveSetting(): Promise<void> {
         providerSettings[currentProvider] = resolveProviderDefaults(currentProvider);
     }
     providerSettings[currentProvider] = {
+        reasoningOverride: reasoningOverrideInput.checked,
+        reasoningLevel: isReasoningLevel(reasoningLevelSelect.value)
+            ? reasoningLevelSelect.value
+            : "low",
         apiKey,
         apiEndpoint,
         modelName,
@@ -1745,6 +1769,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         console.log("options.ts: Auto-save listener added to api-endpoint input.");
     }
+
+    reasoningOverrideInput.addEventListener("change", () => {
+        updateReasoningControls();
+        void saveSetting();
+    });
+    reasoningLevelSelect.addEventListener("change", () => void saveSetting());
 
     if (apiTypeSelect) {
         apiTypeSelect.addEventListener("change", (event) => {

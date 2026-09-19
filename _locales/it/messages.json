@@ -319,5 +319,33 @@
     },
     "optionsModelStatusEndpointResetDefault": {
         "message": "Endpoint ripristinato alle impostazioni predefinite. Fare clic su Aggiorna modelli per caricare modelli live."
+    },
+    "optionsReasoningOverride": {
+        "message": "Personalizza il ragionamento"
+    },
+    "optionsReasoningHelp": {
+        "message": "Se disattivato, si usa il valore predefinito del fornitore. I livelli dipendono dal modello; quelli non supportati possono essere ignorati o rifiutati."
+    },
+    "optionsReasoningLevel": {
+        "message": "Livello di ragionamento"
+    },
+    "optionsReasoningNone": {
+        "message": "Nessuno"
+    },
+    "optionsReasoningMinimal": {
+        "message": "Minimo"
+    },
+    "optionsReasoningLow": {
+        "message": "Basso"
+    },
+    "optionsReasoningMedium": {
+        "message": "Medio"
+    },
+    "optionsReasoningHigh": {
+        "message": "Alto"
+    },
+    "optionsReasoningXhigh": {
+        "message": "Molto alto"
     }
+
 }

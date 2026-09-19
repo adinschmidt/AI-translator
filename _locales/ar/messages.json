@@ -319,5 +319,33 @@
     },
     "optionsModelStatusEndpointResetDefault": {
         "message": "إعادة تعيين نقطة النهاية إلى الوضع الافتراضي. انقر فوق تحديث النماذج لتحميل النماذج المباشرة."
+    },
+    "optionsReasoningOverride": {
+        "message": "تخصيص الاستدلال"
+    },
+    "optionsReasoningHelp": {
+        "message": "عند التعطيل، يُستخدم الإعداد الافتراضي للمزوّد. تعتمد المستويات المتاحة على النموذج؛ وقد يتم تجاهل المستويات غير المدعومة أو رفضها."
+    },
+    "optionsReasoningLevel": {
+        "message": "مستوى الاستدلال"
+    },
+    "optionsReasoningNone": {
+        "message": "بدون"
+    },
+    "optionsReasoningMinimal": {
+        "message": "الحد الأدنى"
+    },
+    "optionsReasoningLow": {
+        "message": "منخفض"
+    },
+    "optionsReasoningMedium": {
+        "message": "متوسط"
+    },
+    "optionsReasoningHigh": {
+        "message": "مرتفع"
+    },
+    "optionsReasoningXhigh": {
+        "message": "مرتفع جدًا"
     }
+
 }

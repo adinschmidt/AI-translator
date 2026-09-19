@@ -319,5 +319,33 @@
     },
     "optionsModelStatusEndpointResetDefault": {
         "message": "엔드포인트가 기본값으로 재설정되었습니다. 모델 새로 고침을 클릭하여 라이브 모델을 로드하세요."
+    },
+    "optionsReasoningOverride": {
+        "message": "추론 설정 재정의"
+    },
+    "optionsReasoningHelp": {
+        "message": "끄면 제공업체의 기본값을 사용합니다. 사용 가능한 추론 수준은 모델에 따라 다르며, 지원되지 않는 수준은 무시되거나 거부될 수 있습니다."
+    },
+    "optionsReasoningLevel": {
+        "message": "추론 수준"
+    },
+    "optionsReasoningNone": {
+        "message": "없음"
+    },
+    "optionsReasoningMinimal": {
+        "message": "최소"
+    },
+    "optionsReasoningLow": {
+        "message": "낮음"
+    },
+    "optionsReasoningMedium": {
+        "message": "중간"
+    },
+    "optionsReasoningHigh": {
+        "message": "높음"
+    },
+    "optionsReasoningXhigh": {
+        "message": "매우 높음"
     }
+
 }

@@ -1,3 +1,18 @@
+import type { LanguageModelCallOptions } from "ai";
+
+export type ReasoningLevel = Exclude<
+    LanguageModelCallOptions["reasoning"],
+    "provider-default" | undefined
+>;
+
+const REASONING_LEVELS = [
+    "none", "minimal", "low", "medium", "high", "xhigh",
+] as const satisfies readonly ReasoningLevel[];
+
+export function isReasoningLevel(value: unknown): value is ReasoningLevel {
+    return REASONING_LEVELS.some((level) => level === value);
+}
+
 export const PROVIDERS = [
     "openai",
     "anthropic",
@@ -98,6 +113,8 @@ export type ProviderSettings = {
     apiKey: string;
     apiEndpoint: string;
     modelName: string;
+    reasoningOverride?: boolean;
+    reasoningLevel?: ReasoningLevel;
     translationInstructions?: string;
     apiType?: string;
 };

@@ -319,5 +319,33 @@
     },
     "optionsModelStatusEndpointResetDefault": {
         "message": "Point de terminaison réinitialisé par défaut. Cliquez sur Actualiser les modèles pour charger des modèles dynamiques."
+    },
+    "optionsReasoningOverride": {
+        "message": "Personnaliser le raisonnement"
+    },
+    "optionsReasoningHelp": {
+        "message": "Si désactivé, le réglage du fournisseur est utilisé. Les niveaux dépendent du modèle ; les niveaux non pris en charge peuvent être ignorés ou refusés."
+    },
+    "optionsReasoningLevel": {
+        "message": "Niveau de raisonnement"
+    },
+    "optionsReasoningNone": {
+        "message": "Aucun"
+    },
+    "optionsReasoningMinimal": {
+        "message": "Minimal"
+    },
+    "optionsReasoningLow": {
+        "message": "Faible"
+    },
+    "optionsReasoningMedium": {
+        "message": "Moyen"
+    },
+    "optionsReasoningHigh": {
+        "message": "Élevé"
+    },
+    "optionsReasoningXhigh": {
+        "message": "Très élevé"
     }
+
 }

@@ -1,4 +1,4 @@
-import type { Provider, ProviderSettings } from "./constants/providers";
+import type { Provider, ProviderSettings, ReasoningLevel } from "./constants/providers";
 import type { SettingsMode, UITheme, RedactionMode } from "./constants/settings";
 import { resolveEffectiveProviderSettings } from "./translation-profile";
 
@@ -147,6 +147,7 @@ export function onStorageChanged(
 }
 
 export interface EffectiveProviderSettings {
+    reasoning?: ReasoningLevel;
     apiKey: string;
     apiEndpoint: string;
     modelName: string;
