@@ -140,38 +140,6 @@ if ((window as any).hasRun) {
         "UL",
     ]);
 
-    const INLINE_SAFE_TAGS = new Set([
-        "A",
-        "ABBR",
-        "ACRONYM",
-        "B",
-        "BDI",
-        "BDO",
-        "BIG",
-        "CITE",
-        "CODE",
-        "DEL",
-        "DFN",
-        "EM",
-        "I",
-        "INS",
-        "KBD",
-        "MARK",
-        "Q",
-        "S",
-        "SAMP",
-        "SMALL",
-        "SPAN",
-        "STRONG",
-        "SUB",
-        "SUP",
-        "TIME",
-        "U",
-        "VAR",
-        "WBR",
-        "BR",
-    ]);
-
     const TRANSLATION_POPUP_BASE_ID = "translation-popup-extension";
     const TRANSLATION_POPUP_SELECTOR = '[data-translation-popup="true"]';
     const TRANSLATION_POPUP_REQUEST_ID_ATTR = "translationRequestId";
@@ -1621,7 +1589,7 @@ if ((window as any).hasRun) {
 
     let activeFullPageRun: FullPageTranslationRun | null = null;
 
-    const messageListener: MessageListener = (request: unknown, sender, sendResponse) => {
+    const messageListener: MessageListener = (request: unknown, _sender, sendResponse) => {
         console.log("Content Script Received Action:", (request as any).action, request);
 
         const req = request as BackgroundToContentMessage;
@@ -1683,7 +1651,7 @@ if ((window as any).hasRun) {
             case "extractSelectedHtml":
                 const selectedHtml = extractSelectedHtml();
                 console.log("Extracted selected HTML:", selectedHtml);
-                sendResponse({ html: selectedHtml });
+                sendResponse({ html: selectedHtml ?? undefined });
                 break;
 
             case "startElementTranslation":
@@ -1735,7 +1703,7 @@ if ((window as any).hasRun) {
                 break;
 
             default:
-                console.log("Unknown action received:", req.action);
+                console.log("Unknown message received:", req);
                 sendResponse({ status: "unknown action" });
                 break;
         }

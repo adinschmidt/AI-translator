@@ -32,7 +32,6 @@ import {
     UI_THEME_DARK,
     UI_THEME_SYSTEM,
     UI_THEME_DEFAULT,
-    DEFAULT_TRANSLATION_INSTRUCTIONS,
     REDACTION_MODE_DEFAULT,
     type SettingsMode,
     type UITheme,

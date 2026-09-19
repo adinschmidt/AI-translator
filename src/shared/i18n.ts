@@ -31,7 +31,6 @@ let activeCatalog: MessageCatalog | null = null;
 
 let activeLocale: SupportedUILanguage = "en";
 let activePreference: UILanguagePreference = UI_LANGUAGE_DEFAULT;
-let activeLoadPromise: Promise<void> | null = null;
 let initSettledPromise: Promise<void> = Promise.resolve();
 
 function applySubstitutions(message: string, substitutions?: string | string[]): string {
@@ -195,11 +194,9 @@ export async function initializeI18n(
         activeLocale = nextLocale;
     })();
 
-    activeLoadPromise = fullInit;
     initSettledPromise = fullInit;
 
     await fullInit;
-    activeLoadPromise = null;
     return activePreference;
 }
 

@@ -6,17 +6,12 @@ import { createOpenAI } from "@ai-sdk/openai";
 import {
     STORAGE_KEYS,
     getStorage,
-    type StorageGetResult,
     type EffectiveProviderSettings,
 } from "../shared/storage";
 import {
     type MessageListener,
     type PortMessageListener,
-    type PortOnMessageEvent,
     type SendResponse,
-    type ContentToBackgroundMessage,
-    type BackgroundToContentMessage,
-    type DisplayTranslationMessage,
     type HtmlTranslationResultPortMessage,
     HTML_TRANSLATION_PORT_NAME,
     STREAM_PORT_NAME,
@@ -719,7 +714,7 @@ function resolveProviderModel(
     apiKey: string,
     apiEndpoint: string,
     modelName: string,
-): any {
+) {
     if (provider === "anthropic") {
         const anthropic = createAnthropic({
             apiKey,
@@ -743,7 +738,8 @@ function resolveProviderModel(
         baseURL: baseURL || undefined,
         headers,
     });
-    return openai(modelName);
+    // Custom endpoints use the Chat Completions API.
+    return openai.chat(modelName);
 }
 
 function startStreamKeepAlive(): ReturnType<typeof setInterval> {
@@ -1094,7 +1090,7 @@ async function translateHTMLBatch(
                 model,
                 system: systemPrompt,
                 prompt: userPrompt,
-                maxTokens: maxOutputTokens,
+                maxOutputTokens,
                 abortSignal: signal || undefined,
             }),
         `translateHTMLBatch (${batch.length} units)`,
@@ -1432,7 +1428,7 @@ async function streamSelectedTranslation(
             model,
             system: systemPrompt,
             prompt,
-            maxTokens: maxTokens ?? undefined,
+            maxOutputTokens: maxTokens,
             abortSignal: controller.signal,
         });
 
@@ -1440,7 +1436,7 @@ async function streamSelectedTranslation(
         let reasoningText = "";
         for await (const part of result.fullStream) {
             if (part.type === "text-delta") {
-                translation += part.textDelta;
+                translation += part.text;
                 const streamedText = pickFirstUsableTranslation(provider, [translation]);
                 if (streamedText !== "") {
                     scheduleStreamUpdate(
@@ -1452,8 +1448,8 @@ async function streamSelectedTranslation(
                         targetLanguageName,
                     );
                 }
-            } else if (part.type === "reasoning" && typeof part.textDelta === "string") {
-                reasoningText += part.textDelta;
+            } else if (part.type === "reasoning-delta" && typeof part.text === "string") {
+                reasoningText += part.text;
             }
         }
 
@@ -1539,20 +1535,20 @@ async function translateTextApiCall(
                     model,
                     system: systemPrompt,
                     prompt,
-                    maxTokens: maxTokens ?? undefined,
+                    maxOutputTokens: maxTokens,
                 }),
             "translateTextApiCall",
         );
 
         const fallbackFromBody = extractFallbackTranslationFromResponseBody(
-            result.response?.body,
+            result.finalStep.response?.body,
             provider,
         );
 
         const translation = pickFirstUsableTranslation(provider, [
             result.text || "",
             fallbackFromBody,
-            extractThinkTaggedFallback(provider, result.reasoning || ""),
+            extractThinkTaggedFallback(provider, result.finalStep.reasoningText || ""),
         ]);
 
         if (!translation || translation.trim() === "") {
@@ -1991,7 +1987,7 @@ const messageListener: MessageListener = (
             cancelActiveStream(sender.tab.id, request.requestId);
         }
         sendResponse({ status: "ok" });
-        return;
+        return undefined;
     }
 
     if (request.action === "getTargetLanguage") {
@@ -2050,12 +2046,12 @@ const messageListener: MessageListener = (
     if (request.action === "translateSelectedHtmlWithDetection") {
         if (!sender.tab?.id) {
             sendResponse({ status: "error", message: "No sender tab ID" });
-            return;
+            return undefined;
         }
 
         if (!request.html) {
             sendResponse({ status: "error", message: "No HTML provided" });
-            return;
+            return undefined;
         }
 
         const requestId = createRequestId();
@@ -2068,26 +2064,26 @@ const messageListener: MessageListener = (
             requestId,
         );
         sendResponse({ status: "ok" });
-        return;
+        return undefined;
     }
 
     if (request.action === "translateSelectedHtml") {
         if (!sender.tab?.id) {
             sendResponse({ status: "error", message: "No sender tab ID" });
-            return;
+            return undefined;
         }
 
         if (!request.html) {
             sendResponse({ status: "error", message: "No HTML provided" });
-            return;
+            return undefined;
         }
 
         const requestId = createRequestId();
         getSettingsAndTranslate(request.html, sender.tab.id, false, requestId);
         sendResponse({ status: "ok" });
-        return;
+        return undefined;
     }
-
+    return undefined;
 };
 
 const onConnect = (port: chrome.runtime.Port): void => {
@@ -2287,7 +2283,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                     "No HTML content received from content script; falling back to selectionText.",
                 );
                 const requestId = createRequestId();
-                getSettingsAndTranslate(info.selectionText, tabId, false, requestId);
+                getSettingsAndTranslate(info.selectionText || "", tabId, false, requestId);
             }
         });
     } else if (info.menuItemId === "translateFullPage") {

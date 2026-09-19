@@ -16,8 +16,6 @@ const ENTRYPOINTS = {
 
 // Static files to copy (not bundled)
 const STATIC_FILES = [
-    "assets/eld-bundle.js",
-    "assets/purify.min.js",
     "assets/styles.css",
     "assets/options.html",
     "assets/options.css",
@@ -117,6 +115,12 @@ async function buildExtension(target: "chrome" | "firefox", manifestSource: stri
     await bundleEntrypoint(ENTRYPOINTS.content, join(targetDir, "content.js"));
     await bundleEntrypoint(ENTRYPOINTS.options, join(targetDir, "options.js"));
 
+    await bundleEntrypoint(join(ROOT, "eld-entry.js"), join(targetDir, "eld-bundle.js"));
+    await cp(
+        join(ROOT, "node_modules", "dompurify", "dist", "purify.min.js"),
+        join(targetDir, "purify.min.js"),
+    );
+
     // Compile Tailwind CSS (scans options.html, outputs only used utilities)
     await compileTailwind(targetDir);
 
@@ -197,4 +201,7 @@ async function main() {
     console.log("Done!");
 }
 
-main().catch(console.error);
+main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+});
