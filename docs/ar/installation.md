@@ -1,21 +1,14 @@
 # التثبيت
 
-## المتصفحات المستندة إلى Chrome / Chromium
+ثبّت النسخة الموقعة من [Chrome Web Store](https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba) أو [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-translator/).
 
-1. قم بتنزيل هذا المستودع أو استنساخه.
-2. انتقل إلى `chrome://extensions/`.
-3. قم بتمكين **وضع المطور** (التبديل من أعلى اليمين).
-4. انقر فوق **تحميل غير مضغوط** وحدد مجلد الامتداد.
+للبناء من المصدر، ثبّت [Bun](https://bun.sh) ونفّذ في جذر المستودع:
 
-## فايرفوكس
+```sh
+bun install --frozen-lockfile
+bun run build
+```
 
-1. قم بتنزيل هذا المستودع أو استنساخه.
-2. انتقل إلى `about:debugging#/runtime/this-firefox`.
-3. انقر فوق **تحميل الوظيفة الإضافية المؤقتة**.
-4. حدد الملف `manifest.json` في مجلد الامتداد.
+يستبدل البناء مجلد `dist/`. في Chrome افتح `chrome://extensions/` وفعّل وضع المطور، ثم حمّل `dist/chrome/` كإضافة غير مضغوطة. في Firefox 142 أو أحدث، افتح `about:debugging#/runtime/this-firefox` وحمّل `dist/firefox/manifest.json` مؤقتًا. يزول التثبيت المؤقت عند إغلاق Firefox.
 
-::: tip
-تتم إزالة الوظائف الإضافية المؤقتة في Firefox عند إغلاق المتصفح. للدائم
-التثبيت، يجب أن يتم توقيع الامتداد بواسطة Mozilla أو تثبيته في Firefox
-المطور/ليلاً مع تعيين `xpinstall.signatures.required` على `false`.
-:::
+يمكنك أيضًا فك ZIP المناسب للمتصفح من [الإصدارات](https://github.com/adinschmidt/AI-translator/releases). لا تحمّل مجلد المصدر مباشرة. بعد إعادة البناء، أعد تحميل الإضافة وصفحة الويب.

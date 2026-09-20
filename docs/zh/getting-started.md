@@ -1,24 +1,8 @@
-# 开始使用
+# 快速开始
 
-几分钟后即可启动并运行。
+1. [安装扩展](/zh/installation)，点击工具栏图标打开设置。
+2. 在基本模式中选择 OpenAI、Anthropic 或 Google，输入 API 密钥。提供商会单独收取 API 使用费。
+3. 选择目标语言，或输入自定义语言。设置自动保存，请等待保存确认。
+4. 在 HTTP 或 HTTPS 网页中选中文本，点击旁边的“翻译”。本地检测识别出不同于目标语言的文本时才会显示按钮。
 
-## 1) 安装扩展
-
-- [Chrome Web Store](https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba)
-- [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-translator/)
-- [手动安装说明](/zh/installation)
-
-## 2) 配置您的提供商
-
-1. 打开扩展**选项**页面。
-2. 选择**基本**（简单默认值）或**高级**（完全控制）。
-3. 添加您的 API 密钥并保存。
-
-需要密钥吗？请参阅[提供商和 API 密钥](/zh/providers)。
-
-## 3) 翻译一些东西
-
-- 选择文本 → 右键单击 → **翻译所选文本**
-- 右键单击任意位置 → **翻译页面**
-
-如果出现任何问题，请检查[故障排除](/zh/troubleshooting) 页面。
+高级模式支持其他[提供商](/zh/providers)、本地 Ollama、自定义模型和推理设置。与右键菜单的区别见[用法](/zh/usage)。

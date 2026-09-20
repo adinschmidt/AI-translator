@@ -1,21 +1,14 @@
 # 安装
 
-## Chrome / 基于 Chromium 的浏览器
+从 [Chrome 应用商店](https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba) 或 [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-translator/) 安装签名版本。
 
-1. 下载或克隆此存储库。
-2. 转到`chrome://extensions/`。
-3. 启用**开发者模式**（右上角切换）。
-4. 单击**加载解压**并选择扩展文件夹。
+若要从源码构建，请安装 [Bun](https://bun.sh)，然后在仓库根目录运行：
 
-## 火狐浏览器
+```sh
+bun install --frozen-lockfile
+bun run build
+```
 
-1. 下载或克隆此存储库。
-2. 转到`about:debugging#/runtime/this-firefox`。
-3. 单击“**加载临时插件**”。
-4. 选择扩展文件夹中的`manifest.json` 文件。
+构建会替换 `dist/`。在 Chrome 中打开 `chrome://extensions/`，启用开发者模式，通过“加载已解压的扩展程序”选择 `dist/chrome/`。Firefox 需要 142 或更新版本，在 `about:debugging#/runtime/this-firefox` 临时加载 `dist/firefox/manifest.json`。关闭 Firefox 后临时安装会移除。
 
-::: tip
-当浏览器关闭时，Firefox 中的临时加载项将被删除。对于永久的
-安装时，扩展必须经过 Mozilla 签名或安装在 Firefox 中
-开发人员/每晚，将 `xpinstall.signatures.required` 设置为 `false`。
-:::
+也可以解压[发行版](https://github.com/adinschmidt/AI-translator/releases)中对应浏览器的 ZIP。不要直接加载源码根目录。重新构建后，请重新加载扩展并刷新网页。

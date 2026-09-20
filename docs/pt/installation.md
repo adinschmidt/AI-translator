@@ -1,21 +1,14 @@
 # Instalação
 
-## Navegadores Chrome/baseados em Chromium
+Instale a versão assinada pela [Chrome Web Store](https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba) ou pelo [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-translator/).
 
-1. Baixe ou clone este repositório.
-2. Vá para `chrome://extensions/`.
-3. Ative **Modo de desenvolvedor** (alternância no canto superior direito).
-4. Clique em **Carregar descompactado** e selecione a pasta de extensão.
+Para compilar o código, instale [Bun](https://bun.sh) e execute na raiz do repositório:
 
-## Firefox
+```sh
+bun install --frozen-lockfile
+bun run build
+```
 
-1. Baixe ou clone este repositório.
-2. Vá para `about:debugging#/runtime/this-firefox`.
-3. Clique em **Carregar complemento temporário**.
-4. Selecione o arquivo `manifest.json` na pasta de extensão.
+A compilação substitui `dist/`. No Chrome, abra `chrome://extensions/`, ative o modo de programador e carregue `dist/chrome/` como extensão descompactada. No Firefox 142 ou posterior, abra `about:debugging#/runtime/this-firefox` e carregue temporariamente `dist/firefox/manifest.json`. A instalação temporária termina ao fechar o Firefox.
 
-::: tip
-Os complementos temporários do Firefox são removidos quando o navegador é fechado. Para permanente
-instalação, a extensão deve ser assinada pela Mozilla ou instalada no Firefox
-Desenvolvedor/Noturno com `xpinstall.signatures.required` definido como `false`.
-:::
+Também pode extrair o ZIP do navegador nas [versões publicadas](https://github.com/adinschmidt/AI-translator/releases). Não carregue a pasta do código-fonte. Após compilar, recarregue a extensão e a página.

@@ -1,37 +1,19 @@
-# Configuración
+# Ajustes
 
-Abra el menú de extensión y haga clic en **Opciones** para configurar AI Translator.
+Pulsa el icono de la extensión. Los cambios se guardan automáticamente. El idioma de la interfaz es independiente del idioma de destino; puedes seguir el del navegador o elegir entre 12 idiomas. El tema puede ser claro, oscuro o del sistema.
 
-## Modos
+El modo básico ofrece OpenAI, Anthropic y Google. El modo avanzado ofrece 11 proveedores y guarda clave, modelo, endpoint y razonamiento por proveedor. Cada modo conserva su idioma de destino, inicialmente inglés, y permite escribir uno personalizado. Guardar en modo básico restablece el modelo y endpoint predeterminados del proveedor.
 
-### Modo básico
+**Actualizar modelos** consulta el catálogo del proveedor. También puede consultarlo al cambiar proveedor, clave o endpoint. Si falla, muestra sugerencias integradas; puedes filtrar o escribir un ID. **Rellenar predeterminado** restablece el campo correspondiente.
 
-- Elija un proveedor (OpenAI, Anthropic o Google).
-- Ingrese una clave API.
-- Seleccione su idioma de destino.
-- La extensión utiliza puntos finales y modelos recomendados automáticamente.
+## Idioma e instrucciones
 
-### Modo avanzado
+El botón de traducción junto a la selección usa el idioma de destino y las instrucciones adicionales del modo avanzado, por ejemplo «Conserva la terminología técnica». El menú contextual y la traducción de páginas usan instrucciones guardadas del proveedor; no aplican esas instrucciones adicionales ni siguen siempre el idioma avanzado y pueden traducir al inglés.
 
-- Seleccione entre todos los proveedores compatibles.
-- Personalice el punto final de API, el nombre del modelo y las instrucciones de traducción.
-- Ideal para configuraciones autohospedadas, compatibles con OpenAI o de usuario avanzado.
+## Razonamiento y comportamiento
 
-## Instrucciones de traducción
+En modo avanzado, **Override reasoning** permite elegir `none`, `minimal`, `low`, `medium`, `high` o `xhigh`, inicialmente `low`. Desactivado, usa el valor del proveedor. El modo básico no aplica la anulación. El modelo puede ignorar o rechazar niveles; más razonamiento puede aumentar coste y espera. La extensión no impone un límite de tokens de salida, pero el proveedor sí puede hacerlo.
 
-Utilice **Instrucciones de traducción** para controlar el tono y el estilo. El texto seleccionado es
-añadido automáticamente. Ejemplo:
+Los controles avanzados incluyen el botón de selección, activado inicialmente; mantener ventanas abiertas, desactivado inicialmente; ocultación de datos sensibles, activada inicialmente; y depuración, desactivada inicialmente. Mantener ventanas permite varias traducciones. La ocultación reconoce correos, teléfonos, SSN estadounidenses y SIN canadienses, pero puede omitir datos. Los valores ocultados no se restauran en el texto traducido.
 
-```
-Translate to Spanish. Keep the tone friendly and concise.
-```
-
-## Punto final y modelo de API
-
-Cada proveedor tiene una opción **Completar valor predeterminado** que restablece el valor recomendado
-punto final y nombre del modelo. Puede anular ambos en el modo Avanzado si es necesario.
-
-## Almacenamiento y privacidad
-
-Las configuraciones se almacenan en `chrome.storage.sync` para que persistan en todos los dispositivos.
-Las claves API nunca se registran en la consola.
+Ajustes y claves usan `chrome.storage.sync` y pueden sincronizarse entre dispositivos. Los registros pueden incluir claves y contenido incluso sin depuración. Consulta [Privacidad](/es/privacy).

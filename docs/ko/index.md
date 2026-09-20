@@ -33,17 +33,17 @@ features:
 ## 지원되는 제공업체
 
 <div class="provider-grid">
-    <a class="provider-badge" href="/ko/providers#general-setup">OpenAI</a>
-    <a class="provider-badge" href="/ko/providers#general-setup">Anthropic</a>
-    <a class="provider-badge" href="/ko/providers#general-setup">Google</a>
-    <a class="provider-badge" href="/ko/providers#general-setup">Groq</a>
-    <a class="provider-badge" href="/ko/providers#general-setup">Grok</a>
-    <a class="provider-badge" href="/ko/providers#general-setup">OpenRouter</a>
-    <a class="provider-badge" href="/ko/providers#general-setup">DeepSeek</a>
-    <a class="provider-badge" href="/ko/providers#general-setup">Mistral</a>
-    <a class="provider-badge" href="/ko/providers#general-setup">Qwen</a>
-    <a class="provider-badge" href="/ko/providers#general-setup">Cerebras</a>
-    <a class="provider-badge" href="/ko/providers#general-setup">Ollama</a>
+    <a class="provider-badge" href="/AI-translator/ko/providers">OpenAI</a>
+    <a class="provider-badge" href="/AI-translator/ko/providers">Anthropic</a>
+    <a class="provider-badge" href="/AI-translator/ko/providers">Google</a>
+    <a class="provider-badge" href="/AI-translator/ko/providers">Groq</a>
+    <a class="provider-badge" href="/AI-translator/ko/providers">Grok</a>
+    <a class="provider-badge" href="/AI-translator/ko/providers">OpenRouter</a>
+    <a class="provider-badge" href="/AI-translator/ko/providers">DeepSeek</a>
+    <a class="provider-badge" href="/AI-translator/ko/providers">Mistral</a>
+    <a class="provider-badge" href="/AI-translator/ko/providers">Qwen</a>
+    <a class="provider-badge" href="/AI-translator/ko/providers">Cerebras</a>
+    <a class="provider-badge" href="/AI-translator/ko/providers">Ollama</a>
 </div>
 
 ## AI Translator란 무엇인가요?

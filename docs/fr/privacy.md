@@ -1,98 +1,15 @@
-# Politique de confidentialité pour AI Translator
+# Confidentialité
 
-**Dernière mise à jour :** 10 janvier 2026
+Mise à jour le 20 septembre 2026.
 
-## 1. Aperçu
+L'extension n'utilise aucun serveur de traduction ni service d'analyse du développeur. Elle envoie la sélection ou des régions de page et les instructions directement à l'endpoint configuré. Les fournisseurs distants traitent les données selon leurs politiques ; OpenRouter peut les transmettre à d'autres fournisseurs. La recherche de modèles peut envoyer votre clé sans qu'une traduction soit lancée.
 
-AI Translator ("nous", "notre" ou "l'extension") est une extension de navigateur côté client
-qui permet aux utilisateurs de traduire du texte à l'aide de leurs propres clés API AI. L'extension
-fonctionne entièrement dans votre navigateur et ne transmet aucune donnée à aucun serveur
-détenu ou exploité par le développeur.
+Clés et paramètres utilisent `chrome.storage.sync` et peuvent être copiés sur d'autres appareils par le navigateur. Ce stockage n'est pas exclusivement local ni un coffre-fort distinct. Aucun historique persistant de traduction n'est enregistré, mais les résultats restent dans la page, les fenêtres et la mémoire temporaire.
 
-**Ceci ne constitue pas un avis juridique.** Cette politique décrit comment l'extension gère
-données pour vous aider à prendre une décision éclairée quant à son utilisation.
+Ollama utilise par défaut `http://localhost:11434`. Le traitement reste local seulement si serveur et modèle ne transmettent rien ailleurs. Les endpoints personnalisés reçoivent contenu et identifiants. HTTP ne chiffre pas le transport ; HTTPS le chiffre.
 
-## 2. Collecte et stockage de données
+Le masquage automatique tente de reconnaître courriels, téléphones, SSN et SIN avant l'envoi, mais peut manquer des informations. Les valeurs d'attributs HTML entre guillemets sont remplacées par des marqueurs puis restaurées localement. Les journaux peuvent contenir clés, paramètres, contenu original, métadonnées et traductions même sans débogage. Le masquage des requêtes ne nettoie pas tous les journaux.
 
-- **Données personnelles :** Nous (le développeur) ne collectons, ne stockons pas et n'avons pas accès à
-  toute donnée personnelle, texte traduit ou historique de navigation.
-- **Clés API :** Vos clés API sont stockées exclusivement sur votre appareil à l'aide du
-  stockage synchronisé du navigateur (`browser.storage.sync`). Cela signifie que votre
-  les paramètres sont synchronisés sur vos navigateurs lorsque vous êtes connecté, mais ils ne le sont jamais
-  transmis au développeur ou à tout tiers autre que l’IA spécifique
-  fournisseur que vous choisissez pour les demandes de traduction.
-- **Pas de serveur backend :** Cette extension n'exploite pas de serveur backend. Tout
-  le traitement s'effectue localement dans votre navigateur.
+`contextMenus` ajoute les actions ; `scripting` injecte les scripts ; `storage` conserve clés et préférences. Les accès `https://*/*` et `http://*/*` permettent l'action dans les pages et les appels aux fournisseurs. Les scripts fonctionnent dans les cadres compatibles ; la traduction de page démarre uniquement dans le cadre principal. ELD détecte les langues localement ; DOMPurify est inclus.
 
-## 3. Partage de données avec des tiers
-
-Pour fonctionner, cette extension envoie le texte que vous sélectionnez explicitement pour la traduction
-directement depuis votre navigateur vers le fournisseur d'IA que vous avez configuré. En utilisant
-cette extension, vous reconnaissez que vos données sont soumises à la politique de confidentialité
-politiques de ces fournisseurs :
-
-| Fournisseur          | Politique de confidentialité                                                       |
-| -------------------- | ---------------------------------------------------------------------------------- |
-| **OpenAI**           | [https://openai.com/privacy](https://openai.com/privacy)                           |
-| **Anthropic**        | [https://www.anthropic.com/legal/privacy](https://www.anthropic.com/legal/privacy) |
-| **Google (Gemini)** | [https://ai.google.dev/gemini-api/terms](https://ai.google.dev/gemini-api/terms)   |
-| **xAI (Grok)**       | [https://x.ai/legal/privacy-policy](https://x.ai/legal/privacy-policy)             |
-| **OpenRouter**       | [https://openrouter.ai/privacy](https://openrouter.ai/privacy)                     |
-| **Ollama (Local)**   | Les données restent sur votre ordinateur local ; pas de transmission externe.      |
-
-**Considérations importantes :**
-
-- Certains fournisseurs peuvent utiliser vos données pour entraîner leurs modèles, sauf si vous vous désinscrivez
-  (vérifiez la politique de chaque fournisseur).
-- OpenRouter achemine les requêtes vers divers fournisseurs d'IA sous-jacents, chacun avec son
-  propres politiques de données.
-- Nous ne vendons, n'échangeons ni ne transférons vos données à des tiers.
-
-## 4. Politiques de la boutique du navigateur
-
-Lorsqu'elle est distribuée via les magasins d'extensions de navigateur, cette extension adhère aux
-les politiques relatives aux données utilisateur applicables, y compris la [Chrome Web Store Politique relative aux données utilisateur](https://developer.chrome.com/docs/webstore/program-policies/) et les [Politiques des modules complémentaires Firefox](https://extensionworkshop.com/documentation/publish/add-on-policies/).
-
-## 5. Explication des autorisations
-
-Cette extension demande les autorisations suivantes :
-
-| Autorisation                      | Objectif                                                                                                                                                 |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `contextMenus`                    | Ajoute l'option « Traduire » à votre menu contextuel                                                                                                     |
-| `scripting`                       | Injecte la superposition de l'interface utilisateur de traduction sur les pages Web                                                                      |
-| `storage`                         | Enregistre vos clés API et préférences localement                                                                                                        |
-| `host_permissions` (`<all_urls>`) | Nécessaire pour afficher les traductions sur n'importe quelle page Web que vous visitez et pour passer des appels API au fournisseur d'IA de votre choix |
-
-## 6. Contrôle utilisateur
-
-- **Suppression :** Vous pouvez supprimer toutes les données stockées par cette extension en désinstallant
-
-l'extension ou en effaçant les données d'extension de votre navigateur.
-
-- **Désinscription :** Aucune donnée n'est envoyée aux fournisseurs d'IA, sauf si vous déclenchez explicitement un
-  action de traduction.
-- **Choix du fournisseur :** Vous contrôlez quel fournisseur d'IA reçoit vos données par
-  en le sélectionnant dans les paramètres de l'extension.
-
-## 7. Sécurité
-
-- Les clés API sont stockées dans le stockage sécurisé du navigateur et sont uniquement transmises
-  via HTTPS vers les points de terminaison du fournisseur d'IA.
-- L'extension n'enregistre, ne cache ni ne conserve aucun texte traduit après
-  l'afficher.
-
-## 8. Modifications de cette politique
-
-Nous pouvons mettre à jour cette politique de confidentialité de temps à autre. Les changements seront reflétés
-dans la date « Dernière mise à jour » en haut de ce document.
-
-## 9. Contacter
-
-Si vous avez des questions sur cette politique, veuillez ouvrir un problème sur le
-[Référentiel GitHub](https://github.com/adinschmidt/AI-translator/issues).
-
----
-
-_Cette extension est open source. Vous pouvez consulter le code pour vérifier ces informations de confidentialité
-réclamations._
+Vous pouvez changer de fournisseur, supprimer les clés ou données de l'extension et arrêter une traduction. La synchronisation peut conserver des copies ; arrêter ne retire pas les données déjà envoyées. Consultez la politique du fournisseur et retirez toute donnée privée avant de créer un [ticket](https://github.com/adinschmidt/AI-translator/issues).

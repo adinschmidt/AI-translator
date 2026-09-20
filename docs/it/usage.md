@@ -1,18 +1,9 @@
-# Utilizzo
+# Uso
 
-## Traduci il testo selezionato
+Seleziona testo e premi **Traduci** o usa **Traduci testo selezionato** nel menu contestuale. Il risultato appare normalmente in streaming nel riquadro della selezione. Il pulsante richiede un rilevamento locale riuscito, una lingua diversa dalla destinazione e una selezione fuori dai campi sensibili.
 
-1. Evidenzia il testo su qualsiasi pagina web.
-2. Fare clic con il pulsante destro del mouse → **Traduci testo selezionato**.
-3. La traduzione appare in un popup.
+Chiudi la finestra dal pulsante o cliccando fuori. L'opzione per mantenerla aperta consente più risultati. Chiudere una traduzione attiva ne annulla il flusso.
 
-## Traduci un'intera pagina
+**Traduci pagina** elabora le regioni in lotti nel riquadro principale e applica progressivamente i risultati. Non traduce separatamente i riquadri incorporati, le immagini o i controlli dei moduli. **Interrompi** conserva quanto già tradotto; ricarica per ripristinare l'originale. I contenuti dinamici possono restare invariati.
 
-1. Fare clic con il pulsante destro del mouse in un punto qualsiasi della pagina.
-2. Scegli **Traduci pagina**.
-3. L'estensione sostituisce il testo della pagina con l'output tradotto.
-
-## Mostra il pulsante Traduci in linea
-
-Facoltativamente puoi mostrare un piccolo pulsante **Traduci** quando il testo è selezionato.
-Abilita questa opzione in **Impostazioni → Mostra il pulsante Traduci nella selezione**.
+Solo il pulsante sulla selezione applica direttamente lingua e istruzioni aggiuntive avanzate. Gli altri percorsi possono tornare all'inglese tramite le istruzioni del fornitore. Vedi [Impostazioni](/it/settings). Le pagine interne del browser e gli store protetti limitano gli script.

@@ -1,21 +1,14 @@
 # 설치
 
-## Chrome / Chromium 기반 브라우저
+서명된 버전은 [Chrome 웹 스토어](https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba) 또는 [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-translator/)에서 설치합니다.
 
-1. 이 저장소를 다운로드하거나 복제합니다.
-2. `chrome://extensions/`로 이동합니다.
-3. **개발자 모드**를 활성화합니다(오른쪽 상단 토글).
-4. **압축해제된 파일 로드**를 클릭하고 확장 폴더를 선택합니다.
+소스를 빌드하려면 [Bun](https://bun.sh)을 설치하고 저장소 루트에서 실행합니다.
 
-## 파이어폭스
+```sh
+bun install --frozen-lockfile
+bun run build
+```
 
-1. 이 저장소를 다운로드하거나 복제합니다.
-2. `about:debugging#/runtime/this-firefox`로 이동합니다.
-3. **임시 추가 기능 로드**를 클릭합니다.
-4. 확장 폴더에서 `manifest.json` 파일을 선택합니다.
+빌드는 `dist/`를 교체합니다. Chrome의 `chrome://extensions/`에서 개발자 모드를 켜고 압축 해제된 확장 프로그램으로 `dist/chrome/`을 로드합니다. Firefox 142 이상에서는 `about:debugging#/runtime/this-firefox`에서 임시 부가 기능으로 `dist/firefox/manifest.json`을 선택합니다. 임시 설치는 Firefox를 닫으면 해제됩니다.
 
-::: tip
-Firefox의 임시 추가 기능은 브라우저가 닫힐 때 제거됩니다. 영구용
-설치하려면 확장 기능을 Mozilla에서 서명하거나 Firefox에 설치해야 합니다.
-`xpinstall.signatures.required`이 `false`로 설정된 개발자/Nightly.
-:::
+[릴리스](https://github.com/adinschmidt/AI-translator/releases)의 브라우저별 ZIP을 풀어도 됩니다. 소스 폴더를 직접 로드하지 마세요. 다시 빌드한 뒤 확장 프로그램과 웹페이지를 새로고침합니다.

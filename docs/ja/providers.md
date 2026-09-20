@@ -1,90 +1,25 @@
 # プロバイダーと API キー
 
-AI Translator は複数の AI プロバイダーに対応しています。**Basic** モードでは
-OpenAI、Anthropic、Google から選択できます。**Advanced** モードでは、すべての対応プロバイダーを設定し、エンドポイントやモデルをカスタマイズできます。
+基本モードは OpenAI、Anthropic、Google、詳細モードは全 11 プロバイダーに対応します。プロバイダーを選びキーを入力してください。Ollama はキー不要です。設定は自動保存されます。
 
-<a id="general-setup"></a>
+以下は組み込みの既定値で、利用可能性を保証しません。モデルを更新するとカタログを取得し、失敗時は候補を表示します。カスタム ID も入力できます。既定値ボタンは対応する欄を戻します。キーとリクエストは設定したエンドポイントに送信します。
 
-## 共通セットアップ
+| プロバイダー | 既定のエンドポイント | 既定のモデル | キーまたはダウンロード |
+| --- | --- | --- | --- |
+| OpenAI | `https://api.openai.com/v1/chat/completions` | `gpt-5-mini` | [OpenAI](https://platform.openai.com/api-keys) |
+| Anthropic Claude | `https://api.anthropic.com/v1/messages` | `claude-haiku-4-5` | [Anthropic Claude](https://console.anthropic.com/settings/keys) |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta` | `gemini-flash-lite-latest` | [Google Gemini](https://aistudio.google.com/app/apikey) |
+| Groq | `https://api.groq.com/openai/v1/chat/completions` | `moonshotai/kimi-k2-instruct` | [Groq](https://console.groq.com/keys) |
+| Grok / xAI | `https://api.x.ai/v1/chat/completions` | `grok-4-1-fast-non-reasoning` | [Grok / xAI](https://console.x.ai/api-keys) |
+| OpenRouter | `https://openrouter.ai/api/v1/chat/completions` | `openrouter/auto` | [OpenRouter](https://openrouter.ai/keys) |
+| DeepSeek | `https://api.deepseek.com/v1/chat/completions` | `deepseek-chat` | [DeepSeek](https://platform.deepseek.com/api_keys) |
+| Mistral AI | `https://api.mistral.ai/v1/chat/completions` | `mistral-small-latest` | [Mistral AI](https://console.mistral.ai/api-keys) |
+| Qwen / Alibaba | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions` | `qwen-turbo` | [Qwen / Alibaba](https://dashscope.console.aliyun.com/apiKey) |
+| Cerebras | `https://api.cerebras.ai/v1/chat/completions` | `llama3.1-8b` | [Cerebras](https://cloud.cerebras.ai/) |
+| Ollama | `http://localhost:11434` | `llama3.2` | [Ollama](https://ollama.com/download) |
 
-1. 各プロバイダーのコンソールで API キーを作成します。
-2. **Options** を開き、プロバイダーを選択します。
-3. **API Key** フィールドにキーを貼り付けます。
-4. （Advanced モード）エンドポイントとモデルを確認します。
+OpenAI 互換サービスは Chat Completions を使用します。推論上書きは任意でモデルに依存します。拡張機能は出力トークン上限を設定しません。[設定](/ja/settings)を参照してください。
 
-## OpenAI
+## Ollama
 
-- キーの作成: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-- 既定のエンドポイント: `https://api.openai.com/v1/chat/completions`
-- 既定のモデル: `gpt-5-mini`
-
-## Anthropic Claude
-
-- キーの作成: [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
-- 既定のエンドポイント: `https://api.anthropic.com/v1/messages`
-- 既定のモデル: `claude-haiku-4-5`
-
-## Google Gemini
-
-- キーの作成: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
-- 既定のエンドポイント: `https://generativelanguage.googleapis.com/v1beta`
-- 既定のモデル: `gemini-3-flash-preview`
-
-## Groq
-
-- キーの作成: [console.groq.com/keys](https://console.groq.com/keys)
-- 既定のエンドポイント: `https://api.groq.com/openai/v1/chat/completions`
-- 既定のモデル: `qwen/qwen3-32b`
-
-## Grok (xAI)
-
-- キーの作成: [console.x.ai/api-keys](https://console.x.ai/api-keys)
-- 既定のエンドポイント: `https://api.x.ai/v1/chat/completions`
-- 既定のモデル: `grok-3-mini`
-
-## OpenRouter
-
-- キーの作成: [openrouter.ai/keys](https://openrouter.ai/keys)
-- 既定のエンドポイント: `https://openrouter.ai/api/v1/chat/completions`
-- 既定のモデル: `openrouter/auto`
-
-## DeepSeek
-
-- キーの作成: [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys)
-- 既定のエンドポイント: `https://api.deepseek.com/v1/chat/completions`
-- 既定のモデル: `deepseek-chat`
-
-## Mistral AI
-
-- キーの作成: [console.mistral.ai/api-keys](https://console.mistral.ai/api-keys)
-- 既定のエンドポイント: `https://api.mistral.ai/v1/chat/completions`
-- 既定のモデル: `mistral-small-latest`
-
-## Qwen (Alibaba DashScope)
-
-- キーの作成: [dashscope.console.aliyun.com/apiKey](https://dashscope.console.aliyun.com/apiKey)
-- 既定のエンドポイント: `https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions`
-- 既定のモデル: `qwen-turbo`
-
-## Cerebras
-
-- キーの作成: [cloud.cerebras.ai](https://cloud.cerebras.ai/)
-- 既定のエンドポイント: `https://api.cerebras.ai/v1/chat/completions`
-- 既定のモデル: `llama3.1-8b`
-- 利用可能なモデル:
-    - `llama3.1-8b` - 高速推論向け
-    - `gpt-oss-120b` - 科学・数学・コーディングで強い推論性能
-    - `qwen-3-235b-a22b-instruct-2507` - 大規模 instruct モデル
-    - `zai-glm-4.7` - 高度な推論と強力なコーディング性能
-
-## Ollama (ローカル)
-
-- Ollama のインストール: [ollama.com/download](https://ollama.com/download)
-- 既定のエンドポイント: `http://localhost:11434`
-- 既定のモデル: `llama3.2`
-- API キー: 不要
-
-::: tip
-Chrome 拡張機能では、Ollama 側で拡張機能オリジンからのリクエストを許可する必要がある場合があります。
-`OLLAMA_ORIGINS="*" ollama serve` を実行し、設定画面で **Refresh** をクリックしてください。
-:::
+`ollama pull llama3.2` でモデルを取得し、Ollama を起動します。一覧は `/api/tags`、翻訳は `/v1` を使います。オリジンが拒否されたら `OLLAMA_ORIGINS` を設定して再起動します。`OLLAMA_ORIGINS="*" ollama serve` は全オリジンを許可するため、そのアクセスを意図する場合だけ使い、モデルを更新してください。

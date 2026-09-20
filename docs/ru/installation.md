@@ -1,21 +1,14 @@
 # Установка
 
-## Chrome / Браузеры на базе Chromium
+Установите подписанную версию из [Chrome Web Store](https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba) или [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-translator/).
 
-1. Загрузите или клонируйте этот репозиторий.
-2. Перейдите к `chrome://extensions/`.
-3. Включите **Режим разработчика** (переключатель в правом верхнем углу).
-4. Нажмите **Загрузить распакованное** и выберите папку расширения.
+Для сборки исходников установите [Bun](https://bun.sh) и выполните в корне репозитория:
 
-## Фаерфокс
+```sh
+bun install --frozen-lockfile
+bun run build
+```
 
-1. Загрузите или клонируйте этот репозиторий.
-2. Перейдите к `about:debugging#/runtime/this-firefox`.
-3. Нажмите **Загрузить временное дополнение**.
-4. Выберите файл `manifest.json` в папке расширения.
+Сборка заменяет `dist/`. В Chrome откройте `chrome://extensions/`, включите режим разработчика и загрузите `dist/chrome/` как распакованное расширение. В Firefox 142 или новее откройте `about:debugging#/runtime/this-firefox` и временно загрузите `dist/firefox/manifest.json`. Временное дополнение удаляется при закрытии Firefox.
 
-::: tip
-Временные дополнения в Firefox удаляются при закрытии браузера. Для постоянного
-при установке расширение должно быть подписано Mozilla или установлено в Firefox.
-Developer/Nightly с `xpinstall.signatures.required`, установленным на `false`.
-:::
+Можно также распаковать ZIP нужного браузера из [релизов](https://github.com/adinschmidt/AI-translator/releases). Не загружайте папку исходников. После сборки перезагрузите расширение и веб-страницу.

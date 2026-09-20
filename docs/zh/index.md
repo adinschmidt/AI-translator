@@ -33,17 +33,17 @@ features:
 ## 支持的提供商
 
 <div class="provider-grid">
-    <a class="provider-badge" href="/zh/providers#general-setup">OpenAI</a>
-    <a class="provider-badge" href="/zh/providers#general-setup">Anthropic</a>
-    <a class="provider-badge" href="/zh/providers#general-setup">Google</a>
-    <a class="provider-badge" href="/zh/providers#general-setup">Groq</a>
-    <a class="provider-badge" href="/zh/providers#general-setup">Grok</a>
-    <a class="provider-badge" href="/zh/providers#general-setup">OpenRouter</a>
-    <a class="provider-badge" href="/zh/providers#general-setup">DeepSeek</a>
-    <a class="provider-badge" href="/zh/providers#general-setup">Mistral</a>
-    <a class="provider-badge" href="/zh/providers#general-setup">Qwen</a>
-    <a class="provider-badge" href="/zh/providers#general-setup">Cerebras</a>
-    <a class="provider-badge" href="/zh/providers#general-setup">Ollama</a>
+    <a class="provider-badge" href="/AI-translator/zh/providers">OpenAI</a>
+    <a class="provider-badge" href="/AI-translator/zh/providers">Anthropic</a>
+    <a class="provider-badge" href="/AI-translator/zh/providers">Google</a>
+    <a class="provider-badge" href="/AI-translator/zh/providers">Groq</a>
+    <a class="provider-badge" href="/AI-translator/zh/providers">Grok</a>
+    <a class="provider-badge" href="/AI-translator/zh/providers">OpenRouter</a>
+    <a class="provider-badge" href="/AI-translator/zh/providers">DeepSeek</a>
+    <a class="provider-badge" href="/AI-translator/zh/providers">Mistral</a>
+    <a class="provider-badge" href="/AI-translator/zh/providers">Qwen</a>
+    <a class="provider-badge" href="/AI-translator/zh/providers">Cerebras</a>
+    <a class="provider-badge" href="/AI-translator/zh/providers">Ollama</a>
 </div>
 
 ## 什么是 AI Translator？

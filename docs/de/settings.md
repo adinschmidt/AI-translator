@@ -1,37 +1,19 @@
 # Einstellungen
 
-Öffnen Sie das Erweiterungsmenü und klicken Sie auf **Optionen**, um AI Translator zu konfigurieren.
+Klicke auf das Erweiterungssymbol. Änderungen werden automatisch gespeichert. Die Oberflächensprache ist unabhängig von der Zielsprache; wähle eine von 12 Sprachen oder die Browsersprache. Das Design kann hell, dunkel oder systemabhängig sein.
 
-## Modi
+Der Basismodus bietet OpenAI, Anthropic und Google. Der erweiterte Modus bietet 11 Anbieter und speichert Schlüssel, Modell, Endpunkt und Reasoning je Anbieter. Beide Modi behalten eine eigene Zielsprache, anfangs Englisch, und erlauben freie Spracheingaben. Speichern im Basismodus setzt Modell und Endpunkt des Anbieters auf die Standardwerte zurück.
 
-### Grundmodus
+**Modelle aktualisieren** fragt den Anbieter ab. Auch Änderungen an Anbieter, Schlüssel oder Endpunkt können die Liste laden. Bei Fehlern erscheinen integrierte Vorschläge. Du kannst filtern oder eine Modell-ID eingeben. **Standardwert einsetzen** setzt das jeweilige Feld zurück.
 
-- Wählen Sie einen Anbieter (OpenAI, Anthropic oder Google).
-- Geben Sie einen API-Schlüssel ein.
-- Wählen Sie Ihre Zielsprache.
-  – Die Erweiterung verwendet automatisch empfohlene Endpunkte und Modelle.
+## Sprache und Anweisungen
 
-### Erweiterter Modus
+Die Schaltfläche an der Textauswahl verwendet die Zielsprache und zusätzliche Anweisungen des erweiterten Modus, etwa „Fachbegriffe beibehalten“. Kontextmenü und Seitenübersetzung verwenden gespeicherte Anbieteranweisungen. Sie berücksichtigen diese zusätzlichen Anweisungen nicht und folgen der erweiterten Zielsprache nicht zuverlässig; das Ergebnis kann Englisch sein.
 
-- Wählen Sie aus allen unterstützten Anbietern.
-- Passen Sie API-Endpunkt, Modellnamen und Übersetzungsanweisungen an.
-- Ideal für selbst gehostete, OpenAI-kompatible oder Power-User-Setups.
+## Reasoning und Verhalten
 
-## Übersetzungsanweisungen
+Im erweiterten Modus bietet **Override reasoning** die Werte `none`, `minimal`, `low`, `medium`, `high` und `xhigh`, anfangs `low`. Ausgeschaltet bleibt die Entscheidung beim Anbieter. Der Basismodus wendet die Vorgabe nicht an. Modelle können Werte ignorieren oder ablehnen. Mehr Reasoning kann Kosten und Wartezeit erhöhen. Die Erweiterung setzt keine Ausgabetoken-Grenze; Anbietergrenzen gelten weiterhin.
 
-Verwenden Sie **Übersetzungsanweisungen**, um Ton und Stil zu steuern. Der ausgewählte Text ist
-automatisch angehängt. Beispiel:
+Die erweiterten Schalter steuern die Auswahlschaltfläche, standardmäßig an; das Offenhalten mehrerer Fenster, aus; die Schwärzung sensibler Daten, an; und Debugging, aus. Die Schwärzung erkennt bestimmte E-Mail-Adressen, Telefonnummern, US-SSNs und kanadische SINs, kann aber Daten übersehen. Geschwärzter Text bleibt im Ergebnis geschwärzt.
 
-```
-Translate to Spanish. Keep the tone friendly and concise.
-```
-
-## API-Endpunkt und -Modell
-
-Jeder Anbieter verfügt über die Option **Fill Default**, die den empfohlenen Wert wiederherstellt
-Endpunkt und Modellname. Sie können beides bei Bedarf im erweiterten Modus überschreiben.
-
-## Speicherung und Privatsphäre
-
-Die Einstellungen werden in `chrome.storage.sync` gespeichert, sodass sie auf allen Geräten bestehen bleiben.
-API-Schlüssel werden niemals in der Konsole protokolliert.
+Schlüssel und Einstellungen verwenden `chrome.storage.sync` und können zwischen Geräten synchronisiert werden. Protokolle können auch ohne Debugging Schlüssel und Inhalte enthalten. Siehe [Datenschutz](/de/privacy).

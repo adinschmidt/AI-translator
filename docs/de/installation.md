@@ -1,21 +1,14 @@
 # Installation
 
-## Chrome/Chromium-basierte Browser
+Installiere die signierte Version aus dem [Chrome Web Store](https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba) oder von [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-translator/).
 
-1. Laden Sie dieses Repository herunter oder klonen Sie es.
-2. Gehen Sie zu `chrome://extensions/`.
-3. Aktivieren Sie den **Entwicklermodus** (Schalter oben rechts).
-4. Klicken Sie auf **Entpackt laden** und wählen Sie den Erweiterungsordner aus.
+Für einen Build aus dem Quellcode installiere [Bun](https://bun.sh) und führe im Projektverzeichnis aus:
 
-## Firefox
+```sh
+bun install --frozen-lockfile
+bun run build
+```
 
-1. Laden Sie dieses Repository herunter oder klonen Sie es.
-2. Gehen Sie zu `about:debugging#/runtime/this-firefox`.
-3. Klicken Sie auf **Temporäres Add-on laden**.
-4. Wählen Sie die Datei `manifest.json` im Erweiterungsordner aus.
+Der Build ersetzt `dist/`. Öffne in Chrome `chrome://extensions/`, aktiviere den Entwicklermodus und lade `dist/chrome/` über **Entpackte Erweiterung laden**. Öffne in Firefox ab Version 142 `about:debugging#/runtime/this-firefox` und lade `dist/firefox/manifest.json` als temporäres Add-on. Es wird beim Schließen von Firefox entfernt.
 
-::: tip
-Temporäre Add-ons in Firefox werden entfernt, wenn der Browser geschlossen wird. Für dauerhaft
-Bei der Installation muss die Erweiterung von Mozilla signiert oder in Firefox installiert werden
-Developer/Nightly mit `xpinstall.signatures.required` auf `false` eingestellt.
-:::
+Alternativ kannst du das passende Browser-ZIP aus den [Releases](https://github.com/adinschmidt/AI-translator/releases) entpacken. Lade nicht den Quellcodeordner. Lade nach einem neuen Build die Erweiterung und Webseite neu.

@@ -1,33 +1,10 @@
 # Dépannage
 
-## "URL de point de terminaison d'API invalide" dans les paramètres
+- Chargez `dist/chrome/` ou `dist/firefox/manifest.json`, pas les sources. Firefox exige la version 142 ou ultérieure. Rechargez l'extension et la page après compilation ; vérifiez la confirmation d'enregistrement.
+- Pour une erreur d'endpoint, utilisez une URL complète ou rétablissez la valeur par défaut. Préférez HTTPS pour les services distants. Pour 401/403, vérifiez clé, accès et facturation.
+- Actualisez les modèles ou saisissez un ID accessible à votre compte. Si le raisonnement échoue, désactivez son remplacement. Pour « API returned no translation text », essayez un autre modèle ou moins de texte. Certaines réponses vides sont réessayées sans streaming.
+- En cas de quota, attendez ou changez de modèle. Une page nécessite plusieurs requêtes ; les nouvelles tentatives sont espacées. **Arrêter** annule le traitement actif.
+- Pour Ollama, démarrez le serveur, téléchargez un modèle avec `ollama pull llama3.2` et utilisez `http://localhost:11434`. Si l'origine est refusée, configurez `OLLAMA_ORIGINS` et redémarrez. `OLLAMA_ORIGINS="*" ollama serve` autorise toutes les origines.
+- Si le bouton manque, vérifiez son activation et les langues. Utilisez le bouton près de la sélection pour la langue avancée et les instructions supplémentaires. Rechargez une page partiellement traduite.
 
-Assurez-vous que le point de terminaison commence par `https://` (ou `http://` pour le Ollama local)
-et est une URL complète. Utilisez **Fill Default** pour restaurer la valeur recommandée.
-
-## Erreurs 401/403
-
-- Vérifiez à nouveau la clé API dans les paramètres.
-- Confirmez que la clé est active dans la console du fournisseur.
-- Certains fournisseurs exigent que la facturation soit activée avant que les clés puissent être utilisées.
-
-## Limites de débit ou erreurs de quota
-
-Les fournisseurs peuvent limiter ou bloquer les demandes si vous dépassez les limites de votre forfait.
-Réessayez plus tard ou mettez à niveau votre forfait fournisseur.
-
-## Les modèles Ollama ne parviennent pas à se charger
-
-- Confirmez que Ollama est en cours d'exécution : `ollama serve`.
-- Définissez `OLLAMA_ORIGINS="*"` et redémarrez pour autoriser les demandes d'extension.
-- Utilisez le point de terminaison par défaut `http://localhost:11434`.
-
-## La traduction d'une page complète semble cassée
-
-La traduction pleine page est expérimentale. Si une mise en page se casse, rechargez l'onglet
-pour restaurer le contenu original et essayer de traduire une sélection plus petite.
-
-## L'extension ne répond pas
-
-- Recharger l'extension en `chrome://extensions/` ou `about:debugging`.
-- Rouvrez la page **Options** et assurez-vous que les paramètres sont enregistrés.
+Le débogage ajoute des détails aux erreurs. Les consoles de la page et de l'extension peuvent contenir clés et contenu même sans débogage. Supprimez les données sensibles avant de partager les journaux.

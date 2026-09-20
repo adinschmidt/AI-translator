@@ -1,37 +1,15 @@
 # Impostazioni
 
-Apri il menu dell'estensione e fai clic su **Opzioni** per configurare AI Translator.
+Apri le impostazioni dall'icona dell'estensione. Le modifiche si salvano automaticamente. Scegli tra 12 lingue dell'interfaccia o quella del browser, indipendentemente dalla lingua di traduzione, e un tema chiaro, scuro o di sistema.
 
-## Modalità
+La modalità base offre OpenAI, Anthropic e Google. Quella avanzata offre 11 fornitori e conserva chiave, modello, endpoint e ragionamento per fornitore. Ogni modalità conserva la propria lingua di destinazione, inizialmente inglese, e accetta lingue personalizzate. Salvare in modalità base ripristina modello ed endpoint predefiniti del fornitore.
 
-### Modalità base
+**Aggiorna modelli** consulta il fornitore; anche cambiare fornitore, chiave o endpoint può caricare l'elenco. Se fallisce, compaiono suggerimenti integrati. Puoi filtrare o inserire un ID. **Valore predefinito** ripristina il singolo campo.
 
-- Scegli un fornitore (OpenAI, Anthropic o Google).
-- Inserisci una chiave API.
-- Seleziona la lingua di destinazione.
-- L'estensione utilizza automaticamente gli endpoint e i modelli consigliati.
+Il pulsante accanto alla selezione applica lingua di destinazione e istruzioni aggiuntive avanzate, per esempio «Mantieni i termini tecnici». Menu contestuale e traduzione della pagina usano istruzioni salvate del fornitore: non applicano quelle aggiuntive e possono ignorare la lingua avanzata, tornando all'inglese.
 
-### Modalità avanzata
+In modalità avanzata, **Override reasoning** offre `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, inizialmente `low`. Disattivato lascia decidere il fornitore; la modalità base non applica l'override. I modelli possono ignorare o rifiutare livelli. Più ragionamento può aumentare costo e attesa. L'estensione non impone un limite ai token di uscita; restano i limiti del fornitore.
 
-- Seleziona tra tutti i provider supportati.
-- Personalizza l'endpoint API, il nome del modello e le istruzioni di traduzione.
-- Ideale per configurazioni self-hosted, compatibili con OpenAI o per utenti esperti.
+I controlli avanzati includono il pulsante sulla selezione, attivo; mantenere più finestre aperte, disattivo; oscuramento dati sensibili, attivo; debug, disattivo. L'oscuramento riconosce alcune email, numeri telefonici, SSN statunitensi e SIN canadesi, senza garanzie. Il testo oscurato resta tale nella traduzione.
 
-## Istruzioni per la traduzione
-
-Utilizza le **Istruzioni di traduzione** per controllare il tono e lo stile. Il testo selezionato è
-aggiunto automaticamente. Esempio:
-
-```
-Translate to Spanish. Keep the tone friendly and concise.
-```
-
-## Endpoint e modello API
-
-Ogni provider dispone di un'opzione **Riempimento predefinito** che ripristina i valori consigliati
-endpoint e nome del modello. Se necessario, puoi sovrascriverli entrambi in modalità Avanzata.
-
-## Archiviazione e privacy
-
-Le impostazioni vengono archiviate in `chrome.storage.sync` in modo che persistano su tutti i dispositivi.
-Le chiavi API non vengono mai registrate sulla console.
+Chiavi e impostazioni in `chrome.storage.sync` possono sincronizzarsi tra dispositivi. I log possono contenere chiavi e testo anche senza debug. Vedi [Privacy](/it/privacy).

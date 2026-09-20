@@ -1,4 +1,4 @@
-# Providers & API Keys
+# Providers & API keys
 
 AI Translator supports multiple AI providers. In **Basic** mode, choose between
 OpenAI, Anthropic, and Google. In **Advanced** mode, you can configure all
@@ -9,7 +9,11 @@ providers and customize endpoints and models.
 1. Create an API key in the provider console.
 2. Open **Options** → select the provider.
 3. Paste the key into the **API Key** field.
-4. (Advanced mode) Confirm the endpoint and model.
+4. In Advanced mode, confirm the endpoint and model. Settings save automatically.
+
+The defaults below are built into the extension, not a guarantee of model availability. **Refresh Models** requests the current catalog; if discovery fails, built-in suggestions remain available. You can enter a custom model ID. Endpoint and model **Fill Default** buttons reset their respective fields.
+
+OpenAI-compatible services use Chat Completions. The extension does not impose an output-token cap. Reasoning overrides are optional and depend on model support; see [Settings](/settings#override-reasoning).
 
 ## OpenAI
 
@@ -27,19 +31,19 @@ providers and customize endpoints and models.
 
 - Create a key: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
 - Default endpoint: `https://generativelanguage.googleapis.com/v1beta`
-- Default model: `gemini-3-flash-preview`
+- Default model: `gemini-flash-lite-latest`
 
 ## Groq
 
 - Create a key: [console.groq.com/keys](https://console.groq.com/keys)
 - Default endpoint: `https://api.groq.com/openai/v1/chat/completions`
-- Default model: `qwen/qwen3-32b`
+- Default model: `moonshotai/kimi-k2-instruct`
 
 ## Grok (xAI)
 
 - Create a key: [console.x.ai/api-keys](https://console.x.ai/api-keys)
 - Default endpoint: `https://api.x.ai/v1/chat/completions`
-- Default model: `grok-3-mini`
+- Default model: `grok-4-1-fast-non-reasoning`
 
 ## OpenRouter
 
@@ -70,11 +74,11 @@ providers and customize endpoints and models.
 - Create a key: [cloud.cerebras.ai](https://cloud.cerebras.ai/)
 - Default endpoint: `https://api.cerebras.ai/v1/chat/completions`
 - Default model: `llama3.1-8b`
-- Available models:
-    - `llama3.1-8b` – Fast inference, optimized for speed
-    - `gpt-oss-120b` – Strong reasoning across science, math, and coding
-    - `qwen-3-235b-a22b-instruct-2507` – Large instruct model
-    - `zai-glm-4.7` – Advanced reasoning with strong coding performance
+- Built-in fallback suggestions:
+    - `llama3.1-8b`
+    - `gpt-oss-120b`
+    - `qwen-3-235b-a22b-instruct-2507`
+    - `zai-glm-4.7`
 
 ## Ollama (Local)
 
@@ -84,6 +88,7 @@ providers and customize endpoints and models.
 - API key: not required
 
 ::: tip
-For Chrome extensions, Ollama may need to allow requests from extension origins.
-Run `OLLAMA_ORIGINS="*" ollama serve` and then click **Refresh** in settings.
+Download a model first, for example `ollama pull llama3.2`. Model discovery uses `/api/tags`; translation uses the OpenAI-compatible `/v1` API.
+
+If Ollama rejects requests from your extension, configure `OLLAMA_ORIGINS` for that origin and restart Ollama. `OLLAMA_ORIGINS="*" ollama serve` permits all origins. Use that wildcard only if you intend to allow that access, then click **Refresh Models**.
 :::

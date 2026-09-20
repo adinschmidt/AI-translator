@@ -33,17 +33,17 @@ features:
 ## Unterstützte Anbieter
 
 <div class="provider-grid">
-    <a class="provider-badge" href="/de/providers#general-setup">OpenAI</a>
-    <a class="provider-badge" href="/de/providers#general-setup">Anthropic</a>
-    <a class="provider-badge" href="/de/providers#general-setup">Google</a>
-    <a class="provider-badge" href="/de/providers#general-setup">Groq</a>
-    <a class="provider-badge" href="/de/providers#general-setup">Grok</a>
-    <a class="provider-badge" href="/de/providers#general-setup">OpenRouter</a>
-    <a class="provider-badge" href="/de/providers#general-setup">DeepSeek</a>
-    <a class="provider-badge" href="/de/providers#general-setup">Mistral</a>
-    <a class="provider-badge" href="/de/providers#general-setup">Qwen</a>
-    <a class="provider-badge" href="/de/providers#general-setup">Cerebras</a>
-    <a class="provider-badge" href="/de/providers#general-setup">Ollama</a>
+    <a class="provider-badge" href="/AI-translator/de/providers">OpenAI</a>
+    <a class="provider-badge" href="/AI-translator/de/providers">Anthropic</a>
+    <a class="provider-badge" href="/AI-translator/de/providers">Google</a>
+    <a class="provider-badge" href="/AI-translator/de/providers">Groq</a>
+    <a class="provider-badge" href="/AI-translator/de/providers">Grok</a>
+    <a class="provider-badge" href="/AI-translator/de/providers">OpenRouter</a>
+    <a class="provider-badge" href="/AI-translator/de/providers">DeepSeek</a>
+    <a class="provider-badge" href="/AI-translator/de/providers">Mistral</a>
+    <a class="provider-badge" href="/AI-translator/de/providers">Qwen</a>
+    <a class="provider-badge" href="/AI-translator/de/providers">Cerebras</a>
+    <a class="provider-badge" href="/AI-translator/de/providers">Ollama</a>
 </div>
 
 ## Was ist AI Translator?

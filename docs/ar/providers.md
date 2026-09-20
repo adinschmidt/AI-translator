@@ -1,91 +1,25 @@
 # الموفرون ومفاتيح واجهة برمجة التطبيقات
 
-<a id="general-setup"></a>
+يوفر الوضع الأساسي OpenAI وAnthropic وGoogle، والمتقدم جميع المزودين الأحد عشر. اختر مزودًا وأدخل مفتاحه؛ لا يحتاج Ollama إلى مفتاح. تُحفظ الإعدادات تلقائيًا.
 
-AI Translator يدعم العديد من موفري الذكاء الاصطناعي. في الوضع **الأساسي**، اختر من بين
-OpenAI وAnthropic وGoogle. في الوضع **المتقدم**، يمكنك تكوين كل شيء
-مقدمي الخدمات وتخصيص نقاط النهاية والنماذج.
+هذه قيم مدمجة وليست ضمانًا لتوفر النماذج. حدّث النماذج لطلب القائمة؛ عند الفشل تظهر اقتراحات. يمكنك إدخال معرّف مخصص. تعيد أزرار القيم الافتراضية الحقل المقابل. تُرسل المفاتيح والطلبات إلى نقطة الاتصال المحددة.
 
-## الإعداد العام
+| المزود | نقطة الاتصال الافتراضية | النموذج الافتراضي | المفتاح أو التنزيل |
+| --- | --- | --- | --- |
+| OpenAI | `https://api.openai.com/v1/chat/completions` | `gpt-5-mini` | [OpenAI](https://platform.openai.com/api-keys) |
+| Anthropic Claude | `https://api.anthropic.com/v1/messages` | `claude-haiku-4-5` | [Anthropic Claude](https://console.anthropic.com/settings/keys) |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta` | `gemini-flash-lite-latest` | [Google Gemini](https://aistudio.google.com/app/apikey) |
+| Groq | `https://api.groq.com/openai/v1/chat/completions` | `moonshotai/kimi-k2-instruct` | [Groq](https://console.groq.com/keys) |
+| Grok / xAI | `https://api.x.ai/v1/chat/completions` | `grok-4-1-fast-non-reasoning` | [Grok / xAI](https://console.x.ai/api-keys) |
+| OpenRouter | `https://openrouter.ai/api/v1/chat/completions` | `openrouter/auto` | [OpenRouter](https://openrouter.ai/keys) |
+| DeepSeek | `https://api.deepseek.com/v1/chat/completions` | `deepseek-chat` | [DeepSeek](https://platform.deepseek.com/api_keys) |
+| Mistral AI | `https://api.mistral.ai/v1/chat/completions` | `mistral-small-latest` | [Mistral AI](https://console.mistral.ai/api-keys) |
+| Qwen / Alibaba | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions` | `qwen-turbo` | [Qwen / Alibaba](https://dashscope.console.aliyun.com/apiKey) |
+| Cerebras | `https://api.cerebras.ai/v1/chat/completions` | `llama3.1-8b` | [Cerebras](https://cloud.cerebras.ai/) |
+| Ollama | `http://localhost:11434` | `llama3.2` | [Ollama](https://ollama.com/download) |
 
-1. قم بإنشاء مفتاح API في وحدة تحكم الموفر.
-2. افتح **خيارات** → حدد الموفر.
-3. الصق المفتاح في الحقل **مفتاح API**.
-4. (الوضع المتقدم) قم بتأكيد نقطة النهاية والنموذج.
+تستخدم الخدمات المتوافقة مع OpenAI واجهة Chat Completions. تجاوز الاستدلال اختياري ويعتمد على النموذج. لا تضع الإضافة سقفًا لرموز الإخراج. راجع [الإعدادات](/ar/settings).
 
-## OpenAI
+## Ollama
 
-- أنشئ مفتاحًا: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-- نقطة النهاية الافتراضية: `https://api.openai.com/v1/chat/completions`
-- النموذج الافتراضي: `gpt-5-mini`
-
-## Anthropic Claude
-
-- قم بإنشاء مفتاح: [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
-- نقطة النهاية الافتراضية: `https://api.anthropic.com/v1/messages`
-- النموذج الافتراضي: `claude-haiku-4-5`
-
-## Google Gemini
-
-- أنشئ مفتاحًا: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
-- نقطة النهاية الافتراضية: `https://generativelanguage.googleapis.com/v1beta`
-- النموذج الافتراضي: `gemini-3-flash-preview`
-
-## Groq
-
-- قم بإنشاء مفتاح: [console.groq.com/keys](https://console.groq.com/keys)
-- نقطة النهاية الافتراضية: `https://api.groq.com/openai/v1/chat/completions`
-- النموذج الافتراضي: `qwen/qwen3-32b`
-
-## Grok (xAI)
-
-- إنشاء مفتاح: [console.x.ai/api-keys](https://console.x.ai/api-keys)
-- نقطة النهاية الافتراضية: `https://api.x.ai/v1/chat/completions`
-- النموذج الافتراضي: `grok-3-mini`
-
-## OpenRouter
-
-- قم بإنشاء مفتاح: [openrouter.ai/keys](https://openrouter.ai/keys)
-- نقطة النهاية الافتراضية: `https://openrouter.ai/api/v1/chat/completions`
-- النموذج الافتراضي: `openrouter/auto`
-
-## DeepSeek
-
-- قم بإنشاء مفتاح: [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys)
-- نقطة النهاية الافتراضية: `https://api.deepseek.com/v1/chat/completions`
-- النموذج الافتراضي: `deepseek-chat`
-
-## Mistral AI
-
-- قم بإنشاء مفتاح: [console.mistral.ai/api-keys](https://console.mistral.ai/api-keys)
-- نقطة النهاية الافتراضية: `https://api.mistral.ai/v1/chat/completions`
-- النموذج الافتراضي: `mistral-small-latest`
-
-## Qwen (علي بابا داش سكوب)
-
-- قم بإنشاء مفتاح: [dashscope.console.aliyun.com/apiKey](https://dashscope.console.aliyun.com/apiKey)
-- نقطة النهاية الافتراضية: `https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions`
-- النموذج الافتراضي: `qwen-turbo`
-
-## Cerebras
-
-- إنشاء مفتاح: [cloud.cerebras.ai](https://cloud.cerebras.ai/)
-- نقطة النهاية الافتراضية: `https://api.cerebras.ai/v1/chat/completions`
-- النموذج الافتراضي: `llama3.1-8b`
-- الموديلات المتوفرة:
-    - `llama3.1-8b` - الاستدلال السريع، الأمثل للسرعة
-    - `gpt-oss-120b` - تفكير قوي في العلوم والرياضيات والبرمجة
-    - `qwen-3-235b-a22b-instruct-2507` - نموذج تعليمات كبير
-    - `zai-glm-4.7` - تفكير متقدم مع أداء برمجي قوي
-
-## Ollama (محلي)
-
-- تثبيت Ollama: [ollama.com/download](https://ollama.com/download)
-- نقطة النهاية الافتراضية: `http://localhost:11434`
-- النموذج الافتراضي: `llama3.2`
-- مفتاح API: غير مطلوب
-
-::: tip
-بالنسبة لإضافات Chrome، قد يحتاج Ollama إلى السماح بالطلبات من أصول الإضافات.
-قم بتشغيل `OLLAMA_ORIGINS="*" ollama serve` ثم انقر فوق **تحديث** في الإعدادات.
-:::
+نزّل نموذجًا عبر `ollama pull llama3.2` وشغّل Ollama. تستخدم القائمة `/api/tags` والترجمة `/v1`. عند رفض المصدر اضبط `OLLAMA_ORIGINS` وأعد التشغيل. يسمح `OLLAMA_ORIGINS="*" ollama serve` بجميع المصادر؛ استخدمه فقط إذا أردت هذا الوصول، ثم حدّث النماذج.

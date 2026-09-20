@@ -1,21 +1,14 @@
-# स्थापना
+# इंस्टॉलेशन
 
-## क्रोम/क्रोमियम-आधारित ब्राउज़र
+हस्ताक्षरित संस्करण [Chrome Web Store](https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba) या [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-translator/) से इंस्टॉल करें।
 
-1. इस रिपॉजिटरी को डाउनलोड या क्लोन करें।
-2. `chrome://extensions/` पर जाएँ।
-3. **डेवलपर मोड** सक्षम करें (ऊपर-दाएं टॉगल)।
-4. **लोड अनपैक्ड** पर क्लिक करें और एक्सटेंशन फ़ोल्डर का चयन करें।
+सोर्स से बनाने के लिए [Bun](https://bun.sh) इंस्टॉल करें और रिपॉज़िटरी की रूट में चलाएँ:
 
-## फ़ायरफ़ॉक्स
+```sh
+bun install --frozen-lockfile
+bun run build
+```
 
-1. इस रिपॉजिटरी को डाउनलोड या क्लोन करें।
-2. `about:debugging#/runtime/this-firefox` पर जाएँ।
-3. **अस्थायी ऐड-ऑन लोड करें** पर क्लिक करें।
-4. एक्सटेंशन फ़ोल्डर में `manifest.json` फ़ाइल का चयन करें।
+बिल्ड `dist/` को बदल देता है। Chrome में `chrome://extensions/` खोलें, डेवलपर मोड चालू करें और अनपैक्ड एक्सटेंशन के रूप में `dist/chrome/` चुनें। Firefox 142 या नए संस्करण में `about:debugging#/runtime/this-firefox` खोलकर `dist/firefox/manifest.json` को अस्थायी ऐड-ऑन के रूप में लोड करें। Firefox बंद होने पर अस्थायी इंस्टॉलेशन हट जाता है।
 
-::: tip
-ब्राउज़र बंद होने पर फ़ायरफ़ॉक्स में अस्थायी ऐड-ऑन हटा दिए जाते हैं। स्थायी के लिए
-स्थापना, एक्सटेंशन को मोज़िला द्वारा हस्ताक्षरित होना चाहिए या फ़ायरफ़ॉक्स में स्थापित होना चाहिए
-डेवलपर/नाइटली `xpinstall.signatures.required` के साथ `false` पर सेट है।
-:::
+आप [रिलीज़](https://github.com/adinschmidt/AI-translator/releases) से अपने ब्राउज़र का ZIP भी निकाल सकते हैं। सोर्स फ़ोल्डर सीधे लोड न करें। दोबारा बिल्ड करने के बाद एक्सटेंशन और वेबपेज रीलोड करें।

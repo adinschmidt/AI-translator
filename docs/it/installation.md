@@ -1,21 +1,14 @@
 # Installazione
 
-## Chrome/Browser basati su Chromium
+Installa la versione firmata dal [Chrome Web Store](https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba) o da [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-translator/).
 
-1. Scarica o clona questo repository.
-2. Vai a `chrome://extensions/`.
-3. Abilita la **Modalità sviluppatore** (interruttore in alto a destra).
-4. Fare clic su **Carica non imballato** e selezionare la cartella dell'estensione.
+Per compilare i sorgenti, installa [Bun](https://bun.sh) ed esegui nella radice del repository:
 
-## Firefox
+```sh
+bun install --frozen-lockfile
+bun run build
+```
 
-1. Scarica o clona questo repository.
-2. Vai a `about:debugging#/runtime/this-firefox`.
-3. Fare clic su **Carica componente aggiuntivo temporaneo**.
-4. Selezionare il file `manifest.json` nella cartella dell'estensione.
+La compilazione sostituisce `dist/`. In Chrome, apri `chrome://extensions/`, attiva la modalità sviluppatore e carica `dist/chrome/` con **Carica estensione non pacchettizzata**. In Firefox 142 o successivo, apri `about:debugging#/runtime/this-firefox` e carica temporaneamente `dist/firefox/manifest.json`. L'installazione temporanea termina alla chiusura di Firefox.
 
-::: tip
-I componenti aggiuntivi temporanei di Firefox vengono rimossi alla chiusura del browser. Per permanente
-installazione, l'estensione deve essere firmata da Mozilla o installata in Firefox
-Sviluppatore/Notturno con `xpinstall.signatures.required` impostato su `false`.
-:::
+Puoi anche estrarre il ZIP del browser dalle [release](https://github.com/adinschmidt/AI-translator/releases). Non caricare la cartella dei sorgenti. Dopo la compilazione, ricarica estensione e pagina web.

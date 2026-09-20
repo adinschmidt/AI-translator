@@ -1,24 +1,8 @@
 # はじめに
 
-数分で使い始められます。
+1. [インストール](/ja/installation)後、拡張機能のアイコンで設定を開きます。
+2. 基本モードで OpenAI、Anthropic、Google のいずれかを選び、API キーを入力します。API 利用料はプロバイダーが別途請求します。
+3. 翻訳先の言語を選ぶか、カスタム言語を入力します。自動保存の確認を待ちます。
+4. HTTP または HTTPS ページでテキストを選択し、「翻訳」を押します。ローカル検出が翻訳先と異なる言語を認識した場合にボタンが表示されます。
 
-## 1) 拡張機能をインストール
-
-- [Chrome Web Store](https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba)
-- [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-translator/)
-- [手動インストール手順](/ja/installation)
-
-## 2) プロバイダーを設定
-
-1. 拡張機能の **Options** ページを開きます。
-2. **Basic**（シンプルな既定値）または **Advanced**（詳細設定）を選びます。
-3. API キーを入力して保存します。
-
-キーが必要な場合は [プロバイダーと API キー](/ja/providers) を参照してください。
-
-## 3) 翻訳してみる
-
-- テキストを選択 → 右クリック → **Translate Selected Text**
-- ページ上で右クリック → **Translate Page**
-
-表示がおかしい場合は [トラブルシューティング](/ja/troubleshooting) を確認してください。
+詳細モードでは他の[プロバイダー](/ja/providers)、ローカル Ollama、カスタムモデル、推論設定を使えます。右クリックとの違いは[使い方](/ja/usage)をご覧ください。

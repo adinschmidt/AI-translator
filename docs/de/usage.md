@@ -1,18 +1,9 @@
 # Nutzung
 
-## Ausgewählten Text übersetzen
+Markiere Text und klicke auf **Übersetzen** oder wähle **Ausgewählten Text übersetzen** im Kontextmenü. Das Ergebnis erscheint meist schrittweise in einem Fenster im Frame der Auswahl. Die Schaltfläche erfordert erfolgreiche lokale Erkennung, eine andere Sprache als das Ziel und eine Auswahl außerhalb sensibler Felder.
 
-1. Markieren Sie Text auf einer beliebigen Webseite.
-2. Klicken Sie mit der rechten Maustaste → **Ausgewählten Text übersetzen**.
-3. Die Übersetzung erscheint in einem Popup.
+Schließe das Fenster mit seiner Schaltfläche oder durch Klicken außerhalb. Die Option zum Offenhalten erlaubt mehrere Fenster. Das Schließen einer laufenden Übersetzung bricht deren Stream ab.
 
-## Eine ganze Seite übersetzen
+**Seite übersetzen** verarbeitet Textbereiche in Stapeln im Hauptframe und übernimmt Ergebnisse schrittweise. Eingebettete Frames werden nicht als eigene Seiten übersetzt; Bilder und Formularelemente sind keine Übersetzungsziele. **Stopp** lässt fertige Übersetzungen stehen. Lade die Webseite neu, um das Original wiederherzustellen. Dynamische Inhalte können unverändert bleiben.
 
-1. Klicken Sie mit der rechten Maustaste irgendwo auf der Seite.
-2. Wählen Sie **Seite übersetzen**.
-3. Die Erweiterung ersetzt den Seitentext durch die übersetzte Ausgabe.
-
-## Zeigt die Inline-Übersetzen-Schaltfläche an
-
-Sie können optional eine kleine Schaltfläche **Übersetzen** anzeigen, wenn Text ausgewählt ist.
-Aktivieren Sie dies unter **Einstellungen → Schaltfläche „Übersetzen“ bei Auswahl anzeigen**.
+Die Schaltfläche an der Auswahl nutzt Zielsprache und zusätzliche Anweisungen. Kontextmenü und Seitenübersetzung können durch gespeicherte Anbieteranweisungen auf Englisch zurückfallen. Siehe [Einstellungen](/de/settings). Interne Browserseiten und geschützte Store-Seiten schränken Erweiterungsskripte ein.

@@ -1,19 +1,14 @@
 # インストール
 
-## Chrome / Chromium ベースのブラウザ
+署名済みの拡張機能は [Chrome ウェブストア](https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba) または [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-translator/) から入手できます。
 
-1. このリポジトリをダウンロードまたは clone します。
-2. `chrome://extensions/` を開きます。
-3. **Developer mode**（右上のトグル）を有効にします。
-4. **Load unpacked** をクリックし、拡張機能フォルダを選択します。
+ソースからビルドする場合は [Bun](https://bun.sh) をインストールし、リポジトリのルートで実行します。
 
-## Firefox
+```sh
+bun install --frozen-lockfile
+bun run build
+```
 
-1. このリポジトリをダウンロードまたは clone します。
-2. `about:debugging#/runtime/this-firefox` を開きます。
-3. **Load Temporary Add-on** をクリックします。
-4. 拡張機能フォルダ内の `manifest.json` を選択します。
+ビルドは `dist/` を置き換えます。Chrome では `chrome://extensions/` でデベロッパーモードを有効にし、「パッケージ化されていない拡張機能を読み込む」で `dist/chrome/` を選びます。Firefox 142 以降では `about:debugging#/runtime/this-firefox` で一時的なアドオンとして `dist/firefox/manifest.json` を選びます。一時インストールは Firefox を閉じると解除されます。
 
-::: tip
-Firefox の一時アドオンは、ブラウザを閉じると削除されます。恒久的にインストールするには、Mozilla による署名が必要です。あるいは Firefox Developer / Nightly で `xpinstall.signatures.required` を `false` に設定してインストールできます。
-:::
+[リリース](https://github.com/adinschmidt/AI-translator/releases)のブラウザー別 ZIP を展開して使うこともできます。ソースのルートを直接読み込まないでください。再ビルド後は拡張機能とウェブページを再読み込みします。

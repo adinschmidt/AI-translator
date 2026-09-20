@@ -1,24 +1,11 @@
-# Getting Started
+# Getting started
 
-Get up and running in a few minutes.
+1. [Install the extension](/installation).
+2. Click its toolbar icon to open settings.
+3. In Basic mode, choose OpenAI, Anthropic, or Google and enter your API key. See [Providers & API keys](/providers) for links. Provider billing is separate from installing the extension.
+4. Choose a target language, or select **Custom…** and type one. Settings save automatically; wait for the saved confirmation.
+5. Select text on a normal HTTP or HTTPS webpage and click the inline **Translate** button. It appears when local language detection recognizes a language different from your target.
 
-## 1) Install the extension
+You can also right-click a selection or choose **Translate Page**. See [Usage](/usage) for the current differences between these actions.
 
-- [Chrome Web Store](https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba)
-- [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-translator/)
-- [Instructions for Manual Installation](/installation)
-
-## 2) Configure your provider
-
-1. Open the extension **Options** page.
-2. Choose **Basic** (simple defaults) or **Advanced** (full control).
-3. Add your API key and save.
-
-Need a key? See [Providers & API Keys](/providers).
-
-## 3) Translate something
-
-- Select text → right-click → **Translate Selected Text**
-- Right-click anywhere → **Translate Page**
-
-If anything looks off, check the [Troubleshooting](/troubleshooting) page.
+Enable **Advanced mode** for other providers, local Ollama, custom models and endpoints, or reasoning controls. See [Settings](/settings) and [Troubleshooting](/troubleshooting).

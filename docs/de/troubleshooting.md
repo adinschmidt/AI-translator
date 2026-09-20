@@ -1,33 +1,10 @@
 # Fehlerbehebung
 
-## „Ungültige API-Endpunkt-URL“ in den Einstellungen
+- Lade `dist/chrome/` oder `dist/firefox/manifest.json`, nicht die Quellen. Firefox benötigt Version 142 oder neuer. Lade Erweiterung und Seite nach dem Build neu; prüfe die Speicherbestätigung.
+- Verwende eine vollständige Endpunkt-URL oder setze den Standardwert ein. Nutze HTTPS für entfernte Dienste. Prüfe bei 401/403 Schlüssel, Berechtigungen und Abrechnung.
+- Aktualisiere Modelle oder gib eine für dein Konto verfügbare ID ein. Schalte bei Reasoning-Fehlern die Vorgabe aus. Probiere bei „API returned no translation text“ ein anderes Modell oder weniger Text. Manche leeren Antworten werden ohne Streaming erneut versucht.
+- Warte bei Quotenbegrenzungen oder wechsle das Modell. Seiten benötigen mehrere Anfragen; Wiederholungen erfolgen mit Wartezeiten. **Stopp** bricht den aktiven Durchlauf ab.
+- Starte für Ollama den Server, lade mit `ollama pull llama3.2` ein Modell und nutze `http://localhost:11434`. Falls der Ursprung abgelehnt wird, setze `OLLAMA_ORIGINS` und starte neu. `OLLAMA_ORIGINS="*" ollama serve` erlaubt alle Ursprünge.
+- Fehlt die Schaltfläche, prüfe deren Einstellung und die erkannten Sprachen. Nutze sie für die erweiterte Zielsprache und Zusatzanweisungen. Lade teilweise übersetzte Seiten neu.
 
-Stellen Sie sicher, dass der Endpunkt mit `https://` (oder `http://` für lokales Ollama) beginnt.
-und ist eine vollständige URL. Verwenden Sie **Fill Default**, um den empfohlenen Wert wiederherzustellen.
-
-## 401/403 Fehler
-
-- Überprüfen Sie den API-Schlüssel in den Einstellungen noch einmal.
-- Bestätigen Sie, dass der Schlüssel in der Anbieterkonsole aktiv ist.
-- Bei einigen Anbietern muss die Abrechnung aktiviert sein, bevor Schlüssel verwendet werden können.
-
-## Ratenlimits oder Kontingentfehler
-
-Anbieter können Anfragen drosseln oder blockieren, wenn Sie die Grenzen Ihres Plans überschreiten.
-Versuchen Sie es später noch einmal oder aktualisieren Sie Ihren Anbieterplan.
-
-## Ollama-Modelle können nicht geladen werden
-
-- Bestätigen Sie, dass Ollama ausgeführt wird: `ollama serve`.
-- Legen Sie `OLLAMA_ORIGINS="*"` fest und starten Sie neu, um Erweiterungsanfragen zuzulassen.
-  – Verwenden Sie den Standardendpunkt `http://localhost:11434`.
-
-## Die ganzseitige Übersetzung sieht fehlerhaft aus
-
-Die Ganzseitenübersetzung ist experimentell. Wenn ein Seitenlayout fehlerhaft ist, laden Sie die Registerkarte neu
-um den ursprünglichen Inhalt wiederherzustellen und zu versuchen, eine kleinere Auswahl zu übersetzen.
-
-## Die Erweiterung reagiert nicht
-
-- Laden Sie die Erweiterung in `chrome://extensions/` oder `about:debugging` neu.
-- Öffnen Sie die Seite **Optionen** erneut und stellen Sie sicher, dass die Einstellungen gespeichert werden.
+Debugging ergänzt Fehlerdetails. Seiten- und Erweiterungskonsolen können auch ohne Debugging Schlüssel und Text enthalten. Entferne sensible Daten vor dem Teilen von Protokollen.

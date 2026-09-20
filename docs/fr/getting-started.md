@@ -1,24 +1,8 @@
-# Mise en route
+# Premiers pas
 
-Soyez opérationnel en quelques minutes.
+1. [Installez l'extension](/fr/installation), puis cliquez sur son icône pour ouvrir les paramètres.
+2. En mode simple, choisissez OpenAI, Anthropic ou Google et saisissez votre clé API. Le fournisseur facture l'utilisation séparément.
+3. Choisissez la langue cible ou saisissez une langue personnalisée. L'enregistrement est automatique ; attendez sa confirmation.
+4. Sélectionnez du texte sur une page HTTP ou HTTPS et cliquez sur **Traduire**. Ce bouton apparaît si la détection locale reconnaît une langue différente de la cible.
 
-## 1) Installez l'extension
-
-- [Chrome Web Store](https://chromewebstore.google.com/detail/jabhdcjhdlnppcpbdghnkfkdpfcfleba)
-- [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/ai-translator/)
-- [Instructions pour l'installation manuelle](/fr/installation)
-
-## 2) Configurez votre fournisseur
-
-1. Ouvrez la page **Options** de l'extension.
-2. Choisissez **Basique** (valeurs par défaut simples) ou **Avancé** (contrôle total).
-3. Ajoutez votre clé API et enregistrez.
-
-Besoin d'une clé ? Voir [Fournisseurs et clés API](/fr/providers).
-
-## 3) Traduire quelque chose
-
-- Sélectionnez le texte → clic droit → **Traduire le texte sélectionné**
-- Faites un clic droit n'importe où → **Traduire la page**
-
-Si quelque chose ne va pas, consultez la page [Dépannage](/fr/troubleshooting).
+Le mode avancé donne accès aux autres [fournisseurs](/fr/providers), à Ollama, aux modèles personnalisés et au raisonnement. Consultez [Utilisation](/fr/usage) pour les différences avec le menu contextuel.

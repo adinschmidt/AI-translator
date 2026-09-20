@@ -1,18 +1,9 @@
 # Uso
 
-## Traduzir o texto selecionado
+Selecione texto e clique em **Traduzir**, ou escolha **Traduzir texto selecionado** no menu de contexto. O resultado aparece normalmente de forma progressiva numa janela do frame da seleção. O botão exige deteção local válida, idioma diferente do destino e seleção fora de campos sensíveis.
 
-1. Destaque o texto em qualquer página da web.
-2. Clique com o botão direito → **Traduzir texto selecionado**.
-3. A tradução aparece em um pop-up.
+Feche pelo botão ou clicando fora. A opção de manter janelas abertas permite vários resultados. Fechar uma tradução ativa cancela o seu fluxo.
 
-## Traduza uma página inteira
+**Traduzir página** processa regiões em lotes no frame principal e aplica resultados progressivamente. Não traduz frames incorporados como páginas separadas, imagens ou controlos de formulários. **Parar** mantém o que já foi traduzido; recarregue para restaurar o original. Conteúdo dinâmico pode ficar inalterado.
 
-1. Clique com o botão direito em qualquer lugar da página.
-2. Escolha **Traduzir página**.
-3. A extensão substitui o texto da página pela saída traduzida.
-
-## Mostrar o botão Traduzir embutido
-
-Opcionalmente, você pode mostrar um pequeno botão **Traduzir** quando o texto for selecionado.
-Habilite isso em **Configurações → Mostrar botão Traduzir na seleção**.
+O botão junto à seleção aplica idioma e instruções adicionais. O menu de contexto e a página podem voltar ao inglês pelas instruções guardadas do fornecedor. Consulte [Definições](/pt/settings). Páginas internas do navegador e lojas protegidas limitam os scripts.

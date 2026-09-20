@@ -1,91 +1,25 @@
 # Provider e chiavi API
 
-<a id="general-setup"></a>
+La modalità base offre OpenAI, Anthropic e Google. Quella avanzata offre tutti gli 11 fornitori. Scegline uno e inserisci la chiave; Ollama non la richiede. Le impostazioni si salvano automaticamente.
 
-AI Translator supporta più fornitori di IA. Nella modalità **Base**, scegli tra
-OpenAI, Anthropic e Google. Nella modalità **Avanzata** è possibile configurare tutto
-provider e personalizzare endpoint e modelli.
+Questi valori integrati non garantiscono la disponibilità. Aggiorna i modelli per consultare il catalogo; in caso di errore compaiono suggerimenti. Puoi scrivere un ID personalizzato. I pulsanti predefiniti ripristinano il singolo campo. Chiavi e richieste vanno all'endpoint configurato.
 
-## Configurazione generale
+| Fornitore | Endpoint predefinito | Modello predefinito | Chiave o download |
+| --- | --- | --- | --- |
+| OpenAI | `https://api.openai.com/v1/chat/completions` | `gpt-5-mini` | [OpenAI](https://platform.openai.com/api-keys) |
+| Anthropic Claude | `https://api.anthropic.com/v1/messages` | `claude-haiku-4-5` | [Anthropic Claude](https://console.anthropic.com/settings/keys) |
+| Google Gemini | `https://generativelanguage.googleapis.com/v1beta` | `gemini-flash-lite-latest` | [Google Gemini](https://aistudio.google.com/app/apikey) |
+| Groq | `https://api.groq.com/openai/v1/chat/completions` | `moonshotai/kimi-k2-instruct` | [Groq](https://console.groq.com/keys) |
+| Grok / xAI | `https://api.x.ai/v1/chat/completions` | `grok-4-1-fast-non-reasoning` | [Grok / xAI](https://console.x.ai/api-keys) |
+| OpenRouter | `https://openrouter.ai/api/v1/chat/completions` | `openrouter/auto` | [OpenRouter](https://openrouter.ai/keys) |
+| DeepSeek | `https://api.deepseek.com/v1/chat/completions` | `deepseek-chat` | [DeepSeek](https://platform.deepseek.com/api_keys) |
+| Mistral AI | `https://api.mistral.ai/v1/chat/completions` | `mistral-small-latest` | [Mistral AI](https://console.mistral.ai/api-keys) |
+| Qwen / Alibaba | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions` | `qwen-turbo` | [Qwen / Alibaba](https://dashscope.console.aliyun.com/apiKey) |
+| Cerebras | `https://api.cerebras.ai/v1/chat/completions` | `llama3.1-8b` | [Cerebras](https://cloud.cerebras.ai/) |
+| Ollama | `http://localhost:11434` | `llama3.2` | [Ollama](https://ollama.com/download) |
 
-1. Crea una chiave API nella console del provider.
-2. Apri **Opzioni** → seleziona il provider.
-3. Incolla la chiave nel campo **Chiave API**.
-4. (Modalità avanzata) Confermare l'endpoint e il modello.
+I servizi compatibili OpenAI usano Chat Completions. Il ragionamento è facoltativo e dipende dal modello. L'estensione non impone un limite ai token di uscita. Vedi [Impostazioni](/it/settings).
 
-## OpenAI
+## Ollama
 
-- Crea una chiave: [platform.openai.com/api-keys](https://platform.openai.com/api-keys)
-- Endpoint predefinito: `https://api.openai.com/v1/chat/completions`
-- Modello predefinito: `gpt-5-mini`
-
-## Anthropic Claude
-
-- Crea una chiave: [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)
-- Endpoint predefinito: `https://api.anthropic.com/v1/messages`
-- Modello predefinito: `claude-haiku-4-5`
-
-## Google Gemini
-
-- Crea una chiave: [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
-- Endpoint predefinito: `https://generativelanguage.googleapis.com/v1beta`
-- Modello predefinito: `gemini-3-flash-preview`
-
-## Groq
-
-- Crea una chiave: [console.groq.com/keys](https://console.groq.com/keys)
-- Endpoint predefinito: `https://api.groq.com/openai/v1/chat/completions`
-- Modello predefinito: `qwen/qwen3-32b`
-
-## Grok (xAI)
-
-- Crea una chiave: [console.x.ai/api-keys](https://console.x.ai/api-keys)
-- Endpoint predefinito: `https://api.x.ai/v1/chat/completions`
-- Modello predefinito: `grok-3-mini`
-
-## OpenRouter
-
-- Crea una chiave: [openrouter.ai/keys](https://openrouter.ai/keys)
-- Endpoint predefinito: `https://openrouter.ai/api/v1/chat/completions`
-- Modello predefinito: `openrouter/auto`
-
-## DeepSeek
-
-- Crea una chiave: [platform.deepseek.com/api_keys](https://platform.deepseek.com/api_keys)
-- Endpoint predefinito: `https://api.deepseek.com/v1/chat/completions`
-- Modello predefinito: `deepseek-chat`
-
-## Mistral AI
-
-- Crea una chiave: [console.mistral.ai/api-keys](https://console.mistral.ai/api-keys)
-- Endpoint predefinito: `https://api.mistral.ai/v1/chat/completions`
-- Modello predefinito: `mistral-small-latest`
-
-## Qwen (Alibaba DashScope)
-
-- Crea una chiave: [dashscope.console.aliyun.com/apiKey](https://dashscope.console.aliyun.com/apiKey)
-- Endpoint predefinito: `https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions`
-- Modello predefinito: `qwen-turbo`
-
-## Cerebras
-
-- Crea una chiave: [cloud.cerebras.ai](https://cloud.cerebras.ai/)
-- Endpoint predefinito: `https://api.cerebras.ai/v1/chat/completions`
-- Modello predefinito: `llama3.1-8b`
-- Modelli disponibili:
-    - `llama3.1-8b` – Inferenza veloce, ottimizzata per la velocità
-    - `gpt-oss-120b` – Ragionamento forte in scienze, matematica e programmazione
-    - `qwen-3-235b-a22b-instruct-2507` – Modello con istruzioni di grandi dimensioni
-    - `zai-glm-4.7` – Ragionamento avanzato con ottime prestazioni di codifica
-
-## Ollama (Locale)
-
-- Installa Ollama: [ollama.com/download](https://ollama.com/download)
-- Endpoint predefinito: `http://localhost:11434`
-- Modello predefinito: `llama3.2`
-- Chiave API: non richiesta
-
-::: tip
-Per le estensioni di Chrome, potrebbe essere necessario che Ollama consenta le richieste dalle origini delle estensioni.
-Esegui `OLLAMA_ORIGINS="*" ollama serve` e quindi fai clic su **Aggiorna** nelle impostazioni.
-:::
+Scarica un modello con `ollama pull llama3.2` e avvia Ollama. La lista usa `/api/tags`, la traduzione `/v1`. Se l'origine viene rifiutata, configura `OLLAMA_ORIGINS` e riavvia. `OLLAMA_ORIGINS="*" ollama serve` consente tutte le origini; usalo solo se desideri questo accesso. Poi aggiorna i modelli.

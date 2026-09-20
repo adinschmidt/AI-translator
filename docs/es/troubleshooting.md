@@ -1,33 +1,10 @@
 # Solución de problemas
 
-## "URL de punto final de API no válida" en la configuración
+- Carga `dist/chrome/` o `dist/firefox/manifest.json`, no el código fuente. Firefox requiere 142 o posterior. Recarga extensión y página tras recompilar; comprueba la confirmación de guardado.
+- Para errores de endpoint, usa una URL completa y restablece el valor predeterminado. Usa HTTPS en servicios remotos. Para 401/403, comprueba clave, permisos y facturación.
+- Actualiza modelos o escribe un ID disponible para tu cuenta. Si falla el razonamiento, desactiva la anulación. Ante «API returned no translation text», prueba otro modelo o menos texto. Algunas respuestas vacías se reintentan sin streaming.
+- Ante límites de cuota, espera o cambia de modelo. Las páginas requieren varias solicitudes y los reintentos incluyen espera. **Detener** cancela la ejecución activa.
+- Para Ollama, inicia el servidor, descarga un modelo con `ollama pull llama3.2` y usa `http://localhost:11434`. Si rechaza el origen, configura `OLLAMA_ORIGINS` y reinicia. `OLLAMA_ORIGINS="*" ollama serve` permite todos los orígenes.
+- Si falta el botón, revisa el ajuste, el idioma detectado y el destino. Para aplicar el idioma avanzado y las instrucciones adicionales, usa el botón junto a la selección. Recarga si la página queda parcialmente traducida.
 
-Asegúrese de que el punto final comience con `https://` (o `http://` para Ollama local)
-y es una URL completa. Utilice **Rellenar valor predeterminado** para restaurar el valor recomendado.
-
-## Errores 401/403
-
-- Vuelva a verificar la clave API en la configuración.
-- Confirme que la clave esté activa en la consola del proveedor.
-- Algunos proveedores requieren que se habilite la facturación antes de poder utilizar las claves.
-
-## Límites de tarifas o errores de cuota
-
-Los proveedores pueden limitar o bloquear las solicitudes si excede los límites de su plan.
-Vuelva a intentarlo más tarde o actualice su plan de proveedor.
-
-## Los modelos Ollama no se cargan
-
-- Confirme que Ollama se esté ejecutando: `ollama serve`.
-- Configure `OLLAMA_ORIGINS="*"` y reinicie para permitir solicitudes de extensión.
-- Utilice el punto final predeterminado `http://localhost:11434`.
-
-## La traducción de página completa parece rota
-
-La traducción de página completa es experimental. Si el diseño de una página se rompe, vuelve a cargar la pestaña
-para restaurar el contenido original e intente traducir una selección más pequeña.
-
-## La extensión no responde
-
-- Recargar la extensión en `chrome://extensions/` o `about:debugging`.
-- Vuelva a abrir la página **Opciones** y asegúrese de que la configuración esté guardada.
+La depuración añade detalles de errores. Las consolas de la extensión y de la página pueden contener claves y texto incluso sin depuración. Elimina datos sensibles antes de compartir registros.
