@@ -12,7 +12,7 @@ El botón de traducción junto a la selección usa el idioma de destino y las in
 
 ## Razonamiento y comportamiento
 
-En modo avanzado, **Override reasoning** permite elegir `none`, `minimal`, `low`, `medium`, `high` o `xhigh`, inicialmente `low`. Desactivado, usa el valor del proveedor. El modo básico no aplica la anulación. El modelo puede ignorar o rechazar niveles; más razonamiento puede aumentar coste y espera. La extensión no impone un límite de tokens de salida, pero el proveedor sí puede hacerlo.
+En modo avanzado, **Override reasoning** permite elegir `none`, `minimal`, `low`, `medium`, `high` o `xhigh`, inicialmente `low`. Desactivado usa valores económicos para los modelos recomendados y los del proveedor para otros. Los niveles no compatibles pueden ignorarse o rechazarse. Qwen Flash interpreta None como pensamiento desactivado y los demás niveles como activado.  El modo básico no aplica la anulación. El modelo puede ignorar o rechazar niveles; más razonamiento puede aumentar coste y espera. La extensión no impone un límite de tokens de salida, pero el proveedor sí puede hacerlo.
 
 Los controles avanzados incluyen el botón de selección, activado inicialmente; mantener ventanas abiertas, desactivado inicialmente; ocultación de datos sensibles, activada inicialmente; y depuración, desactivada inicialmente. Mantener ventanas permite varias traducciones. La ocultación reconoce correos, teléfonos, SSN estadounidenses y SIN canadienses, pero puede omitir datos. Los valores ocultados no se restauran en el texto traducido.
 

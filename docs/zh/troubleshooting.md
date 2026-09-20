@@ -4,7 +4,7 @@
 - 使用完整 URL，或恢复默认端点。远程服务使用 HTTPS。遇到 401/403 时检查密钥、权限和计费状态。
 - 刷新模型或输入账户可用的 ID。若推理设置报错，关闭覆盖。遇到“API returned no translation text”时，尝试其他模型或更短文本。某些空响应会以非流式方式重试。
 - 等待配额恢复或更换模型。整页翻译需要多个请求，重试之间会等待。“停止”取消当前运行。
-- 启动 Ollama，用 `ollama pull llama3.2` 下载模型，并使用 `http://localhost:11434`。来源被拒绝时设置 `OLLAMA_ORIGINS` 并重启。`OLLAMA_ORIGINS="*" ollama serve` 会允许所有来源。
+- 启动 Ollama，用 `ollama pull qwen3.5:4b` 下载模型，并使用 `http://localhost:11434`。来源被拒绝时设置 `OLLAMA_ORIGINS` 并重启。`OLLAMA_ORIGINS="*" ollama serve` 会允许所有来源。
 - 按钮不显示时检查开关和检测语言。需要高级目标语言或额外指令时使用选区按钮。页面部分翻译后可刷新恢复。
 
 调试会增加错误详情。即使关闭调试，控制台仍可能包含密钥和文本。分享日志前请删除敏感信息。

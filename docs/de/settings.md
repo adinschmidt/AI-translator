@@ -12,7 +12,7 @@ Die Schaltfläche an der Textauswahl verwendet die Zielsprache und zusätzliche 
 
 ## Reasoning und Verhalten
 
-Im erweiterten Modus bietet **Override reasoning** die Werte `none`, `minimal`, `low`, `medium`, `high` und `xhigh`, anfangs `low`. Ausgeschaltet bleibt die Entscheidung beim Anbieter. Der Basismodus wendet die Vorgabe nicht an. Modelle können Werte ignorieren oder ablehnen. Mehr Reasoning kann Kosten und Wartezeit erhöhen. Die Erweiterung setzt keine Ausgabetoken-Grenze; Anbietergrenzen gelten weiterhin.
+Im erweiterten Modus bietet **Override reasoning** die Werte `none`, `minimal`, `low`, `medium`, `high` und `xhigh`, anfangs `low`. Ausgeschaltet gelten kostensparende Übersetzungsvorgaben für empfohlene Modelle, sonst die Anbietervorgaben. Nicht unterstützte Stufen können ignoriert oder abgelehnt werden. Qwen Flash schaltet mit None das Denken aus und mit anderen Stufen ein.  Der Basismodus wendet die Vorgabe nicht an. Modelle können Werte ignorieren oder ablehnen. Mehr Reasoning kann Kosten und Wartezeit erhöhen. Die Erweiterung setzt keine Ausgabetoken-Grenze; Anbietergrenzen gelten weiterhin.
 
 Die erweiterten Schalter steuern die Auswahlschaltfläche, standardmäßig an; das Offenhalten mehrerer Fenster, aus; die Schwärzung sensibler Daten, an; und Debugging, aus. Die Schwärzung erkennt bestimmte E-Mail-Adressen, Telefonnummern, US-SSNs und kanadische SINs, kann aber Daten übersehen. Geschwärzter Text bleibt im Ergebnis geschwärzt.
 

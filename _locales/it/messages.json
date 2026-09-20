@@ -324,7 +324,7 @@
         "message": "Personalizza il ragionamento"
     },
     "optionsReasoningHelp": {
-        "message": "Se disattivato, si usa il valore predefinito del fornitore. I livelli dipendono dal modello; quelli non supportati possono essere ignorati o rifiutati."
+        "message": "Disattivato usa impostazioni economiche per i modelli consigliati e quelle del fornitore per gli altri. I livelli non supportati possono essere ignorati o rifiutati. Qwen Flash disattiva il ragionamento con None e lo attiva con gli altri livelli."
     },
     "optionsReasoningLevel": {
         "message": "Livello di ragionamento"

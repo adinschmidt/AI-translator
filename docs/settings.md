@@ -30,7 +30,7 @@ The context-menu selection and full-page paths use stored provider translation i
 
 ## Override reasoning
 
-In Advanced mode, turn on **Override reasoning** to reveal the level selector: `none`, `minimal`, `low`, `medium`, `high`, or `xhigh`. The initial selection is `low`. With the toggle off, the extension omits the reasoning override and uses the provider default. Basic mode does not apply an override.
+In Advanced mode, turn on **Override reasoning** to reveal the level selector: `none`, `minimal`, `low`, `medium`, `high`, or `xhigh`. The initial selection is `low`. Off uses economical translation defaults for recommended models, and provider defaults for other models. Unsupported levels may be ignored or rejected. Qwen Flash maps None to thinking off and other levels to thinking on.  Basic mode uses these translation defaults without applying saved Advanced overrides. See [provider defaults](/providers#translation-defaults).
 
 Support depends on the provider and model. Unsupported levels may be ignored or rejected. More reasoning can increase latency and cost. The extension does not set an output-token cap; provider and model limits still apply.
 

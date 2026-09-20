@@ -6,6 +6,8 @@ Bun bundles three browser entry points in `build.ts`:
 - `content.ts` handles local language detection, selection buttons and popups, and collection and replacement of page text regions. Selection messages target the originating frame. Full-page translation starts in the top frame.
 - `options.ts` handles appearance, automatic settings persistence, provider configuration, and model discovery. Its markup and styles are in `assets/`.
 
+`provider-model.ts` creates provider clients and serializes translation reasoning defaults, provider-specific thinking controls, and the OpenRouter automatic-routing price ceiling.
+
 `translation-request.ts` coordinates selected-text streaming, non-streaming fallback, and result delivery. `page-translation-run.ts` tracks page regions, chunk results, progress, cancellation, and application of completed regions.
 
 Shared message contracts, provider behavior, settings resolution, redaction, and localization live in `../shared/`. Runtime bundles are generated in `dist/chrome/` and `dist/firefox/`; edit the source files rather than those outputs.

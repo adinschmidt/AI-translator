@@ -44,16 +44,14 @@ export const PROVIDER_DISPLAY_NAMES: Record<Provider, string> = {
 };
 
 export const CEREBRAS_SUPPORTED_MODELS = [
-    "llama3.1-8b",
     "gpt-oss-120b",
-    "qwen-3-235b-a22b-instruct-2507",
-    "zai-glm-4.7",
+    "qwen-3.8-27b",
 ] as const;
 
 export const PROVIDER_DEFAULTS = {
     openai: {
         apiEndpoint: "https://api.openai.com/v1/chat/completions",
-        modelName: "gpt-5-mini",
+        modelName: "gpt-5.6-luna",
     },
     anthropic: {
         apiEndpoint: "https://api.anthropic.com/v1/messages",
@@ -61,15 +59,15 @@ export const PROVIDER_DEFAULTS = {
     },
     google: {
         apiEndpoint: "https://generativelanguage.googleapis.com/v1beta",
-        modelName: "gemini-flash-lite-latest",
+        modelName: "gemini-3.5-flash-lite",
     },
     groq: {
         apiEndpoint: "https://api.groq.com/openai/v1/chat/completions",
-        modelName: "moonshotai/kimi-k2-instruct",
+        modelName: "openai/gpt-oss-120b",
     },
     grok: {
         apiEndpoint: "https://api.x.ai/v1/chat/completions",
-        modelName: "grok-4-1-fast-non-reasoning",
+        modelName: "grok-4.6",
     },
     openrouter: {
         apiEndpoint: "https://openrouter.ai/api/v1/chat/completions",
@@ -77,7 +75,7 @@ export const PROVIDER_DEFAULTS = {
     },
     deepseek: {
         apiEndpoint: "https://api.deepseek.com/v1/chat/completions",
-        modelName: "deepseek-chat",
+        modelName: "deepseek-flash",
     },
     mistral: {
         apiEndpoint: "https://api.mistral.ai/v1/chat/completions",
@@ -86,15 +84,15 @@ export const PROVIDER_DEFAULTS = {
     qwen: {
         apiEndpoint:
             "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
-        modelName: "qwen-turbo",
+        modelName: "qwen3.8-flash",
     },
     cerebras: {
         apiEndpoint: "https://api.cerebras.ai/v1/chat/completions",
-        modelName: "llama3.1-8b",
+        modelName: "gpt-oss-120b",
     },
     ollama: {
         apiEndpoint: "http://localhost:11434",
-        modelName: "llama3.2",
+        modelName: "qwen3.5:4b",
     },
 } as const;
 

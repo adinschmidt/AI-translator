@@ -8,7 +8,7 @@ O modo básico oferece OpenAI, Anthropic e Google. O avançado oferece 11 fornec
 
 O botão junto à seleção usa o idioma de destino e as instruções adicionais avançadas, como «Preservar termos técnicos». O menu de contexto e a tradução de páginas usam instruções guardadas do fornecedor. Não aplicam essas instruções adicionais nem seguem sempre o idioma avançado, podendo traduzir para inglês.
 
-No modo avançado, **Override reasoning** oferece `none`, `minimal`, `low`, `medium`, `high` e `xhigh`, inicialmente `low`. Desativado, deixa o fornecedor decidir. O modo básico não aplica a substituição. Modelos podem ignorar ou rejeitar níveis. Mais raciocínio pode aumentar custo e espera. A extensão não fixa um limite de tokens de saída; os limites do fornecedor continuam a aplicar-se.
+No modo avançado, **Override reasoning** oferece `none`, `minimal`, `low`, `medium`, `high` e `xhigh`, inicialmente `low`. Desativado usa definições económicas nos modelos recomendados e as do fornecedor nos restantes. Níveis não suportados podem ser ignorados ou recusados. Qwen Flash desativa o raciocínio com None e ativa-o com os outros níveis.  O modo básico não aplica a substituição. Modelos podem ignorar ou rejeitar níveis. Mais raciocínio pode aumentar custo e espera. A extensão não fixa um limite de tokens de saída; os limites do fornecedor continuam a aplicar-se.
 
 Os controlos avançados incluem botão de seleção, ativo por defeito; manter várias janelas abertas, desativo; ocultação de dados sensíveis, ativa; e depuração, desativa. A ocultação reconhece alguns emails, telefones, SSN dos EUA e SIN canadianos, mas pode falhar. O texto ocultado mantém-se assim na tradução.
 

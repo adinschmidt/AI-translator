@@ -324,7 +324,7 @@
         "message": "Denkaufwand anpassen"
     },
     "optionsReasoningHelp": {
-        "message": "Wenn deaktiviert, gilt die Standardeinstellung des Anbieters. Die verfügbaren Stufen hängen vom Modell ab; nicht unterstützte Stufen können ignoriert oder abgelehnt werden."
+        "message": "Ausgeschaltet gelten kostensparende Übersetzungsvorgaben für empfohlene Modelle, sonst die Anbietervorgaben. Nicht unterstützte Stufen können ignoriert oder abgelehnt werden. Qwen Flash schaltet mit None das Denken aus und mit anderen Stufen ein."
     },
     "optionsReasoningLevel": {
         "message": "Denkaufwand"

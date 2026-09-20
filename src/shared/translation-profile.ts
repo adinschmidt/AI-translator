@@ -127,8 +127,9 @@ export function resolveEffectiveProviderSettings(
         effective.reasoning = perProvider.reasoningLevel;
     }
 
-    if (mode === SETTINGS_MODE_BASIC && targetLanguage) {
-        const languageValue = targetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
+    if (mode === SETTINGS_MODE_BASIC) {
+        const languageValue =
+            targetLanguage || storage.basicTargetLanguage || BASIC_TARGET_LANGUAGE_DEFAULT;
         const languageLabel = getBasicTargetLanguageLabel(languageValue);
         effective.apiEndpoint =
             PROVIDER_DEFAULTS[activeProvider].apiEndpoint || effective.apiEndpoint;

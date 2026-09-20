@@ -43,6 +43,7 @@ The inline button uses the selected target language and Advanced mode's extra in
 
 ```sh
 bun run typecheck
+bun test src/extension/provider-model.test.ts
 bun run check:i18n
 bun run build
 bun run build:zip

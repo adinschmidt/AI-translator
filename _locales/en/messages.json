@@ -324,7 +324,7 @@
         "message": "Override reasoning"
     },
     "optionsReasoningHelp": {
-        "message": "Off uses the provider default. Available reasoning levels depend on the model; unsupported levels may be ignored or rejected."
+        "message": "Off uses economical translation defaults for recommended models, and provider defaults for other models. Unsupported levels may be ignored or rejected. Qwen Flash maps None to thinking off and other levels to thinking on."
     },
     "optionsReasoningLevel": {
         "message": "Reasoning level"

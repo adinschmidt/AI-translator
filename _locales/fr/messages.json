@@ -324,7 +324,7 @@
         "message": "Personnaliser le raisonnement"
     },
     "optionsReasoningHelp": {
-        "message": "Si désactivé, le réglage du fournisseur est utilisé. Les niveaux dépendent du modèle ; les niveaux non pris en charge peuvent être ignorés ou refusés."
+        "message": "Désactivé, utilise des réglages économiques pour les modèles recommandés et ceux du fournisseur pour les autres. Les niveaux non pris en charge peuvent être ignorés ou refusés. Qwen Flash désactive la réflexion avec None et l'active avec les autres niveaux."
     },
     "optionsReasoningLevel": {
         "message": "Niveau de raisonnement"

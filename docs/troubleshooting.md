@@ -18,7 +18,7 @@ Wait for the provider quota to reset or use a model with available capacity. Ful
 
 ## Ollama models fail to load
 
-Ensure Ollama is running and has a downloaded model, for example `ollama pull llama3.2`. Use `http://localhost:11434` in settings. Model discovery uses `/api/tags`; translation uses the OpenAI-compatible `/v1` API.
+Ensure Ollama is running and has a downloaded model, for example `ollama pull qwen3.5:4b`. Use `http://localhost:11434` in settings. Model discovery uses `/api/tags`; translation uses the OpenAI-compatible `/v1` API.
 
 If Ollama rejects the extension origin, configure `OLLAMA_ORIGINS` for your extension origin and restart the server. `OLLAMA_ORIGINS="*" ollama serve` allows all origins, so use it only if that access is intended.
 

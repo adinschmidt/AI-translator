@@ -324,7 +324,7 @@
         "message": "Personalizar razonamiento"
     },
     "optionsReasoningHelp": {
-        "message": "Si está desactivado, se usa el valor predeterminado del proveedor. Los niveles dependen del modelo; los no compatibles pueden ignorarse o rechazarse."
+        "message": "Desactivado usa valores económicos para los modelos recomendados y los del proveedor para otros. Los niveles no compatibles pueden ignorarse o rechazarse. Qwen Flash interpreta None como pensamiento desactivado y los demás niveles como activado."
     },
     "optionsReasoningLevel": {
         "message": "Nivel de razonamiento"

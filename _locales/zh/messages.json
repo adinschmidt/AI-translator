@@ -324,7 +324,7 @@
         "message": "自定义推理"
     },
     "optionsReasoningHelp": {
-        "message": "关闭时使用提供商的默认设置。可用的推理级别取决于模型；不支持的级别可能被忽略或拒绝。"
+        "message": "关闭时，推荐模型使用低成本翻译设置，其他模型使用提供商默认值。不支持的级别可能被忽略或拒绝。Qwen Flash 的 None 关闭思考，其他级别开启思考。"
     },
     "optionsReasoningLevel": {
         "message": "推理级别"

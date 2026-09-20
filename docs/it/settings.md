@@ -8,7 +8,7 @@ La modalità base offre OpenAI, Anthropic e Google. Quella avanzata offre 11 for
 
 Il pulsante accanto alla selezione applica lingua di destinazione e istruzioni aggiuntive avanzate, per esempio «Mantieni i termini tecnici». Menu contestuale e traduzione della pagina usano istruzioni salvate del fornitore: non applicano quelle aggiuntive e possono ignorare la lingua avanzata, tornando all'inglese.
 
-In modalità avanzata, **Override reasoning** offre `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, inizialmente `low`. Disattivato lascia decidere il fornitore; la modalità base non applica l'override. I modelli possono ignorare o rifiutare livelli. Più ragionamento può aumentare costo e attesa. L'estensione non impone un limite ai token di uscita; restano i limiti del fornitore.
+In modalità avanzata, **Override reasoning** offre `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, inizialmente `low`. Disattivato usa impostazioni economiche per i modelli consigliati e quelle del fornitore per gli altri. I livelli non supportati possono essere ignorati o rifiutati. Qwen Flash disattiva il ragionamento con None e lo attiva con gli altri livelli.  la modalità base non applica l'override. I modelli possono ignorare o rifiutare livelli. Più ragionamento può aumentare costo e attesa. L'estensione non impone un limite ai token di uscita; restano i limiti del fornitore.
 
 I controlli avanzati includono il pulsante sulla selezione, attivo; mantenere più finestre aperte, disattivo; oscuramento dati sensibili, attivo; debug, disattivo. L'oscuramento riconosce alcune email, numeri telefonici, SSN statunitensi e SIN canadesi, senza garanzie. Il testo oscurato resta tale nella traduzione.
 

@@ -1,7 +1,5 @@
 import { generateText, streamText } from "ai";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createOpenAI } from "@ai-sdk/openai";
+import { resolveProviderModel } from "./provider-model";
 
 import {
     STORAGE_KEYS,
@@ -47,11 +45,7 @@ import {
     PROVIDER_DEFAULTS,
     type Provider,
 } from "../shared/constants/providers";
-import {
-    normalizeProviderBaseUrl,
-    resolveProviderHeaders,
-    shouldStripProviderReasoning,
-} from "../shared/provider-behavior";
+import { shouldStripProviderReasoning } from "../shared/provider-behavior";
 import { resolveTranslationProfile } from "../shared/translation-profile";
 import {
     createHtmlTranslationResultPortMessage,
@@ -706,39 +700,6 @@ function summarizeApiError(error: unknown): {
             responseBody: parsedResponseBody,
         },
     };
-}
-
-function resolveProviderModel(
-    provider: Provider,
-    apiKey: string,
-    apiEndpoint: string,
-    modelName: string,
-) {
-    if (provider === "anthropic") {
-        const anthropic = createAnthropic({
-            apiKey,
-            baseURL: normalizeProviderBaseUrl(provider, apiEndpoint) || undefined,
-        });
-        return anthropic(modelName);
-    }
-
-    if (provider === "google") {
-        const google = createGoogleGenerativeAI({
-            apiKey,
-            baseURL: normalizeProviderBaseUrl(provider, apiEndpoint) || undefined,
-        });
-        return google(modelName);
-    }
-
-    const baseURL = normalizeProviderBaseUrl(provider, apiEndpoint);
-    const headers = resolveProviderHeaders(provider);
-    const openai = createOpenAI({
-        apiKey: apiKey || "ollama",
-        baseURL: baseURL || undefined,
-        headers,
-    });
-    // Custom endpoints use the Chat Completions API.
-    return openai.chat(modelName);
 }
 
 function startStreamKeepAlive(): ReturnType<typeof setInterval> {

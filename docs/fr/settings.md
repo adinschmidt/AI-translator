@@ -12,7 +12,7 @@ Le bouton près de la sélection utilise la langue cible et les instructions sup
 
 ## Raisonnement et comportement
 
-En mode avancé, **Override reasoning** propose `none`, `minimal`, `low`, `medium`, `high` et `xhigh`, avec `low` initialement. Désactivé, il laisse le fournisseur décider. Le mode simple n'applique pas ce réglage. Un modèle peut ignorer ou refuser un niveau. Davantage de raisonnement peut augmenter coût et délai. L'extension ne fixe pas de plafond de tokens de sortie ; les limites du fournisseur restent applicables.
+En mode avancé, **Override reasoning** propose `none`, `minimal`, `low`, `medium`, `high` et `xhigh`, avec `low` initialement. Désactivé, utilise des réglages économiques pour les modèles recommandés et ceux du fournisseur pour les autres. Les niveaux non pris en charge peuvent être ignorés ou refusés. Qwen Flash désactive la réflexion avec None et l'active avec les autres niveaux.  Le mode simple n'applique pas ce réglage. Un modèle peut ignorer ou refuser un niveau. Davantage de raisonnement peut augmenter coût et délai. L'extension ne fixe pas de plafond de tokens de sortie ; les limites du fournisseur restent applicables.
 
 Les contrôles avancés comprennent le bouton de sélection, activé par défaut ; la conservation de plusieurs fenêtres, désactivée ; le masquage des données sensibles, activé ; et le débogage, désactivé. Le masquage reconnaît certains courriels, téléphones, SSN américains et SIN canadiens, sans garantie. Le texte masqué reste masqué dans la traduction.
 

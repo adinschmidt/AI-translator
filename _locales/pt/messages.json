@@ -324,7 +324,7 @@
         "message": "Personalizar raciocínio"
     },
     "optionsReasoningHelp": {
-        "message": "Quando desativado, usa o padrão do provedor. Os níveis dependem do modelo; níveis não compatíveis podem ser ignorados ou rejeitados."
+        "message": "Desativado usa definições económicas nos modelos recomendados e as do fornecedor nos restantes. Níveis não suportados podem ser ignorados ou recusados. Qwen Flash desativa o raciocínio com None e ativa-o com os outros níveis."
     },
     "optionsReasoningLevel": {
         "message": "Nível de raciocínio"
