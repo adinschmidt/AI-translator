@@ -6,9 +6,9 @@ Load the built `dist/chrome/` directory or `dist/firefox/manifest.json`, not the
 
 ## Invalid endpoint, authentication, or model errors
 
-Use a complete endpoint URL. **Fill Default** restores the provider's built-in endpoint or model. Use HTTPS for remote services; local Ollama defaults to HTTP.
+Use a complete endpoint URL. **Use default** restores the provider's built-in endpoint or model. Use HTTPS for remote services; local Ollama defaults to HTTP.
 
-For 401 or 403 errors, check the key, account access, and provider billing. For model errors, click **Refresh Models**, choose a model available to your account, or enter its exact ID. Built-in suggestions do not guarantee current availability.
+For 401 or 403 errors, check the key, account access, and provider billing. For model errors, click **Refresh models**, choose a model available to your account, or enter its exact ID. Built-in suggestions do not guarantee current availability.
 
 If a request fails after enabling **Override reasoning**, turn it off or choose a level supported by that model. For "API returned no translation text", try another model or a smaller selection. The extension retries some empty streaming responses without streaming; it does not impose an output-token cap.
 

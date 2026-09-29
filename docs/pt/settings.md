@@ -10,6 +10,6 @@ O botão junto à seleção usa o idioma de destino e as instruções adicionais
 
 No modo avançado, **Override reasoning** oferece `none`, `minimal`, `low`, `medium`, `high` e `xhigh`, inicialmente `low`. Desativado usa definições económicas nos modelos recomendados e as do fornecedor nos restantes. Níveis não suportados podem ser ignorados ou recusados. Qwen Flash desativa o raciocínio com None e ativa-o com os outros níveis.  O modo básico não aplica a substituição. Modelos podem ignorar ou rejeitar níveis. Mais raciocínio pode aumentar custo e espera. A extensão não fixa um limite de tokens de saída; os limites do fornecedor continuam a aplicar-se.
 
-Os controlos avançados incluem botão de seleção, ativo por defeito; manter várias janelas abertas, desativo; ocultação de dados sensíveis, ativa; e depuração, desativa. A ocultação reconhece alguns emails, telefones, SSN dos EUA e SIN canadianos, mas pode falhar. O texto ocultado mantém-se assim na tradução.
+Ambos os modos incluem botão de seleção, ativo por defeito; manter várias janelas abertas, desativo; e ocultação de dados sensíveis, ativa. O modo avançado acrescenta a depuração, desativa por defeito. A ocultação reconhece alguns emails, telefones, SSN dos EUA e SIN canadianos, mas pode falhar. O texto ocultado mantém-se assim na tradução.
 
 Chaves e definições usam `chrome.storage.sync` e podem sincronizar entre dispositivos. Os registos podem conter chaves e texto mesmo sem depuração. Consulte [Privacidade](/pt/privacy).

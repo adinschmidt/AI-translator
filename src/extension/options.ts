@@ -114,8 +114,9 @@ const uiLanguageSelect = document.getElementById("ui-language") as HTMLSelectEle
 const uiThemeInputs = Array.from(
     document.querySelectorAll<HTMLInputElement>('input[name="ui-theme"]'),
 );
-const basicSettingsDiv = document.getElementById("basic-settings") as HTMLElement;
-const advancedSettingsDiv = document.getElementById("advanced-settings") as HTMLElement;
+const modeSpecificElements = Array.from(
+    document.querySelectorAll<HTMLElement>("[data-settings-mode]"),
+);
 const basicProviderSelect = document.getElementById(
     "basic-provider",
 ) as HTMLSelectElement;
@@ -143,7 +144,7 @@ const redactSensitiveDataInput = document.getElementById(
 
 const apiKeyContainer = document
     .getElementById("api-key")
-    ?.closest(".mb-4") as HTMLElement;
+    ?.closest(".row") as HTMLElement;
 const modelNameContainer = document.getElementById("model-name-container") as HTMLElement;
 const providerKeyDocsLink = document.getElementById(
     "provider-key-docs-link",
@@ -1010,14 +1011,8 @@ function updateRefreshModelsButtonState(): void {
 }
 
 function updateSettingsModeUI(): void {
-    const isBasic = settingsMode === SETTINGS_MODE_BASIC;
-
-    if (basicSettingsDiv) {
-        basicSettingsDiv.classList.toggle("hidden", !isBasic);
-    }
-
-    if (advancedSettingsDiv) {
-        advancedSettingsDiv.classList.toggle("hidden", isBasic);
+    for (const element of modeSpecificElements) {
+        element.classList.toggle("hidden", element.dataset.settingsMode !== settingsMode);
     }
 }
 
@@ -1336,7 +1331,7 @@ async function saveSetting(): Promise<void> {
                     : "off",
                 [STORAGE_KEYS.UI_THEME]: uiTheme,
             });
-            displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
+            displayStatus(t("optionsStatusSettingsSaved", "Settings saved"), false);
         } catch (error) {
             console.error("options.ts: Error saving basic settings:", error);
             displayStatus(
@@ -1384,7 +1379,7 @@ async function saveSetting(): Promise<void> {
             displayStatus(
                 t(
                     "optionsStatusInvalidEndpointFormat",
-                    "Invalid API Endpoint URL format.",
+                    "Invalid endpoint URL format.",
                 ),
                 true,
             );
@@ -1424,7 +1419,7 @@ async function saveSetting(): Promise<void> {
             [STORAGE_KEYS.UI_THEME]: uiTheme,
         });
         console.log("options.ts: Provider settings saved successfully.");
-        displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
+        displayStatus(t("optionsStatusSettingsSaved", "Settings saved"), false);
     } catch (error) {
         console.error("options.ts: Error saving settings:", error);
         displayStatus(
@@ -1441,24 +1436,14 @@ async function saveSetting(): Promise<void> {
 let statusTimeout: ReturnType<typeof setTimeout> | null = null;
 function displayStatus(message: string, isError = false): void {
     statusMessage.textContent = message;
-    
-    statusMessage.style.color = ""; // Clear inline color
-
-    statusMessage.classList.remove("status-toast-success", "status-toast-error");
-
-    if (isError) {
-        statusMessage.classList.add("status-toast-error");
-    } else {
-        statusMessage.classList.add("status-toast-success");
-    }
-
-    statusMessage.classList.remove("opacity-0");
+    statusMessage.classList.toggle("status-toast-error", isError);
+    statusMessage.classList.add("is-visible");
 
     if (statusTimeout) {
         clearTimeout(statusTimeout);
     }
     statusTimeout = setTimeout(() => {
-        statusMessage.classList.add("opacity-0");
+        statusMessage.classList.remove("is-visible");
     }, 3000);
 }
 
@@ -1624,7 +1609,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }).catch((error) => {
                 console.error("options.ts: Error saving show button setting:", error);
             });
-            displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
+            displayStatus(t("optionsStatusSettingsSaved", "Settings saved"), false);
         });
     }
 
@@ -1639,7 +1624,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     error,
                 );
             });
-            displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
+            displayStatus(t("optionsStatusSettingsSaved", "Settings saved"), false);
         });
     }
 
@@ -1651,7 +1636,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }).catch((error) => {
                 console.error("options.ts: Error saving debug mode setting:", error);
             });
-            displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
+            displayStatus(t("optionsStatusSettingsSaved", "Settings saved"), false);
         });
     }
 
@@ -1663,7 +1648,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }).catch((error) => {
                 console.error("options.ts: Error saving redaction mode setting:", error);
             });
-            displayStatus(t("optionsStatusSettingsSaved", "Settings saved!"), false);
+            displayStatus(t("optionsStatusSettingsSaved", "Settings saved"), false);
         });
     }
 
@@ -1684,7 +1669,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     console.error("options.ts: Error saving theme setting:", error);
                 });
 
-                displayStatus(t("optionsStatusThemeUpdated", "Theme updated!"), false);
+                displayStatus(t("optionsStatusThemeUpdated", "Theme updated"), false);
             });
         }
     }
@@ -1702,7 +1687,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 updateDocsLinks();
 
                 displayStatus(
-                    t("optionsStatusLanguageUpdated", "Language updated!"),
+                    t("optionsStatusLanguageUpdated", "Language updated"),
                     false,
                 );
             } catch (error) {
@@ -1729,7 +1714,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 setModelListStatus(
                     t(
                         "optionsModelStatusCredentialsChanged",
-                        "Credentials changed. Click Refresh Models to load live models.",
+                        "Credentials changed. Click Refresh models to load live models.",
                     ),
                 );
                 updateRefreshModelsButtonState();
@@ -1755,7 +1740,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 setModelListStatus(
                     t(
                         "optionsModelStatusEndpointChanged",
-                        "Endpoint changed. Click Refresh Models to load models from this endpoint.",
+                        "Endpoint changed. Click Refresh models to load models from this endpoint.",
                     ),
                 );
             }
@@ -1900,7 +1885,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 setModelListStatus(
                     t(
                         "optionsModelStatusEndpointResetDefault",
-                        "Endpoint reset to default. Click Refresh Models to load live models.",
+                        "Endpoint reset to default. Click Refresh models to load live models.",
                     ),
                 );
                 autoSaveSetting();

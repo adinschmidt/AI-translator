@@ -56,12 +56,6 @@
     "contentTranslatingChunksCount": {
         "message": "$1 チャンクを翻訳中..."
     },
-    "contentProgressBatchPrefix": {
-        "message": "バッチ $1/$2"
-    },
-    "contentProgressPartSuffix": {
-        "message": "パート $1/$2"
-    },
     "contentProgressTranslatedChunks": {
         "message": "$1/$2 チャンクを翻訳しました"
     },
@@ -79,6 +73,9 @@
     },
     "contentStopButton": {
         "message": "停止"
+    },
+    "contentClose": {
+        "message": "閉じる"
     },
     "contentTranslationErrorMarker": {
         "message": "[翻訳エラー]"
@@ -107,11 +104,23 @@
     "optionsHeading": {
         "message": "AI Translator 設定"
     },
-    "optionsNeedHelp": {
-        "message": "ヘルプが必要ですか？"
+    "optionsSectionConnection": {
+        "message": "接続"
+    },
+    "optionsSectionTranslation": {
+        "message": "翻訳"
+    },
+    "optionsSectionBehavior": {
+        "message": "動作"
+    },
+    "optionsSectionAppearance": {
+        "message": "外観"
+    },
+    "optionsSectionDeveloper": {
+        "message": "開発者向け"
     },
     "optionsUiLanguageLabel": {
-        "message": "UI言語:"
+        "message": "UI言語"
     },
     "optionsUiLanguageHelp": {
         "message": "デフォルトはブラウザの言語に従います。"
@@ -120,10 +129,10 @@
         "message": "デフォルト (ブラウザ言語)"
     },
     "optionsDocumentation": {
-        "message": "ドキュメント →"
+        "message": "ドキュメント"
     },
     "optionsThemeLegend": {
-        "message": "テーマ:"
+        "message": "テーマ"
     },
     "optionsThemeLight": {
         "message": "ライト"
@@ -144,25 +153,25 @@
         "message": "有効にすると、エンドポイント、モデル、カスタムプロンプトを編集できます。"
     },
     "optionsProviderLabel": {
-        "message": "プロバイダー:"
+        "message": "プロバイダー"
     },
     "optionsBasicProviderHelp": {
         "message": "基本モードでは、モデルとエンドポイントが自動的に構成されます。"
     },
     "optionsApiKeyLabel": {
-        "message": "APIキー:"
+        "message": "APIキー"
     },
     "optionsApiKeyPlaceholder": {
         "message": "APIキーを入力"
     },
     "optionsApiKeyHelp": {
-        "message": "キーはローカルブラウザストレージに安全に保存されます。"
+        "message": "キーは拡張機能のストレージに保存されます。ブラウザの同期がオンの場合、ログイン中のほかのデバイスにも同期されます。"
     },
     "optionsTargetLanguageLabel": {
-        "message": "翻訳先言語:"
+        "message": "翻訳先言語"
     },
     "optionsCustomTargetLanguageLabel": {
-        "message": "カスタム翻訳先言語:"
+        "message": "カスタム翻訳先言語"
     },
     "optionsCustomTargetLanguagePlaceholder": {
         "message": "例: クリンゴン語、ラテン語、pt-BR"
@@ -174,10 +183,10 @@
         "message": "エンドポイントが期待する形式を選択します。"
     },
     "optionsHowToGetKey": {
-        "message": "鍵の入手方法→"
+        "message": "鍵の入手方法"
     },
     "optionsModelNameLabel": {
-        "message": "モデル名:"
+        "message": "モデル名"
     },
     "optionsModelNamePlaceholder": {
         "message": "例: gpt-4o"
@@ -192,10 +201,10 @@
         "message": "モデルをフィルタリングするために入力します。お使いのモデルがリストにない場合は、入力を続けてカスタム モデル名を使用します。"
     },
     "optionsOllamaNoteHtml": {
-        "message": "<strong>注:</strong> Chrome 拡張機能からのリクエストを許可するには、<code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code> で Ollama を起動する必要がある場合があります。"
+        "message": "<strong>注:</strong> Chrome 拡張機能からのリクエストを許可するには、<code>OLLAMA_ORIGINS=\"*\" ollama serve</code> で Ollama を起動する必要がある場合があります。"
     },
     "optionsApiEndpointLabel": {
-        "message": "APIエンドポイントURL:"
+        "message": "APIエンドポイントURL"
     },
     "optionsApiEndpointPlaceholder": {
         "message": "例: https://api.openai.com/v1/chat/completions"
@@ -204,7 +213,7 @@
         "message": "テキストを翻訳する言語。<strong>カスタム…</strong>を選択して独自の言語を入力できます。"
     },
     "optionsExtraInstructionsLabel": {
-        "message": "追加指示（任意）:"
+        "message": "追加指示（任意）"
     },
     "optionsExtraInstructionsPlaceholder": {
         "message": "例: フォーマルな口調を使用し、専門用語を保持する"
@@ -243,13 +252,13 @@
         "message": "カスタム…"
     },
     "optionsStatusSettingsSaved": {
-        "message": "設定を保存しました！"
+        "message": "設定を保存しました"
     },
     "optionsStatusThemeUpdated": {
-        "message": "テーマが更新されました！"
+        "message": "テーマが更新されました"
     },
     "optionsStatusLanguageUpdated": {
-        "message": "言語が更新されました!"
+        "message": "言語が更新されました"
     },
     "optionsStatusProviderSwitched": {
         "message": "プロバイダーが切り替わりました。"

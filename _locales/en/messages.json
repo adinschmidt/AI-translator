@@ -39,10 +39,10 @@
         "message": "Translate from $1"
     },
     "contentTranslationErrorPrefix": {
-        "message": "Translation Error: $1"
+        "message": "Translation error: $1"
     },
     "contentTranslationErrorUnknown": {
-        "message": "Translation Error: Unknown error"
+        "message": "Translation error: Unknown error"
     },
     "contentTranslationStoppedByUser": {
         "message": "Translation stopped by user."
@@ -54,31 +54,28 @@
         "message": "No translatable content found"
     },
     "contentTranslatingChunksCount": {
-        "message": "Translating $1 chunks..."
-    },
-    "contentProgressBatchPrefix": {
-        "message": "Batch $1/$2"
-    },
-    "contentProgressPartSuffix": {
-        "message": " part $1/$2"
+        "message": "Translating $1 sections..."
     },
     "contentProgressTranslatedChunks": {
-        "message": "Translated $1/$2 chunks"
+        "message": "Translated $1 of $2 sections"
     },
     "contentProgressErrorSuffix": {
         "message": " ($1 errors)"
     },
     "contentSummaryDoneWithErrors": {
-        "message": "Done. $1 regions translated, $2 errors"
+        "message": "Done. $1 sections translated, $2 errors"
     },
     "contentSummaryDone": {
-        "message": "Done. $1 regions translated"
+        "message": "Done. $1 sections translated"
     },
     "contentErrorPrefix": {
         "message": "Error: $1"
     },
     "contentStopButton": {
         "message": "Stop"
+    },
+    "contentClose": {
+        "message": "Close"
     },
     "contentTranslationErrorMarker": {
         "message": " [translation error]"
@@ -107,11 +104,23 @@
     "optionsHeading": {
         "message": "AI Translator Settings"
     },
-    "optionsNeedHelp": {
-        "message": "Need help?"
+    "optionsSectionConnection": {
+        "message": "Connection"
+    },
+    "optionsSectionTranslation": {
+        "message": "Translation"
+    },
+    "optionsSectionBehavior": {
+        "message": "Behavior"
+    },
+    "optionsSectionAppearance": {
+        "message": "Appearance"
+    },
+    "optionsSectionDeveloper": {
+        "message": "Developer"
     },
     "optionsUiLanguageLabel": {
-        "message": "UI Language:"
+        "message": "Interface language"
     },
     "optionsUiLanguageHelp": {
         "message": "Default follows your browser language."
@@ -120,10 +129,10 @@
         "message": "Default (Browser language)"
     },
     "optionsDocumentation": {
-        "message": "Documentation →"
+        "message": "Documentation"
     },
     "optionsThemeLegend": {
-        "message": "Theme:"
+        "message": "Theme"
     },
     "optionsThemeLight": {
         "message": "Light"
@@ -144,25 +153,25 @@
         "message": "Turn on to edit endpoints, models, and custom prompts."
     },
     "optionsProviderLabel": {
-        "message": "Provider:"
+        "message": "Provider"
     },
     "optionsBasicProviderHelp": {
         "message": "In Basic mode, models and endpoints are configured automatically."
     },
     "optionsApiKeyLabel": {
-        "message": "API Key:"
+        "message": "API key"
     },
     "optionsApiKeyPlaceholder": {
         "message": "Enter your API key"
     },
     "optionsApiKeyHelp": {
-        "message": "Your key is stored securely in local browser storage."
+        "message": "Your key is saved in extension storage. If browser sync is on, it also syncs to your other signed-in devices."
     },
     "optionsTargetLanguageLabel": {
-        "message": "Target Language:"
+        "message": "Target language"
     },
     "optionsCustomTargetLanguageLabel": {
-        "message": "Custom target language:"
+        "message": "Custom target language"
     },
     "optionsCustomTargetLanguagePlaceholder": {
         "message": "e.g., Klingon, Latin, or pt-BR"
@@ -174,28 +183,28 @@
         "message": "Select the format your endpoint expects."
     },
     "optionsHowToGetKey": {
-        "message": "How to get a key →"
+        "message": "How to get a key"
     },
     "optionsModelNameLabel": {
-        "message": "Model Name:"
+        "message": "Model"
     },
     "optionsModelNamePlaceholder": {
         "message": "e.g., gpt-4o"
     },
     "optionsRefreshModelsButton": {
-        "message": "Refresh Models"
+        "message": "Refresh models"
     },
     "optionsFillDefaultButton": {
-        "message": "Fill Default"
+        "message": "Use default"
     },
     "optionsModelFilterHelp": {
         "message": "Type to filter models. If your model is not listed, keep typing to use a custom model name."
     },
     "optionsOllamaNoteHtml": {
-        "message": "<strong>Note:</strong> Ollama may need to be started with <code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code> to allow requests from Chrome extensions."
+        "message": "<strong>Note:</strong> Ollama may need to be started with <code>OLLAMA_ORIGINS=\"*\" ollama serve</code> to allow requests from Chrome extensions."
     },
     "optionsApiEndpointLabel": {
-        "message": "API Endpoint URL:"
+        "message": "Endpoint URL"
     },
     "optionsApiEndpointPlaceholder": {
         "message": "e.g., https://api.openai.com/v1/chat/completions"
@@ -204,7 +213,7 @@
         "message": "The language to translate text into. Choose <strong>Custom…</strong> to type your own."
     },
     "optionsExtraInstructionsLabel": {
-        "message": "Extra Instructions (optional):"
+        "message": "Extra instructions (optional)"
     },
     "optionsExtraInstructionsPlaceholder": {
         "message": "e.g., Use formal tone, preserve technical terms"
@@ -243,13 +252,13 @@
         "message": "Custom…"
     },
     "optionsStatusSettingsSaved": {
-        "message": "Settings saved!"
+        "message": "Settings saved"
     },
     "optionsStatusThemeUpdated": {
-        "message": "Theme updated!"
+        "message": "Theme updated"
     },
     "optionsStatusLanguageUpdated": {
-        "message": "Language updated!"
+        "message": "Language updated"
     },
     "optionsStatusProviderSwitched": {
         "message": "Provider switched."
@@ -261,7 +270,7 @@
         "message": "Error saving: $1"
     },
     "optionsStatusInvalidEndpointFormat": {
-        "message": "Invalid API Endpoint URL format."
+        "message": "Invalid endpoint URL format."
     },
     "optionsStatusErrorSavingProviderSelection": {
         "message": "Error saving provider selection: $1"
@@ -312,13 +321,13 @@
         "message": "$1 Enter a custom model name."
     },
     "optionsModelStatusCredentialsChanged": {
-        "message": "Credentials changed. Click Refresh Models to load live models."
+        "message": "Credentials changed. Click Refresh models to load live models."
     },
     "optionsModelStatusEndpointChanged": {
-        "message": "Endpoint changed. Click Refresh Models to load models from this endpoint."
+        "message": "Endpoint changed. Click Refresh models to load models from this endpoint."
     },
     "optionsModelStatusEndpointResetDefault": {
-        "message": "Endpoint reset to default. Click Refresh Models to load live models."
+        "message": "Endpoint reset to default. Click Refresh models to load live models."
     },
     "optionsReasoningOverride": {
         "message": "Override reasoning"

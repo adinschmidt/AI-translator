@@ -56,12 +56,6 @@
     "contentTranslatingChunksCount": {
         "message": "Traduzione dei blocchi $1 in corso..."
     },
-    "contentProgressBatchPrefix": {
-        "message": "Lotto $1/$2"
-    },
-    "contentProgressPartSuffix": {
-        "message": "parte $1/$2"
-    },
     "contentProgressTranslatedChunks": {
         "message": "Pezzi $1/$2 tradotti"
     },
@@ -79,6 +73,9 @@
     },
     "contentStopButton": {
         "message": "Interrompi"
+    },
+    "contentClose": {
+        "message": "Chiudi"
     },
     "contentTranslationErrorMarker": {
         "message": "[errore di traduzione]"
@@ -107,11 +104,23 @@
     "optionsHeading": {
         "message": "Impostazioni di AI Translator"
     },
-    "optionsNeedHelp": {
-        "message": "Hai bisogno di aiuto?"
+    "optionsSectionConnection": {
+        "message": "Connessione"
+    },
+    "optionsSectionTranslation": {
+        "message": "Traduzione"
+    },
+    "optionsSectionBehavior": {
+        "message": "Comportamento"
+    },
+    "optionsSectionAppearance": {
+        "message": "Aspetto"
+    },
+    "optionsSectionDeveloper": {
+        "message": "Sviluppatore"
     },
     "optionsUiLanguageLabel": {
-        "message": "Lingua dell'interfaccia utente:"
+        "message": "Lingua dell'interfaccia utente"
     },
     "optionsUiLanguageHelp": {
         "message": "L'impostazione predefinita segue la lingua del browser."
@@ -120,10 +129,10 @@
         "message": "Predefinito (lingua del browser)"
     },
     "optionsDocumentation": {
-        "message": "Documentazione →"
+        "message": "Documentazione"
     },
     "optionsThemeLegend": {
-        "message": "Tema:"
+        "message": "Tema"
     },
     "optionsThemeLight": {
         "message": "Chiaro"
@@ -144,25 +153,25 @@
         "message": "Attiva per modificare endpoint, modelli e prompt personalizzati."
     },
     "optionsProviderLabel": {
-        "message": "Provider:"
+        "message": "Provider"
     },
     "optionsBasicProviderHelp": {
         "message": "In modalità Base, i modelli e gli endpoint vengono configurati automaticamente."
     },
     "optionsApiKeyLabel": {
-        "message": "Chiave API:"
+        "message": "Chiave API"
     },
     "optionsApiKeyPlaceholder": {
         "message": "Inserisci la tua chiave API"
     },
     "optionsApiKeyHelp": {
-        "message": "La tua chiave è archiviata in modo sicuro nella memoria del browser locale."
+        "message": "La tua chiave viene salvata nella memoria dell'estensione. Se la sincronizzazione del browser è attiva, viene sincronizzata anche con gli altri dispositivi collegati al tuo account."
     },
     "optionsTargetLanguageLabel": {
-        "message": "Lingua di destinazione:"
+        "message": "Lingua di destinazione"
     },
     "optionsCustomTargetLanguageLabel": {
-        "message": "Lingua di destinazione personalizzata:"
+        "message": "Lingua di destinazione personalizzata"
     },
     "optionsCustomTargetLanguagePlaceholder": {
         "message": "es. Klingon, Latino o pt-BR"
@@ -174,10 +183,10 @@
         "message": "Seleziona il formato previsto dal tuo endpoint."
     },
     "optionsHowToGetKey": {
-        "message": "Come ottenere una chiave →"
+        "message": "Come ottenere una chiave"
     },
     "optionsModelNameLabel": {
-        "message": "Nome del modello:"
+        "message": "Nome del modello"
     },
     "optionsModelNamePlaceholder": {
         "message": "ad esempio, gpt-4o"
@@ -192,10 +201,10 @@
         "message": "Digita per filtrare i modelli. Se il tuo modello non è elencato, continua a digitare per utilizzare un nome di modello personalizzato."
     },
     "optionsOllamaNoteHtml": {
-        "message": "<strong>Nota:</strong> Potrebbe essere necessario avviare Ollama con <code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code> per consentire le richieste dalle estensioni di Chrome."
+        "message": "<strong>Nota:</strong> Potrebbe essere necessario avviare Ollama con <code>OLLAMA_ORIGINS=\"*\" ollama serve</code> per consentire le richieste dalle estensioni di Chrome."
     },
     "optionsApiEndpointLabel": {
-        "message": "URL endpoint API:"
+        "message": "URL endpoint API"
     },
     "optionsApiEndpointPlaceholder": {
         "message": "ad esempio, https://api.openai.com/v1/chat/completions"
@@ -204,7 +213,7 @@
         "message": "La lingua in cui tradurre il testo. Scegli <strong>Personalizzato…</strong> per digitarne uno tuo."
     },
     "optionsExtraInstructionsLabel": {
-        "message": "Istruzioni extra (opzionale):"
+        "message": "Istruzioni extra (opzionale)"
     },
     "optionsExtraInstructionsPlaceholder": {
         "message": "ad esempio, utilizzare un tono formale, preservare i termini tecnici"
@@ -243,13 +252,13 @@
         "message": "Personalizzata…"
     },
     "optionsStatusSettingsSaved": {
-        "message": "Impostazioni salvate!"
+        "message": "Impostazioni salvate"
     },
     "optionsStatusThemeUpdated": {
-        "message": "Tema aggiornato!"
+        "message": "Tema aggiornato"
     },
     "optionsStatusLanguageUpdated": {
-        "message": "Lingua aggiornata!"
+        "message": "Lingua aggiornata"
     },
     "optionsStatusProviderSwitched": {
         "message": "Fornitore cambiato."

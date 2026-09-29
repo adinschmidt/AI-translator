@@ -6,7 +6,7 @@ Last updated: September 20, 2026
 
 AI Translator has no developer-operated translation backend or analytics service. Translation requests go from your browser to the configured AI endpoint. They include selected text or page regions and translation instructions. Cloud providers process that content outside your device under their own retention and data-use policies. OpenRouter can forward requests to underlying providers.
 
-Options can request model lists when you select a provider, change credentials or endpoints, or click **Refresh Models**. These requests may include your API key but do not require a translation action.
+Options can request model lists when you select a provider, change credentials or endpoints, or click **Refresh models**. These requests may include your API key but do not require a translation action.
 
 Settings and API keys are stored in `chrome.storage.sync`. Your browser's sync service may copy them to other signed-in devices. This is not exclusively on-device storage or a separate encrypted secrets vault. The extension does not store a persistent translation history, but results remain in page content, open popups, and temporary in-memory state.
 

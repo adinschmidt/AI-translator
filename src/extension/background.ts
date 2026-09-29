@@ -481,10 +481,10 @@ function safeStringifyForDebug(value: unknown, maxLength: number = 1500): string
 function getTranslationErrorMessage(error: unknown): string {
     const rawMessage = (error as any)?.message;
     if (typeof rawMessage === "string" && rawMessage.trim() !== "") {
-        return t("contentTranslationErrorPrefix", "Translation Error: $1", rawMessage);
+        return t("contentTranslationErrorPrefix", "Translation error: $1", rawMessage);
     }
 
-    return t("contentTranslationErrorUnknown", "Translation Error: Unknown error");
+    return t("contentTranslationErrorUnknown", "Translation error: Unknown error");
 }
 
 function notifySelectedTranslationLoading(
@@ -1569,7 +1569,7 @@ async function getSettingsAndTranslate(
     if (!hasUsableProviderSettings(settings)) {
         const errorMsg = t(
             "errorApiKeyOrEndpointNotSet",
-            "Translation Error: API Key or Endpoint not set. Please configure in extension settings.",
+            "Translation error: API key or endpoint not set. Add them in the extension settings.",
         );
         console.error(errorMsg);
         const debugInfo = debugModeEnabled
@@ -1782,7 +1782,7 @@ async function getSettingsAndTranslateWithDetection(
     if (!hasUsableProviderSettings(settings)) {
         const errorMsg = t(
             "errorApiKeyOrEndpointNotSet",
-            "Translation Error: API Key or Endpoint not set. Please configure in extension settings.",
+            "Translation error: API key or endpoint not set. Add them in the extension settings.",
         );
         console.error(errorMsg);
         const debugInfo = debugModeEnabled

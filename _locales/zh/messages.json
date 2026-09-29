@@ -56,12 +56,6 @@
     "contentTranslatingChunksCount": {
         "message": "正在翻译 $1 块..."
     },
-    "contentProgressBatchPrefix": {
-        "message": "批次$1/$2"
-    },
-    "contentProgressPartSuffix": {
-        "message": "部分$1/$2"
-    },
     "contentProgressTranslatedChunks": {
         "message": "翻译的 $1/$2 块"
     },
@@ -79,6 +73,9 @@
     },
     "contentStopButton": {
         "message": "停止"
+    },
+    "contentClose": {
+        "message": "关闭"
     },
     "contentTranslationErrorMarker": {
         "message": "[翻译错误]"
@@ -107,11 +104,23 @@
     "optionsHeading": {
         "message": "AI Translator 设置"
     },
-    "optionsNeedHelp": {
-        "message": "需要帮助吗？"
+    "optionsSectionConnection": {
+        "message": "连接"
+    },
+    "optionsSectionTranslation": {
+        "message": "翻译"
+    },
+    "optionsSectionBehavior": {
+        "message": "行为"
+    },
+    "optionsSectionAppearance": {
+        "message": "外观"
+    },
+    "optionsSectionDeveloper": {
+        "message": "开发者"
     },
     "optionsUiLanguageLabel": {
-        "message": "用户界面语言："
+        "message": "用户界面语言"
     },
     "optionsUiLanguageHelp": {
         "message": "默认遵循您的浏览器语言。"
@@ -120,10 +129,10 @@
         "message": "默认（浏览器语言）"
     },
     "optionsDocumentation": {
-        "message": "文档 →"
+        "message": "文档"
     },
     "optionsThemeLegend": {
-        "message": "主题："
+        "message": "主题"
     },
     "optionsThemeLight": {
         "message": "浅色"
@@ -144,25 +153,25 @@
         "message": "开启后可编辑端点、模型和自定义提示词。"
     },
     "optionsProviderLabel": {
-        "message": "提供商："
+        "message": "提供商"
     },
     "optionsBasicProviderHelp": {
         "message": "在基本模式下，模型和端点是自动配置的。"
     },
     "optionsApiKeyLabel": {
-        "message": "API 密钥："
+        "message": "API 密钥"
     },
     "optionsApiKeyPlaceholder": {
         "message": "输入你的 API 密钥"
     },
     "optionsApiKeyHelp": {
-        "message": "您的密钥安全地存储在本地浏览器存储中。"
+        "message": "您的密钥保存在扩展程序存储中。如果开启了浏览器同步，它也会同步到您已登录的其他设备。"
     },
     "optionsTargetLanguageLabel": {
-        "message": "目标语言："
+        "message": "目标语言"
     },
     "optionsCustomTargetLanguageLabel": {
-        "message": "自定义目标语言："
+        "message": "自定义目标语言"
     },
     "optionsCustomTargetLanguagePlaceholder": {
         "message": "例如：克林贡语、拉丁语或 pt-BR"
@@ -174,10 +183,10 @@
         "message": "选择您的端点期望的格式。"
     },
     "optionsHowToGetKey": {
-        "message": "如何获取密钥 →"
+        "message": "如何获取密钥"
     },
     "optionsModelNameLabel": {
-        "message": "模型名称："
+        "message": "模型名称"
     },
     "optionsModelNamePlaceholder": {
         "message": "例如，gpt-4o"
@@ -192,10 +201,10 @@
         "message": "键入以过滤模型。如果您的模型未列出，请继续输入以使用自定义模型名称。"
     },
     "optionsOllamaNoteHtml": {
-        "message": "<strong>注意：</strong> Ollama 可能需要以 <code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code> 启动，以允许来自 Chrome 扩展程序的请求。"
+        "message": "<strong>注意：</strong> Ollama 可能需要以 <code>OLLAMA_ORIGINS=\"*\" ollama serve</code> 启动，以允许来自 Chrome 扩展程序的请求。"
     },
     "optionsApiEndpointLabel": {
-        "message": "API 端点 URL："
+        "message": "API 端点 URL"
     },
     "optionsApiEndpointPlaceholder": {
         "message": "例如，https://api.openai.com/v1/chat/completions"
@@ -204,7 +213,7 @@
         "message": "将文本翻译成的语言。选择<strong>自定义…</strong> 输入您自己的。"
     },
     "optionsExtraInstructionsLabel": {
-        "message": "额外说明（可选）："
+        "message": "额外说明（可选）"
     },
     "optionsExtraInstructionsPlaceholder": {
         "message": "例如，使用正式语气，保留技术术语"
@@ -243,13 +252,13 @@
         "message": "自定义…"
     },
     "optionsStatusSettingsSaved": {
-        "message": "设置已保存！"
+        "message": "设置已保存"
     },
     "optionsStatusThemeUpdated": {
-        "message": "主题已更新！"
+        "message": "主题已更新"
     },
     "optionsStatusLanguageUpdated": {
-        "message": "语言已更新！"
+        "message": "语言已更新"
     },
     "optionsStatusProviderSwitched": {
         "message": "提供商已切换。"

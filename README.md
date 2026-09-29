@@ -49,7 +49,7 @@ bun run build
 bun run build:zip
 ```
 
-The build checks extension locale completeness, replaces `dist/`, bundles TypeScript and ELD, copies DOMPurify from installed dependencies, compiles Tailwind CSS, and copies assets and locale messages. `build:zip` also requires the `zip` command and creates `dist/translator-<version>-chrome.zip` and `dist/translator-<version>-firefox.zip`.
+The build checks extension locale completeness, replaces `dist/`, bundles TypeScript and ELD, copies DOMPurify from installed dependencies, and copies assets and locale messages. `build:zip` also requires the `zip` command and creates `dist/translator-<version>-chrome.zip` and `dist/translator-<version>-firefox.zip`.
 
 ```text
 src/extension/   Browser entry points and translation orchestration

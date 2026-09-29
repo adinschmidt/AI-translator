@@ -200,12 +200,12 @@ if ((window as any).hasRun) {
         if (normalized) {
             return t(
                 "contentTranslationErrorPrefix",
-                "Translation Error: $1",
+                "Translation error: $1",
                 normalized,
             );
         }
 
-        return t("contentTranslationErrorUnknown", "Translation Error: Unknown error");
+        return t("contentTranslationErrorUnknown", "Translation error: Unknown error");
     }
 
     void initializeI18nFromStorage();
@@ -1516,27 +1516,30 @@ if ((window as any).hasRun) {
         return theme;
     }
 
-    function applyPopupThemeClass(popup: HTMLElement): void {
-        const resolvedTheme = resolveUITheme(uiTheme);
-        popup.classList.remove(
-            "translation-popup-theme-light",
-            "translation-popup-theme-dark",
-        );
-        popup.classList.add(
-            resolvedTheme === UI_THEME_DARK
-                ? "translation-popup-theme-dark"
-                : "translation-popup-theme-light",
+    function applyThemeClass(element: HTMLElement): void {
+        element.classList.toggle(
+            "ai-translator-theme-dark",
+            resolveUITheme(uiTheme) === UI_THEME_DARK,
         );
     }
 
-    function applySelectionButtonThemeClass(): void {
-        if (!selectionTranslateButton) {
-            return;
-        }
-        selectionTranslateButton.classList.toggle(
-            "selection-theme-dark",
-            resolveUITheme(uiTheme) === UI_THEME_DARK,
-        );
+    // Stroke icons on a 16x16 grid, styled by .ai-translator-icon in styles.css.
+    const ICON_PATHS = {
+        check: "M3.5 8.5l3 3 6-7",
+        close: "M4 4l8 8M12 4l-8 8",
+        stop: "M5 5h6v6H5z",
+    } as const;
+
+    function createIcon(name: keyof typeof ICON_PATHS): SVGSVGElement {
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", "0 0 16 16");
+        svg.setAttribute("aria-hidden", "true");
+        svg.setAttribute("focusable", "false");
+        svg.classList.add("ai-translator-icon");
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", ICON_PATHS[name]);
+        svg.appendChild(path);
+        return svg;
     }
 
     function setPopupVisualState(popup: HTMLElement, state: PopupVisualState): void {
@@ -1552,9 +1555,14 @@ if ((window as any).hasRun) {
 
     function applyThemeToExistingUI(): void {
         for (const popup of getAllTranslationPopups()) {
-            applyPopupThemeClass(popup);
+            applyThemeClass(popup);
         }
-        applySelectionButtonThemeClass();
+        if (selectionTranslateButton) {
+            applyThemeClass(selectionTranslateButton);
+        }
+        if (loadingIndicator) {
+            applyThemeClass(loadingIndicator);
+        }
     }
 
     function ensureSystemThemeWatcher(): void {
@@ -1916,7 +1924,7 @@ if ((window as any).hasRun) {
 
         if (loadingIndicator) {
             const stopButtonEl = loadingIndicator.querySelector(
-                ".stop-button",
+                ".ai-translator-stop-button",
             ) as HTMLButtonElement | null;
             if (stopButtonEl) {
                 stopButtonEl.textContent = t("contentStopButton", "Stop");
@@ -1986,6 +1994,7 @@ if ((window as any).hasRun) {
 
         selectionTranslateButton = document.createElement("button");
         selectionTranslateButton.id = "ai-translator-selection-translate-button";
+        selectionTranslateButton.className = "ai-translator-ui";
         selectionTranslateButton.type = "button";
         selectionTranslateButton.setAttribute(
             "aria-label",
@@ -2058,7 +2067,7 @@ if ((window as any).hasRun) {
             });
         });
 
-        applySelectionButtonThemeClass();
+        applyThemeClass(selectionTranslateButton);
         document.body.appendChild(selectionTranslateButton);
     }
 
@@ -2508,36 +2517,14 @@ if ((window as any).hasRun) {
         translatedChunks: number,
         totalChunks: number,
         errorCount: number,
-        batchInfo: HtmlTranslationOnUpdateMeta | null = null,
     ): string {
         const errorSuffix =
             errorCount > 0
                 ? t("contentProgressErrorSuffix", " ($1 errors)", String(errorCount))
                 : "";
-        let batchPrefix = "";
-        if (
-            batchInfo &&
-            typeof batchInfo.batchIndex === "number" &&
-            typeof batchInfo.batchCount === "number"
-        ) {
-            batchPrefix = t("contentProgressBatchPrefix", "Batch $1/$2", [
-                String(batchInfo.batchIndex),
-                String(batchInfo.batchCount),
-            ]);
-            if (
-                typeof batchInfo.subBatchIndex === "number" &&
-                typeof batchInfo.subBatchCount === "number"
-            ) {
-                batchPrefix += t("contentProgressPartSuffix", " part $1/$2", [
-                    String(batchInfo.subBatchIndex),
-                    String(batchInfo.subBatchCount),
-                ]);
-            }
-            batchPrefix += " - ";
-        }
-        return `${batchPrefix}${t(
+        return `${t(
             "contentProgressTranslatedChunks",
-            "Translated $1/$2 chunks",
+            "Translated $1 of $2 sections",
             [String(translatedChunks), String(totalChunks)],
         )}${errorSuffix}`;
     }
@@ -2579,7 +2566,7 @@ if ((window as any).hasRun) {
         displayLoadingIndicatorState(
             t(
                 "contentTranslatingChunksCount",
-                "Translating $1 chunks...",
+                "Translating $1 sections...",
                 String(totalChunks),
             ),
             "translating",
@@ -2616,7 +2603,6 @@ if ((window as any).hasRun) {
                     progress.translatedChunks,
                     progress.totalChunks,
                     progress.errorCount,
-                    progress.batchInfo,
                 ),
                 "translating",
                 {
@@ -2684,12 +2670,12 @@ if ((window as any).hasRun) {
                 summary.errorCount > 0
                     ? t(
                           "contentSummaryDoneWithErrors",
-                          "Done. $1 regions translated, $2 errors",
+                          "Done. $1 sections translated, $2 errors",
                           [String(summary.successCount), String(summary.errorCount)],
                       )
                     : t(
                           "contentSummaryDone",
-                          "Done. $1 regions translated",
+                          "Done. $1 sections translated",
                           String(summary.successCount),
                       );
             const summaryState = summary.errorCount > 0 ? "error" : "done";
@@ -2828,109 +2814,56 @@ if ((window as any).hasRun) {
     ): void {
         removeLoadingIndicator();
 
-        loadingIndicator = document.createElement("div");
-        loadingIndicator.id = "translation-loading-indicator";
+        const indicator = document.createElement("div");
+        indicator.id = "translation-loading-indicator";
+        indicator.className = `ai-translator-ui is-${state}`;
+        applyThemeClass(indicator);
 
-        const stateIcon = document.createElement("span");
-        stateIcon.className = "state-icon";
+        const isRunning = state === "preparing" || state === "translating";
 
-        const progressText = document.createElement("span");
-        progressText.className = "progress-text";
-        progressText.textContent = message;
-
-        const stopButtonEl = document.createElement("button");
-        stopButtonEl.className = "stop-button";
-        stopButtonEl.textContent = t("contentStopButton", "Stop");
-        stopButtonEl.style.display =
-            state === "translating" || state === "preparing"
-                ? "inline-block"
-                : "none";
-
-        const textWrapper = document.createElement("div");
-        textWrapper.style.display = "flex";
-        textWrapper.style.flexDirection = "column";
-        textWrapper.style.gap = "6px";
-        textWrapper.style.alignItems = "flex-start";
-        textWrapper.appendChild(progressText);
-
-        if (
-            progress &&
-            typeof progress.current === "number" &&
-            typeof progress.total === "number"
-        ) {
-            const progressBar = document.createElement("div");
-            const progressFill = document.createElement("div");
-            const ratio = progress.total > 0 ? progress.current / progress.total : 0;
-            const clamped = Math.max(0, Math.min(1, ratio));
-            progressBar.style.width = "160px";
-            progressBar.style.height = "6px";
-            progressBar.style.backgroundColor = "rgba(255,255,255,0.3)";
-            progressBar.style.borderRadius = "999px";
-            progressBar.style.overflow = "hidden";
-            progressFill.style.width = `${Math.round(clamped * 100)}%`;
-            progressFill.style.height = "100%";
-            progressFill.style.backgroundColor = "rgba(255,255,255,0.9)";
-            progressFill.style.transition = "width 0.2s ease";
-            progressBar.appendChild(progressFill);
-            textWrapper.appendChild(progressBar);
+        const status = document.createElement("span");
+        status.className = "ai-translator-progress-status";
+        if (isRunning) {
+            const spinner = document.createElement("span");
+            spinner.className = "ai-translator-spinner";
+            status.appendChild(spinner);
+        } else {
+            status.appendChild(
+                createIcon(
+                    state === "done" ? "check" : state === "stopped" ? "stop" : "close",
+                ),
+            );
         }
 
-        loadingIndicator.appendChild(stateIcon);
-        loadingIndicator.appendChild(textWrapper);
-        loadingIndicator.appendChild(stopButtonEl);
+        const text = document.createElement("span");
+        text.className = "ai-translator-progress-text";
+        text.textContent = message;
 
-        const stateColors: Record<LoadingIndicatorState, { bg: string; icon: string }> = {
-            preparing: { bg: "rgba(59, 130, 246, 0.9)", icon: "..." },
-            translating: { bg: "rgba(16, 185, 129, 0.9)", icon: "..." },
-            done: { bg: "rgba(34, 197, 94, 0.9)", icon: "check" },
-            stopped: { bg: "rgba(251, 191, 36, 0.9)", icon: "pause" },
-            error: { bg: "rgba(239, 68, 68, 0.9)", icon: "x" },
-        };
+        const action = document.createElement("button");
+        action.type = "button";
+        if (isRunning) {
+            action.className = "ai-translator-stop-button";
+            action.textContent = t("contentStopButton", "Stop");
+            action.addEventListener("click", stopTranslation);
+        } else {
+            action.className = "ai-translator-dismiss-button";
+            action.setAttribute("aria-label", t("contentClose", "Close"));
+            action.appendChild(createIcon("close"));
+            action.addEventListener("click", removeLoadingIndicator);
+        }
 
-        const stateConfig = stateColors[state] || stateColors.translating;
+        indicator.append(status, text, action);
 
-        loadingIndicator.style.position = "fixed";
-        loadingIndicator.style.bottom = "20px";
-        loadingIndicator.style.left = "20px";
-        loadingIndicator.style.backgroundColor = stateConfig.bg;
-        loadingIndicator.style.color = "white";
-        loadingIndicator.style.padding = "10px 15px";
-        loadingIndicator.style.borderRadius = "8px";
-        loadingIndicator.style.zIndex = "2147483647";
-        loadingIndicator.style.fontSize = "14px";
-        loadingIndicator.style.fontFamily = "system-ui, -apple-system, sans-serif";
-        loadingIndicator.style.display = "flex";
-        loadingIndicator.style.alignItems = "center";
-        loadingIndicator.style.gap = "12px";
-        loadingIndicator.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
+        if (progress && progress.total > 0) {
+            const bar = document.createElement("span");
+            bar.className = "ai-translator-progress-bar";
+            const ratio = Math.max(0, Math.min(1, progress.current / progress.total));
+            bar.style.width = `${Math.round(ratio * 100)}%`;
+            indicator.appendChild(bar);
+        }
 
-        stateIcon.textContent =
-            stateConfig.icon === "..."
-                ? ""
-                : stateConfig.icon === "check"
-                  ? "✓"
-                  : stateConfig.icon === "pause"
-                    ? "⏸"
-                    : "✗";
-        stateIcon.style.fontSize = "16px";
-
-        stopButtonEl.style.backgroundColor = "rgba(255,255,255,0.2)";
-        stopButtonEl.style.color = "white";
-        stopButtonEl.style.border = "1px solid rgba(255,255,255,0.4)";
-        stopButtonEl.style.padding = "4px 12px";
-        stopButtonEl.style.borderRadius = "4px";
-        stopButtonEl.style.cursor = "pointer";
-        stopButtonEl.style.fontSize = "12px";
-        stopButtonEl.style.fontWeight = "500";
-        stopButtonEl.onmouseover = () => {
-            stopButtonEl.style.backgroundColor = "rgba(255,255,255,0.3)";
-        };
-        stopButtonEl.onmouseout = () => {
-            stopButtonEl.style.backgroundColor = "rgba(255,255,255,0.2)";
-        };
-        stopButtonEl.onclick = stopTranslation;
-
-        document.body.appendChild(loadingIndicator);
+        loadingIndicator = indicator;
+        document.body.appendChild(indicator);
     }
 
     function displayLoadingIndicator(
@@ -2975,17 +2908,42 @@ if ((window as any).hasRun) {
         element.appendChild(fragment);
     }
 
-    function updateStreamingPopup(popup: HTMLElement, content: string): void {
+    function createPopupHeader(
+        sourceLanguageName: string,
+        targetLanguageName: string,
+    ): HTMLElement {
+        const header = document.createElement("div");
+        header.className = "translation-popup-header";
+        const target = document.createElement("span");
+        target.className = "translation-popup-target-language";
+        target.textContent = targetLanguageName;
+        header.append(`${sourceLanguageName} → `, target);
+        return header;
+    }
+
+    function updateStreamingPopup(
+        popup: HTMLElement,
+        content: string,
+        detectedLanguageName: string | null,
+        targetLanguageName: string | null,
+    ): void {
         if (!popup) {
             return;
         }
 
         clearElement(popup);
-        applyPopupThemeClass(popup);
+        applyThemeClass(popup);
         setPopupVisualState(popup, "streaming");
-        popup.classList.add("is-streaming");
 
-        setSanitizedContent(popup, content || "");
+        // Render the header while streaming so it doesn't jump in when the text finishes.
+        if (detectedLanguageName && targetLanguageName) {
+            popup.appendChild(createPopupHeader(detectedLanguageName, targetLanguageName));
+        }
+
+        const contentDiv = document.createElement("div");
+        contentDiv.className = "translation-popup-content";
+        setSanitizedContent(contentDiv, content || "");
+        popup.appendChild(contentDiv);
         addCloseButton(popup);
     }
 
@@ -3207,26 +3165,23 @@ if ((window as any).hasRun) {
         targetLanguageName: string | null,
         debugInfo: string | null,
     ): void {
-        popup.classList.remove("is-streaming");
-        applyPopupThemeClass(popup);
+        applyThemeClass(popup);
         setPopupVisualState(popup, isError ? "error" : "default");
         clearElement(popup);
 
         if (!isError && detectedLanguageName && targetLanguageName) {
-            const headerDiv = document.createElement("div");
-            headerDiv.className = "translation-popup-header";
-            headerDiv.textContent = `${detectedLanguageName} → ${targetLanguageName}`;
-            popup.appendChild(headerDiv);
+            popup.appendChild(createPopupHeader(detectedLanguageName, targetLanguageName));
         }
 
         const contentDiv = document.createElement("div");
+        contentDiv.className = "translation-popup-content";
         const visibleMessage =
             typeof content === "string" && content.trim() !== ""
                 ? content
                 : isError
                   ? t(
                         "contentTranslationErrorUnknown",
-                        "Translation Error: Unknown error",
+                        "Translation error: Unknown error",
                     )
                   : "";
         const sanitized = (window as any).DOMPurify?.sanitize(visibleMessage) ?? "";
@@ -3285,7 +3240,12 @@ if ((window as any).hasRun) {
 
         if (existingPopup && isStreaming) {
             translationPopup = existingPopup;
-            updateStreamingPopup(existingPopup, content);
+            updateStreamingPopup(
+                existingPopup,
+                content,
+                detectedLanguageName,
+                targetLanguageName,
+            );
             syncPopupOutsideClickBehavior();
             return;
         }
@@ -3309,8 +3269,7 @@ if ((window as any).hasRun) {
 
         if (existingPopup && isLoading) {
             translationPopup = existingPopup;
-            existingPopup.classList.remove("is-streaming");
-            applyPopupThemeClass(existingPopup);
+            applyThemeClass(existingPopup);
             setPopupVisualState(existingPopup, "loading");
             console.log("Popup already exists in loading state.");
         }
@@ -3325,7 +3284,8 @@ if ((window as any).hasRun) {
             let left = 0;
             let popupWidth = 350;
             const minWidth = 350;
-            const maxWidth = window.innerWidth * 0.8;
+            // Wide selections would otherwise produce lines too long to read comfortably.
+            const maxWidth = Math.min(window.innerWidth * 0.8, 600);
 
             const selection = window.getSelection();
             if (selection && selection.rangeCount > 0) {
@@ -3355,31 +3315,18 @@ if ((window as any).hasRun) {
             popupElement.id = keepSelectionPopupOpenEnabled
                 ? createPopupElementId(requestId)
                 : TRANSLATION_POPUP_BASE_ID;
-            popupElement.classList.add("translation-popup-extension");
-            applyPopupThemeClass(popupElement);
+            popupElement.classList.add("ai-translator-ui", "translation-popup-extension");
+            applyThemeClass(popupElement);
             setPopupVisualState(popupElement, isError ? "error" : "default");
             registerPopup(popupElement, requestId);
             existingPopup = popupElement;
             createdPopup = true;
 
-            popupElement.style.position = "absolute";
             popupElement.style.top = `${top}px`;
             popupElement.style.left = `${left}px`;
-            popupElement.style.zIndex = "2147483647";
-            popupElement.style.borderRadius = "5px";
-            popupElement.style.padding = "10px 25px 10px 15px";
-            popupElement.style.boxShadow = "0 2px 5px rgba(0,0,0,0.2)";
             popupElement.style.width = `${popupWidth}px`;
             popupElement.style.maxWidth = `${maxWidth}px`;
-            popupElement.style.fontSize = "14px";
-            popupElement.style.lineHeight = "1.4";
-            popupElement.style.pointerEvents = "auto";
-
-            popupElement.style.display = "block";
             popupElement.style.minWidth = `${minWidth}px`;
-            popupElement.style.minHeight = "20px";
-            popupElement.style.visibility = "visible";
-            popupElement.style.opacity = "1";
 
             console.log(
                 "Popup element created and styled (before content):",
@@ -3397,8 +3344,7 @@ if ((window as any).hasRun) {
         }
 
         if (isLoading) {
-            existingPopup.classList.remove("is-streaming");
-            applyPopupThemeClass(existingPopup);
+            applyThemeClass(existingPopup);
             setPopupVisualState(existingPopup, "loading");
             clearElement(existingPopup);
             console.log("Setting loading content.");
@@ -3416,7 +3362,12 @@ if ((window as any).hasRun) {
             spinnerContainer.appendChild(spinnerText);
             existingPopup.appendChild(spinnerContainer);
         } else if (isStreaming) {
-            updateStreamingPopup(existingPopup, content);
+            updateStreamingPopup(
+                existingPopup,
+                content,
+                detectedLanguageName,
+                targetLanguageName,
+            );
             return;
         } else {
             console.log("Setting final content:", content);
@@ -3448,8 +3399,9 @@ if ((window as any).hasRun) {
 
         const closeButton = document.createElement("button");
         closeButton.type = "button";
-        closeButton.textContent = "×";
         closeButton.className = "translation-popup-close-button";
+        closeButton.setAttribute("aria-label", t("contentClose", "Close"));
+        closeButton.appendChild(createIcon("close"));
         closeButton.onclick = (event) => {
             event.preventDefault();
             event.stopPropagation();

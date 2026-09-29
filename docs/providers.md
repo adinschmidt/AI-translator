@@ -11,7 +11,7 @@ providers and customize endpoints and models.
 3. Paste the key into the **API Key** field.
 4. In Advanced mode, confirm the endpoint and model. Settings save automatically.
 
-The defaults below are built into the extension, not a guarantee of model availability. **Refresh Models** requests the current catalog; if discovery fails, built-in suggestions remain available. You can enter a custom model ID. Endpoint and model **Fill Default** buttons reset their respective fields.
+The defaults below are built into the extension, not a guarantee of model availability. **Refresh models** requests the current catalog; if discovery fails, built-in suggestions remain available. You can enter a custom model ID. The endpoint and model **Use default** buttons reset their respective fields.
 
 OpenAI-compatible services use Chat Completions. The extension does not impose an output-token cap. Reasoning overrides are optional and depend on model support; see [Settings](/settings#override-reasoning).
 
@@ -88,7 +88,7 @@ OpenAI-compatible services use Chat Completions. The extension does not impose a
 ::: tip
 Download a model first, for example `ollama pull qwen3.5:4b`. Model discovery uses `/api/tags`; translation uses the OpenAI-compatible `/v1` API.
 
-If Ollama rejects requests from your extension, configure `OLLAMA_ORIGINS` for that origin and restart Ollama. `OLLAMA_ORIGINS="*" ollama serve` permits all origins. Use that wildcard only if you intend to allow that access, then click **Refresh Models**.
+If Ollama rejects requests from your extension, configure `OLLAMA_ORIGINS` for that origin and restart Ollama. `OLLAMA_ORIGINS="*" ollama serve` permits all origins. Use that wildcard only if you intend to allow that access, then click **Refresh models**.
 :::
 
 ## Translation defaults
@@ -97,6 +97,6 @@ Recommended models use economical reasoning settings when no Advanced override i
 
 OpenRouter automatic routing is capped at **$1 per million input tokens and $5 per million output tokens**. This is a token-rate ceiling, not a per-request or monthly budget. If no eligible endpoint fits, the request fails. Explicit model selections have no extension-imposed price ceiling.
 
-Basic mode uses the current built-in model and endpoint. Existing Advanced model selections remain saved; use **Fill Default** to switch to a new recommendation. Ollama users must install the new model with `ollama pull qwen3.5:4b`. Its download is about 3.4 GB and runtime memory requirements are higher.
+Basic mode uses the current built-in model and endpoint. Existing Advanced model selections remain saved; use **Use default** to switch to a new recommendation. Ollama users must install the new model with `ollama pull qwen3.5:4b`. Its download is about 3.4 GB and runtime memory requirements are higher.
 
 These defaults follow provider catalogs checked on September 20, 2026. They are not a translation benchmark ranking. For cheaper alternatives, try `gemini-3.1-flash-lite`, Groq's `openai/gpt-oss-20b`, or `qwen3.7-flash`; check their reasoning settings and your provider's current prices.

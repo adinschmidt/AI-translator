@@ -56,12 +56,6 @@
     "contentTranslatingChunksCount": {
         "message": "$1 청크 번역 중..."
     },
-    "contentProgressBatchPrefix": {
-        "message": "일괄 $1/$2"
-    },
-    "contentProgressPartSuffix": {
-        "message": "부분 $1/$2"
-    },
     "contentProgressTranslatedChunks": {
         "message": "$1/$2 청크 번역됨"
     },
@@ -79,6 +73,9 @@
     },
     "contentStopButton": {
         "message": "중지"
+    },
+    "contentClose": {
+        "message": "닫기"
     },
     "contentTranslationErrorMarker": {
         "message": "[번역 오류]"
@@ -107,11 +104,23 @@
     "optionsHeading": {
         "message": "AI Translator 설정"
     },
-    "optionsNeedHelp": {
-        "message": "도움이 필요하신가요?"
+    "optionsSectionConnection": {
+        "message": "연결"
+    },
+    "optionsSectionTranslation": {
+        "message": "번역"
+    },
+    "optionsSectionBehavior": {
+        "message": "동작"
+    },
+    "optionsSectionAppearance": {
+        "message": "모양"
+    },
+    "optionsSectionDeveloper": {
+        "message": "개발자"
     },
     "optionsUiLanguageLabel": {
-        "message": "UI 언어:"
+        "message": "UI 언어"
     },
     "optionsUiLanguageHelp": {
         "message": "기본값은 브라우저 언어를 따릅니다."
@@ -120,10 +129,10 @@
         "message": "기본값(브라우저 언어)"
     },
     "optionsDocumentation": {
-        "message": "문서 →"
+        "message": "문서"
     },
     "optionsThemeLegend": {
-        "message": "테마:"
+        "message": "테마"
     },
     "optionsThemeLight": {
         "message": "라이트"
@@ -144,25 +153,25 @@
         "message": "엔드포인트, 모델, 사용자 지정 프롬프트를 편집하려면 켜세요."
     },
     "optionsProviderLabel": {
-        "message": "공급자:"
+        "message": "공급자"
     },
     "optionsBasicProviderHelp": {
         "message": "기본 모드에서는 모델과 엔드포인트가 자동으로 구성됩니다."
     },
     "optionsApiKeyLabel": {
-        "message": "API 키:"
+        "message": "API 키"
     },
     "optionsApiKeyPlaceholder": {
         "message": "API 키를 입력하세요"
     },
     "optionsApiKeyHelp": {
-        "message": "귀하의 키는 로컬 브라우저 저장소에 안전하게 저장됩니다."
+        "message": "키는 확장 프로그램 저장소에 저장됩니다. 브라우저 동기화가 켜져 있으면 로그인한 다른 기기에도 동기화됩니다."
     },
     "optionsTargetLanguageLabel": {
-        "message": "대상 언어:"
+        "message": "대상 언어"
     },
     "optionsCustomTargetLanguageLabel": {
-        "message": "사용자 지정 대상 언어:"
+        "message": "사용자 지정 대상 언어"
     },
     "optionsCustomTargetLanguagePlaceholder": {
         "message": "예: 클링온어, 라틴어 또는 pt-BR"
@@ -174,10 +183,10 @@
         "message": "엔드포인트에 필요한 형식을 선택하세요."
     },
     "optionsHowToGetKey": {
-        "message": "키 발급 방법 →"
+        "message": "키 발급 방법"
     },
     "optionsModelNameLabel": {
-        "message": "모델명:"
+        "message": "모델명"
     },
     "optionsModelNamePlaceholder": {
         "message": "예: gpt-4o"
@@ -192,10 +201,10 @@
         "message": "모델을 필터링하려면 입력하세요. 해당 모델이 목록에 없으면 계속 입력하여 사용자 정의 모델 이름을 사용하십시오."
     },
     "optionsOllamaNoteHtml": {
-        "message": "<strong>참고:</strong> Chrome 확장 프로그램의 요청을 허용하려면 Ollama를 <code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code>로 시작해야 할 수도 있습니다."
+        "message": "<strong>참고:</strong> Chrome 확장 프로그램의 요청을 허용하려면 Ollama를 <code>OLLAMA_ORIGINS=\"*\" ollama serve</code>로 시작해야 할 수도 있습니다."
     },
     "optionsApiEndpointLabel": {
-        "message": "API 엔드포인트 URL:"
+        "message": "API 엔드포인트 URL"
     },
     "optionsApiEndpointPlaceholder": {
         "message": "예: https://api.openai.com/v1/chat/completions"
@@ -204,7 +213,7 @@
         "message": "텍스트를 번역할 언어입니다. <strong>Custom…</strong>을 선택하여 직접 입력하세요."
     },
     "optionsExtraInstructionsLabel": {
-        "message": "추가 지침(선택):"
+        "message": "추가 지침(선택)"
     },
     "optionsExtraInstructionsPlaceholder": {
         "message": "예: 격식을 갖춘 어조를 사용하고 기술 용어를 유지하세요."
@@ -243,13 +252,13 @@
         "message": "사용자 지정…"
     },
     "optionsStatusSettingsSaved": {
-        "message": "설정이 저장되었습니다!"
+        "message": "설정이 저장되었습니다"
     },
     "optionsStatusThemeUpdated": {
-        "message": "테마가 업데이트되었습니다!"
+        "message": "테마가 업데이트되었습니다"
     },
     "optionsStatusLanguageUpdated": {
-        "message": "언어가 업데이트되었습니다!"
+        "message": "언어가 업데이트되었습니다"
     },
     "optionsStatusProviderSwitched": {
         "message": "제공업체가 전환되었습니다."

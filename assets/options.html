@@ -4,87 +4,598 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title data-i18n="optionsPageTitle">AI Translator Settings</title>
-        <link href="tailwind.css" rel="stylesheet" />
         <link href="options.css" rel="stylesheet" />
     </head>
 
-    <body class="bg-[#d4d4d4] p-8">
-        <div
-            id="settings-card"
-            class="max-w-2xl mx-auto bg-[#e5e5e5] p-6 rounded-lg shadow-md"
-        >
-            <h1
-                class="text-2xl font-semibold mb-2 text-gray-800"
-                data-i18n="optionsHeading"
-            >
-                AI Translator Settings
-            </h1>
-            <p class="text-sm text-gray-600 mb-6">
-                <span data-i18n="optionsNeedHelp">Need help?</span>
+    <body>
+        <main class="page">
+            <header class="page-header">
+                <img class="page-icon" src="images/icon48.png" alt="" />
+                <h1 class="page-title" data-i18n="optionsHeading">
+                    AI Translator Settings
+                </h1>
                 <a
                     id="help-docs-link"
                     href="https://adinschmidt.com/AI-translator/getting-started"
-                    class="text-indigo-600 hover:underline"
                     target="_blank"
                     rel="noopener noreferrer"
                     data-i18n="optionsDocumentation"
-                    >Documentation →</a
+                    >Documentation</a
                 >
-            </p>
+            </header>
 
-            <!-- ─── Appearance ─── -->
-            <section class="settings-section accent-purple">
-                <h2 class="settings-section-heading">
-                    <span class="settings-section-icon" aria-hidden="true"
-                        >🎨</span
-                    >
-                    <span data-i18n="optionsSectionAppearance"
-                        >Appearance</span
-                    >
-                </h2>
-
-                <div class="mb-4">
-                    <label
-                        for="ui-language"
-                        class="block text-sm font-medium text-gray-700 mb-1"
-                        data-i18n="optionsUiLanguageLabel"
-                        >UI Language:</label
-                    >
-                    <select
-                        id="ui-language"
-                        name="ui-language"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-[#f2f2f2]"
-                    ></select>
-                    <p
-                        class="text-xs text-gray-500 mt-1"
-                        data-i18n="optionsUiLanguageHelp"
-                    >
-                        Default follows your browser language.
-                    </p>
+            <div class="group">
+                <div class="row row-inline">
+                    <div class="row-text">
+                        <label
+                            for="advanced-mode-toggle"
+                            class="label"
+                            data-i18n="optionsAdvancedModeLabel"
+                            >Advanced mode</label
+                        >
+                        <p class="help" data-i18n="optionsAdvancedModeHelp">
+                            Turn on to edit endpoints, models, and custom prompts.
+                        </p>
+                    </div>
+                    <label class="switch">
+                        <input
+                            type="checkbox"
+                            id="advanced-mode-toggle"
+                            name="advanced-mode-toggle"
+                            role="switch"
+                            aria-label="Advanced mode"
+                            data-i18n-aria-label="optionsAdvancedModeLabel"
+                        />
+                        <span class="switch-track"></span>
+                    </label>
                 </div>
+            </div>
 
-                <div>
-                    <fieldset>
-                        <legend
-                            class="block text-sm font-medium text-gray-700 mb-2"
-                            data-i18n="optionsThemeLegend"
-                        >
-                            Theme:
-                        </legend>
+            <!-- Basic mode -->
+            <div data-settings-mode="basic" class="hidden">
+                <section class="section">
+                    <h2 class="section-title" data-i18n="optionsSectionConnection">
+                        Connection
+                    </h2>
+                    <div class="group">
+                        <div class="row row-inline">
+                            <div class="row-text">
+                                <label
+                                    for="basic-provider"
+                                    class="label"
+                                    data-i18n="optionsProviderLabel"
+                                    >Provider</label
+                                >
+                                <p class="help" data-i18n="optionsBasicProviderHelp">
+                                    In Basic mode, models and endpoints are configured
+                                    automatically.
+                                </p>
+                            </div>
+                            <div class="row-control">
+                                <select
+                                    id="basic-provider"
+                                    name="basic-provider"
+                                    class="select"
+                                ></select>
+                            </div>
+                        </div>
+
+                        <div class="row row-stack">
+                            <label
+                                for="basic-api-key"
+                                class="label"
+                                data-i18n="optionsApiKeyLabel"
+                                >API key</label
+                            >
+                            <input
+                                type="password"
+                                id="basic-api-key"
+                                name="basic-api-key"
+                                class="input"
+                                placeholder="Enter your API key"
+                                data-i18n-placeholder="optionsApiKeyPlaceholder"
+                            />
+                            <p class="help" data-i18n="optionsApiKeyHelp">
+                                Your key is saved in extension storage. If browser sync
+                                is on, it also syncs to your other signed-in devices.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <h2 class="section-title" data-i18n="optionsSectionTranslation">
+                        Translation
+                    </h2>
+                    <div class="group">
+                        <div class="row row-inline">
+                            <div class="row-text">
+                                <label
+                                    for="basic-target-language"
+                                    class="label"
+                                    data-i18n="optionsTargetLanguageLabel"
+                                    >Target language</label
+                                >
+                                <p
+                                    class="help"
+                                    data-i18n-html="optionsBasicTargetLanguageHelpHtml"
+                                >
+                                    Language names are shown in that language. Choose
+                                    <strong>Custom…</strong> to type your own.
+                                </p>
+                            </div>
+                            <div class="row-control">
+                                <select
+                                    id="basic-target-language"
+                                    name="basic-target-language"
+                                    class="select"
+                                ></select>
+                            </div>
+                            <div
+                                id="basic-target-language-custom-container"
+                                class="row-extra hidden"
+                            >
+                                <label
+                                    for="basic-target-language-custom"
+                                    class="label"
+                                    data-i18n="optionsCustomTargetLanguageLabel"
+                                    >Custom target language</label
+                                >
+                                <input
+                                    type="text"
+                                    id="basic-target-language-custom"
+                                    name="basic-target-language-custom"
+                                    class="input"
+                                    placeholder="e.g., Klingon, Latin, or pt-BR"
+                                    data-i18n-placeholder="optionsCustomTargetLanguagePlaceholder"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Advanced mode -->
+            <div data-settings-mode="advanced">
+                <section class="section">
+                    <h2 class="section-title" data-i18n="optionsSectionConnection">
+                        Connection
+                    </h2>
+                    <div class="group">
+                        <div class="row row-inline">
+                            <div class="row-text">
+                                <label
+                                    for="api-type"
+                                    class="label"
+                                    data-i18n="optionsProviderLabel"
+                                    >Provider</label
+                                >
+                                <p class="help">
+                                    <span data-i18n="optionsAdvancedProviderHelp"
+                                        >Select the format your endpoint expects.</span
+                                    >
+                                    <a
+                                        id="provider-key-docs-link"
+                                        href="https://adinschmidt.com/AI-translator/providers#general-setup"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        data-i18n="optionsHowToGetKey"
+                                        >How to get a key</a
+                                    >
+                                </p>
+                            </div>
+                            <div class="row-control">
+                                <select
+                                    id="api-type"
+                                    name="api-type"
+                                    class="select"
+                                ></select>
+                            </div>
+                        </div>
+
+                        <div class="row row-stack">
+                            <label
+                                for="api-key"
+                                class="label"
+                                data-i18n="optionsApiKeyLabel"
+                                >API key</label
+                            >
+                            <input
+                                type="password"
+                                id="api-key"
+                                name="api-key"
+                                required
+                                class="input"
+                                placeholder="Enter your API key"
+                                data-i18n-placeholder="optionsApiKeyPlaceholder"
+                            />
+                            <p class="help" data-i18n="optionsApiKeyHelp">
+                                Your key is saved in extension storage. If browser sync
+                                is on, it also syncs to your other signed-in devices.
+                            </p>
+                        </div>
+
+                        <div class="row row-stack" id="model-name-container">
+                            <label
+                                for="model-name"
+                                class="label"
+                                data-i18n="optionsModelNameLabel"
+                                >Model</label
+                            >
+                            <div class="model-controls">
+                                <div id="model-name-combobox" class="model-name-combobox">
+                                    <input
+                                        type="text"
+                                        id="model-name"
+                                        name="model-name"
+                                        required
+                                        role="combobox"
+                                        aria-autocomplete="list"
+                                        aria-expanded="false"
+                                        aria-controls="model-options-list"
+                                        class="input"
+                                        placeholder="e.g., gpt-4o"
+                                        data-i18n-placeholder="optionsModelNamePlaceholder"
+                                    />
+                                    <div
+                                        id="model-options-container"
+                                        class="model-options hidden"
+                                    >
+                                        <ul
+                                            id="model-options-list"
+                                            class="model-options-list"
+                                            role="listbox"
+                                        ></ul>
+                                        <p
+                                            id="model-options-empty"
+                                            class="model-options-empty hidden"
+                                        ></p>
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    id="refresh-models"
+                                    class="button"
+                                    data-i18n="optionsRefreshModelsButton"
+                                >
+                                    Refresh models
+                                </button>
+                                <button
+                                    type="button"
+                                    id="fill-default-model"
+                                    class="button"
+                                    data-i18n="optionsFillDefaultButton"
+                                >
+                                    Use default
+                                </button>
+                            </div>
+                            <p id="model-list-status" class="help"></p>
+                            <p class="help" data-i18n="optionsModelFilterHelp">
+                                Type to filter models. If your model is not listed, keep
+                                typing to use a custom model name.
+                            </p>
+                            <p
+                                id="ollama-model-note"
+                                class="note hidden"
+                                data-i18n-html="optionsOllamaNoteHtml"
+                            >
+                                <strong>Note:</strong> Ollama may need to be started with
+                                <code>OLLAMA_ORIGINS="*" ollama serve</code>
+                                to allow requests from Chrome extensions.
+                            </p>
+                        </div>
+
+                        <div class="row row-inline">
+                            <div class="row-text">
+                                <label
+                                    for="reasoning-override"
+                                    class="label"
+                                    data-i18n="optionsReasoningOverride"
+                                    >Override reasoning</label
+                                >
+                                <p class="help" data-i18n="optionsReasoningHelp">
+                                    Off uses economical translation defaults for
+                                    recommended models, and provider defaults for other
+                                    models. Unsupported levels may be ignored or
+                                    rejected. Qwen Flash maps None to thinking off and
+                                    other levels to thinking on.
+                                </p>
+                            </div>
+                            <label class="switch">
+                                <input
+                                    type="checkbox"
+                                    id="reasoning-override"
+                                    role="switch"
+                                    aria-label="Override reasoning"
+                                    data-i18n-aria-label="optionsReasoningOverride"
+                                    aria-controls="reasoning-level-container"
+                                />
+                                <span class="switch-track"></span>
+                            </label>
+                            <div id="reasoning-level-container" class="row-extra hidden">
+                                <label
+                                    for="reasoning-level"
+                                    class="label"
+                                    data-i18n="optionsReasoningLevel"
+                                    >Reasoning level</label
+                                >
+                                <select
+                                    id="reasoning-level"
+                                    disabled
+                                    class="select select-compact"
+                                >
+                                    <option value="none" data-i18n="optionsReasoningNone">
+                                        None
+                                    </option>
+                                    <option
+                                        value="minimal"
+                                        data-i18n="optionsReasoningMinimal"
+                                    >
+                                        Minimal
+                                    </option>
+                                    <option
+                                        value="low"
+                                        data-i18n="optionsReasoningLow"
+                                        selected
+                                    >
+                                        Low
+                                    </option>
+                                    <option
+                                        value="medium"
+                                        data-i18n="optionsReasoningMedium"
+                                    >
+                                        Medium
+                                    </option>
+                                    <option value="high" data-i18n="optionsReasoningHigh">
+                                        High
+                                    </option>
+                                    <option
+                                        value="xhigh"
+                                        data-i18n="optionsReasoningXhigh"
+                                    >
+                                        Extra high
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row row-stack">
+                            <label
+                                for="api-endpoint"
+                                class="label"
+                                data-i18n="optionsApiEndpointLabel"
+                                >Endpoint URL</label
+                            >
+                            <div class="field-with-button">
+                                <input
+                                    type="url"
+                                    id="api-endpoint"
+                                    name="api-endpoint"
+                                    required
+                                    class="input"
+                                    placeholder="e.g., https://api.openai.com/v1/chat/completions"
+                                    data-i18n-placeholder="optionsApiEndpointPlaceholder"
+                                />
+                                <button
+                                    type="button"
+                                    id="fill-default-endpoint"
+                                    class="button"
+                                    data-i18n="optionsFillDefaultButton"
+                                >
+                                    Use default
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="section">
+                    <h2 class="section-title" data-i18n="optionsSectionTranslation">
+                        Translation
+                    </h2>
+                    <div class="group">
+                        <div class="row row-inline">
+                            <div class="row-text">
+                                <label
+                                    for="advanced-target-language"
+                                    class="label"
+                                    data-i18n="optionsTargetLanguageLabel"
+                                    >Target language</label
+                                >
+                                <p
+                                    class="help"
+                                    data-i18n-html="optionsAdvancedTargetLanguageHelpHtml"
+                                >
+                                    The language to translate text into. Choose
+                                    <strong>Custom…</strong> to type your own.
+                                </p>
+                            </div>
+                            <div class="row-control">
+                                <select
+                                    id="advanced-target-language"
+                                    name="advanced-target-language"
+                                    class="select"
+                                ></select>
+                            </div>
+                            <div
+                                id="advanced-target-language-custom-container"
+                                class="row-extra hidden"
+                            >
+                                <label
+                                    for="advanced-target-language-custom"
+                                    class="label"
+                                    data-i18n="optionsCustomTargetLanguageLabel"
+                                    >Custom target language</label
+                                >
+                                <input
+                                    type="text"
+                                    id="advanced-target-language-custom"
+                                    name="advanced-target-language-custom"
+                                    class="input"
+                                    placeholder="e.g., Klingon, Latin, or pt-BR"
+                                    data-i18n-placeholder="optionsCustomTargetLanguagePlaceholder"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="row row-stack">
+                            <label
+                                for="extra-instructions"
+                                class="label"
+                                data-i18n="optionsExtraInstructionsLabel"
+                                >Extra instructions (optional)</label
+                            >
+                            <textarea
+                                id="extra-instructions"
+                                name="extra-instructions"
+                                rows="2"
+                                class="textarea"
+                                placeholder="e.g., Use formal tone, preserve technical terms"
+                                data-i18n-placeholder="optionsExtraInstructionsPlaceholder"
+                            ></textarea>
+                            <p class="help" data-i18n="optionsExtraInstructionsHelp">
+                                Additional instructions for the AI translator (tone,
+                                style, terminology preferences).
+                            </p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <section class="section">
+                <h2 class="section-title" data-i18n="optionsSectionBehavior">Behavior</h2>
+                <div class="group">
+                    <div class="row row-inline">
+                        <div class="row-text">
+                            <label
+                                for="show-translate-button-on-selection"
+                                class="label"
+                                data-i18n="optionsShowTranslateButtonLabel"
+                                >Show Translate button on selection</label
+                            >
+                            <p class="help" data-i18n="optionsShowTranslateButtonHelp">
+                                Shows a small Translate button when you select text on
+                                any page. Requires site access on all pages.
+                            </p>
+                        </div>
+                        <label class="switch">
+                            <input
+                                type="checkbox"
+                                id="show-translate-button-on-selection"
+                                role="switch"
+                                aria-label="Show Translate button on selection"
+                                data-i18n-aria-label="optionsShowTranslateButtonLabel"
+                            />
+                            <span class="switch-track"></span>
+                        </label>
+                    </div>
+
+                    <div class="row row-inline">
+                        <div class="row-text">
+                            <label
+                                for="keep-selection-popup-open"
+                                class="label"
+                                data-i18n="optionsKeepPopupOpenLabel"
+                                >Keep selection translation window open</label
+                            >
+                            <p class="help" data-i18n="optionsKeepPopupOpenHelp">
+                                Adds an X close button and prevents the selection
+                                translation window from closing when clicking elsewhere
+                                on the page.
+                            </p>
+                        </div>
+                        <label class="switch">
+                            <input
+                                type="checkbox"
+                                id="keep-selection-popup-open"
+                                role="switch"
+                                aria-label="Keep selection translation window open"
+                                data-i18n-aria-label="optionsKeepPopupOpenLabel"
+                            />
+                            <span class="switch-track"></span>
+                        </label>
+                    </div>
+
+                    <div class="row row-inline">
+                        <div class="row-text">
+                            <label
+                                for="redact-sensitive-data"
+                                class="label"
+                                data-i18n="optionsRedactSensitiveDataLabel"
+                                >Redact sensitive data</label
+                            >
+                            <p class="help" data-i18n="optionsRedactSensitiveDataHelp">
+                                Automatically removes phone numbers, SSNs, email
+                                addresses, and other sensitive data before sending text
+                                to translation APIs. Warning: not guaranteed to catch
+                                all sensitive info.
+                            </p>
+                        </div>
+                        <label class="switch">
+                            <input
+                                type="checkbox"
+                                id="redact-sensitive-data"
+                                role="switch"
+                                aria-label="Redact sensitive data"
+                                data-i18n-aria-label="optionsRedactSensitiveDataLabel"
+                            />
+                            <span class="switch-track"></span>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title" data-i18n="optionsSectionAppearance">
+                    Appearance
+                </h2>
+                <div class="group">
+                    <div class="row row-inline">
+                        <div class="row-text">
+                            <label
+                                for="ui-language"
+                                class="label"
+                                data-i18n="optionsUiLanguageLabel"
+                                >Interface language</label
+                            >
+                            <p class="help" data-i18n="optionsUiLanguageHelp">
+                                Default follows your browser language.
+                            </p>
+                        </div>
+                        <div class="row-control">
+                            <select
+                                id="ui-language"
+                                name="ui-language"
+                                class="select"
+                            ></select>
+                        </div>
+                    </div>
+
+                    <div class="row row-inline">
+                        <div class="row-text">
+                            <span
+                                id="ui-theme-label"
+                                class="label"
+                                data-i18n="optionsThemeLegend"
+                                >Theme</span
+                            >
+                            <p class="help" data-i18n="optionsThemeSystemHint">
+                                System follows your browser or OS color scheme.
+                            </p>
+                        </div>
                         <div
-                            class="theme-toggle-grid"
+                            class="segmented"
                             role="radiogroup"
-                            aria-label="Theme"
-                            data-i18n-aria-label="optionsThemeLegend"
+                            aria-labelledby="ui-theme-label"
                         >
-                            <label class="theme-option">
+                            <label class="segmented-option">
                                 <input
                                     type="radio"
                                     id="ui-theme-light"
                                     name="ui-theme"
                                     value="light"
                                 />
-                                <span class="theme-option-content">
+                                <span>
                                     <svg
                                         viewBox="0 0 24 24"
                                         fill="none"
@@ -99,20 +610,17 @@
                                             stroke-linejoin="round"
                                         />
                                     </svg>
-                                    <span data-i18n="optionsThemeLight"
-                                        >Light</span
-                                    >
+                                    <span data-i18n="optionsThemeLight">Light</span>
                                 </span>
                             </label>
-
-                            <label class="theme-option">
+                            <label class="segmented-option">
                                 <input
                                     type="radio"
                                     id="ui-theme-dark"
                                     name="ui-theme"
                                     value="dark"
                                 />
-                                <span class="theme-option-content">
+                                <span>
                                     <svg
                                         viewBox="0 0 24 24"
                                         fill="none"
@@ -127,20 +635,17 @@
                                             stroke-linejoin="round"
                                         />
                                     </svg>
-                                    <span data-i18n="optionsThemeDark"
-                                        >Dark</span
-                                    >
+                                    <span data-i18n="optionsThemeDark">Dark</span>
                                 </span>
                             </label>
-
-                            <label class="theme-option">
+                            <label class="segmented-option">
                                 <input
                                     type="radio"
                                     id="ui-theme-system"
                                     name="ui-theme"
                                     value="system"
                                 />
-                                <span class="theme-option-content">
+                                <span>
                                     <svg
                                         viewBox="0 0 24 24"
                                         fill="none"
@@ -163,642 +668,66 @@
                                             stroke-linecap="round"
                                         />
                                     </svg>
-                                    <span data-i18n="optionsThemeSystem"
-                                        >System</span
-                                    >
+                                    <span data-i18n="optionsThemeSystem">System</span>
                                 </span>
                             </label>
                         </div>
-                        <p
-                            class="text-xs text-gray-500 mt-2"
-                            data-i18n="optionsThemeSystemHint"
-                        >
-                            System follows your browser or OS color scheme.
-                        </p>
-                    </fieldset>
+                    </div>
                 </div>
             </section>
 
-            <div class="mb-8">
-                <div class="mode-switch-row">
-                    <div>
-                        <label
-                            for="advanced-mode-toggle"
-                            class="block text-sm font-medium text-gray-700"
-                            data-i18n="optionsAdvancedModeLabel"
-                            >Advanced mode</label
-                        >
-                        <p
-                            class="text-xs text-gray-500 mt-1"
-                            data-i18n="optionsAdvancedModeHelp"
-                        >
-                            Turn on to edit endpoints, models, and custom
-                            prompts.
-                        </p>
+            <section class="section" data-settings-mode="advanced">
+                <h2 class="section-title" data-i18n="optionsSectionDeveloper">
+                    Developer
+                </h2>
+                <div class="group">
+                    <div class="row row-inline">
+                        <div class="row-text">
+                            <label
+                                for="debug-mode"
+                                class="label"
+                                data-i18n="optionsDebugModeLabel"
+                                >Enable debug mode</label
+                            >
+                            <p class="help" data-i18n="optionsDebugModeHelp">
+                                Adds detailed logs to browser/extension consoles and
+                                shows detailed error info in translation popups.
+                            </p>
+                        </div>
+                        <label class="switch">
+                            <input
+                                type="checkbox"
+                                id="debug-mode"
+                                role="switch"
+                                aria-label="Enable debug mode"
+                                data-i18n-aria-label="optionsDebugModeLabel"
+                            />
+                            <span class="switch-track"></span>
+                        </label>
                     </div>
-                    <label class="ios-switch" for="advanced-mode-toggle">
-                        <input
-                            type="checkbox"
-                            id="advanced-mode-toggle"
-                            name="advanced-mode-toggle"
-                            role="switch"
-                            aria-label="Advanced mode"
-                            data-i18n-aria-label="optionsAdvancedModeLabel"
-                        />
-                        <span class="ios-switch-track"></span>
-                    </label>
                 </div>
-            </div>
+            </section>
 
-            <form id="settings-form">
-                <div id="basic-settings" class="hidden">
-                    <!-- ─── Connection ─── -->
-                    <section class="settings-section accent-blue">
-                        <h2 class="settings-section-heading">
-                            <span
-                                class="settings-section-icon"
-                                aria-hidden="true"
-                                >🔌</span
-                            >
-                            <span data-i18n="optionsSectionConnection"
-                                >Connection</span
-                            >
-                        </h2>
-
-                        <div class="mb-4">
-                            <label
-                                for="basic-provider"
-                                class="block text-sm font-medium text-gray-700 mb-1"
-                                data-i18n="optionsProviderLabel"
-                                >Provider:</label
-                            >
-                            <select
-                                id="basic-provider"
-                                name="basic-provider"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-[#f2f2f2]"
-                            ></select>
-                            <p
-                                class="text-xs text-gray-500 mt-1"
-                                data-i18n="optionsBasicProviderHelp"
-                            >
-                                In Basic mode, models and endpoints are
-                                configured automatically.
-                            </p>
-                        </div>
-
-                        <div>
-                            <label
-                                for="basic-api-key"
-                                class="block text-sm font-medium text-gray-700 mb-1"
-                                data-i18n="optionsApiKeyLabel"
-                                >API Key:</label
-                            >
-                            <input
-                                type="password"
-                                id="basic-api-key"
-                                name="basic-api-key"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Enter your API key"
-                                data-i18n-placeholder="optionsApiKeyPlaceholder"
-                            />
-                            <p
-                                class="text-xs text-gray-500 mt-1"
-                                data-i18n="optionsApiKeyHelp"
-                            >
-                                Your key is stored securely in local browser
-                                storage.
-                            </p>
-                        </div>
-                    </section>
-
-                    <!-- ─── Translation ─── -->
-                    <section class="settings-section accent-green">
-                        <h2 class="settings-section-heading">
-                            <span
-                                class="settings-section-icon"
-                                aria-hidden="true"
-                                >🌐</span
-                            >
-                            <span data-i18n="optionsSectionTranslation"
-                                >Translation</span
-                            >
-                        </h2>
-
-                        <div>
-                            <label
-                                for="basic-target-language"
-                                class="block text-sm font-medium text-gray-700 mb-1"
-                                data-i18n="optionsTargetLanguageLabel"
-                                >Target Language:</label
-                            >
-                            <select
-                                id="basic-target-language"
-                                name="basic-target-language"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-[#f2f2f2]"
-                            ></select>
-                            <div
-                                id="basic-target-language-custom-container"
-                                class="mt-2 hidden"
-                            >
-                                <label
-                                    for="basic-target-language-custom"
-                                    class="block text-xs font-medium text-gray-600 mb-1"
-                                    data-i18n="optionsCustomTargetLanguageLabel"
-                                    >Custom target language:</label
-                                >
-                                <input
-                                    type="text"
-                                    id="basic-target-language-custom"
-                                    name="basic-target-language-custom"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder="e.g., Klingon, Latin, or pt-BR"
-                                    data-i18n-placeholder="optionsCustomTargetLanguagePlaceholder"
-                                />
-                            </div>
-                            <p
-                                class="text-xs text-gray-500 mt-1"
-                                data-i18n-html="optionsBasicTargetLanguageHelpHtml"
-                            >
-                                Language names are shown in that language. Choose
-                                <strong>Custom…</strong> to type your own.
-                            </p>
-                        </div>
-                    </section>
-                </div>
-
-                <div id="advanced-settings">
-                    <!-- ─── Connection ─── -->
-                    <section class="settings-section accent-blue">
-                        <h2 class="settings-section-heading">
-                            <span
-                                class="settings-section-icon"
-                                aria-hidden="true"
-                                >🔌</span
-                            >
-                            <span data-i18n="optionsSectionConnection"
-                                >Connection</span
-                            >
-                        </h2>
-
-                        <div class="mb-4">
-                            <label
-                                for="api-type"
-                                class="block text-sm font-medium text-gray-700 mb-1"
-                                data-i18n="optionsProviderLabel"
-                                >Provider:</label
-                            >
-                            <select
-                                id="api-type"
-                                name="api-type"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-[#f2f2f2]"
-                            ></select>
-                            <p class="text-xs text-gray-500 mt-1">
-                                <span data-i18n="optionsAdvancedProviderHelp">
-                                    Select the format your endpoint expects.
-                                </span>
-                                <a
-                                    id="provider-key-docs-link"
-                                    href="https://adinschmidt.com/AI-translator/providers#general-setup"
-                                    class="text-indigo-600 hover:underline"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    data-i18n="optionsHowToGetKey"
-                                    >How to get a key →</a
-                                >
-                            </p>
-                        </div>
-
-                        <div class="mb-4">
-                            <label
-                                for="api-key"
-                                class="block text-sm font-medium text-gray-700 mb-1"
-                                data-i18n="optionsApiKeyLabel"
-                                >API Key:</label
-                            >
-                            <input
-                                type="password"
-                                id="api-key"
-                                name="api-key"
-                                required
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="Enter your API key"
-                                data-i18n-placeholder="optionsApiKeyPlaceholder"
-                            />
-                            <p
-                                class="text-xs text-gray-500 mt-1"
-                                data-i18n="optionsApiKeyHelp"
-                            >
-                                Your key is stored securely in local browser
-                                storage.
-                            </p>
-                        </div>
-
-                        <div class="mb-4" id="model-name-container">
-                            <label
-                                for="model-name"
-                                class="block text-sm font-medium text-gray-700 mb-1"
-                                data-i18n="optionsModelNameLabel"
-                                >Model Name:</label
-                            >
-                            <div class="model-controls">
-                                <div
-                                    id="model-name-combobox"
-                                    class="model-name-combobox"
-                                >
-                                    <input
-                                        type="text"
-                                        id="model-name"
-                                        name="model-name"
-                                        required
-                                        role="combobox"
-                                        aria-autocomplete="list"
-                                        aria-expanded="false"
-                                        aria-controls="model-options-list"
-                                        class="model-name-input px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                        placeholder="e.g., gpt-4o"
-                                        data-i18n-placeholder="optionsModelNamePlaceholder"
-                                    />
-                                    <div
-                                        id="model-options-container"
-                                        class="model-options hidden"
-                                    >
-                                        <ul
-                                            id="model-options-list"
-                                            class="model-options-list"
-                                            role="listbox"
-                                        ></ul>
-                                        <p
-                                            id="model-options-empty"
-                                            class="model-options-empty hidden"
-                                        ></p>
-                                    </div>
-                                </div>
-                                <button
-                                    type="button"
-                                    id="refresh-models"
-                                    class="px-4 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 disabled:cursor-not-allowed disabled:hover:bg-gray-400"
-                                    data-i18n="optionsRefreshModelsButton"
-                                >
-                                    Refresh Models
-                                </button>
-                                <button
-                                    type="button"
-                                    id="fill-default-model"
-                                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                                    data-i18n="optionsFillDefaultButton"
-                                >
-                                    Fill Default
-                                </button>
-                            </div>
-                            <p
-                                id="model-list-status"
-                                class="text-xs text-gray-500 mt-1"
-                            ></p>
-                            <p
-                                class="text-xs text-gray-500 mt-1"
-                                data-i18n="optionsModelFilterHelp"
-                            >
-                                Type to filter models. If your model is not
-                                listed, keep typing to use a custom model name.
-                            </p>
-                            <p
-                                id="ollama-model-note"
-                                class="text-xs text-amber-600 mt-2 hidden"
-                                data-i18n-html="optionsOllamaNoteHtml"
-                            >
-                                <strong>Note:</strong> Ollama may need to be
-                                started with
-                                <code class="bg-gray-100 px-1 rounded"
-                                    >OLLAMA_ORIGINS="*" ollama serve</code
-                                >
-                                to allow requests from Chrome extensions.
-                            </p>
-                        </div>
-
-                        <div class="mb-4">
-                            <div class="flex items-center justify-between gap-4">
-                                <label for="reasoning-override" class="block text-sm font-medium text-gray-700" data-i18n="optionsReasoningOverride">Override reasoning</label>
-                                <label class="ios-switch" for="reasoning-override">
-                                    <input type="checkbox" id="reasoning-override" role="switch" aria-label="Override reasoning" data-i18n-aria-label="optionsReasoningOverride" aria-controls="reasoning-level-container" />
-                                    <span class="ios-switch-track"></span>
-                                </label>
-                            </div>
-                            <p class="text-xs text-gray-500 mt-1" data-i18n="optionsReasoningHelp">Off uses economical translation defaults for recommended models, and provider defaults for other models. Unsupported levels may be ignored or rejected. Qwen Flash maps None to thinking off and other levels to thinking on.</p>
-                            <div id="reasoning-level-container" class="mt-2 hidden">
-                                <label for="reasoning-level" class="block text-sm font-medium text-gray-700 mb-1" data-i18n="optionsReasoningLevel">Reasoning level</label>
-                                <select id="reasoning-level" disabled class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                                    <option value="none" data-i18n="optionsReasoningNone">None</option>
-                                    <option value="minimal" data-i18n="optionsReasoningMinimal">Minimal</option>
-                                    <option value="low" data-i18n="optionsReasoningLow" selected>Low</option>
-                                    <option value="medium" data-i18n="optionsReasoningMedium">Medium</option>
-                                    <option value="high" data-i18n="optionsReasoningHigh">High</option>
-                                    <option value="xhigh" data-i18n="optionsReasoningXhigh">Extra high</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label
-                                for="api-endpoint"
-                                class="block text-sm font-medium text-gray-700 mb-1"
-                                data-i18n="optionsApiEndpointLabel"
-                                >API Endpoint URL:</label
-                            >
-                            <div class="flex space-x-2">
-                                <!-- Add a flex container -->
-                                <input
-                                    type="url"
-                                    id="api-endpoint"
-                                    name="api-endpoint"
-                                    required
-                                    class="flex-grow px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder="e.g., https://api.openai.com/v1/chat/completions"
-                                    data-i18n-placeholder="optionsApiEndpointPlaceholder"
-                                />
-                                <button
-                                    type="button"
-                                    id="fill-default-endpoint"
-                                    class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
-                                    data-i18n="optionsFillDefaultButton"
-                                >
-                                    Fill Default
-                                </button>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- ─── Translation ─── -->
-                    <section class="settings-section accent-green">
-                        <h2 class="settings-section-heading">
-                            <span
-                                class="settings-section-icon"
-                                aria-hidden="true"
-                                >🌐</span
-                            >
-                            <span data-i18n="optionsSectionTranslation"
-                                >Translation</span
-                            >
-                        </h2>
-
-                        <div class="mb-4">
-                            <label
-                                for="advanced-target-language"
-                                class="block text-sm font-medium text-gray-700 mb-1"
-                                data-i18n="optionsTargetLanguageLabel"
-                                >Target Language:</label
-                            >
-                            <select
-                                id="advanced-target-language"
-                                name="advanced-target-language"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-[#f2f2f2]"
-                            ></select>
-                            <div
-                                id="advanced-target-language-custom-container"
-                                class="mt-2 hidden"
-                            >
-                                <label
-                                    for="advanced-target-language-custom"
-                                    class="block text-xs font-medium text-gray-600 mb-1"
-                                    data-i18n="optionsCustomTargetLanguageLabel"
-                                    >Custom target language:</label
-                                >
-                                <input
-                                    type="text"
-                                    id="advanced-target-language-custom"
-                                    name="advanced-target-language-custom"
-                                    class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                    placeholder="e.g., Klingon, Latin, or pt-BR"
-                                    data-i18n-placeholder="optionsCustomTargetLanguagePlaceholder"
-                                />
-                            </div>
-                            <p
-                                class="text-xs text-gray-500 mt-1"
-                                data-i18n-html="optionsAdvancedTargetLanguageHelpHtml"
-                            >
-                                The language to translate text into. Choose
-                                <strong>Custom…</strong> to type your own.
-                            </p>
-                        </div>
-
-                        <div>
-                            <label
-                                for="extra-instructions"
-                                class="block text-sm font-medium text-gray-700 mb-1"
-                                data-i18n="optionsExtraInstructionsLabel"
-                                >Extra Instructions (optional):</label
-                            >
-                            <textarea
-                                id="extra-instructions"
-                                name="extra-instructions"
-                                rows="2"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                placeholder="e.g., Use formal tone, preserve technical terms"
-                                data-i18n-placeholder="optionsExtraInstructionsPlaceholder"
-                            ></textarea>
-                            <p
-                                class="text-xs text-gray-500 mt-1"
-                                data-i18n="optionsExtraInstructionsHelp"
-                            >
-                                Additional instructions for the AI translator
-                                (tone, style, terminology preferences).
-                            </p>
-                        </div>
-                    </section>
-
-                    <!-- ─── Behavior ─── -->
-                    <section class="settings-section accent-amber">
-                        <h2 class="settings-section-heading">
-                            <span
-                                class="settings-section-icon"
-                                aria-hidden="true"
-                                >⚙️</span
-                            >
-                            <span data-i18n="optionsSectionBehavior"
-                                >Behavior</span
-                            >
-                        </h2>
-
-                        <div class="mb-4">
-                            <div class="mode-switch-row">
-                                <div>
-                                    <label
-                                        for="show-translate-button-on-selection"
-                                        class="block text-sm font-medium text-gray-700"
-                                        data-i18n="optionsShowTranslateButtonLabel"
-                                    >
-                                        Show Translate button on selection
-                                    </label>
-                                    <p
-                                        class="text-xs text-gray-500 mt-1"
-                                        data-i18n="optionsShowTranslateButtonHelp"
-                                    >
-                                        Shows a small Translate button when you
-                                        select text on any page. Requires site
-                                        access on all pages.
-                                    </p>
-                                </div>
-                                <label
-                                    class="ios-switch"
-                                    for="show-translate-button-on-selection"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        id="show-translate-button-on-selection"
-                                        role="switch"
-                                        aria-label="Show Translate button on selection"
-                                        data-i18n-aria-label="optionsShowTranslateButtonLabel"
-                                    />
-                                    <span class="ios-switch-track"></span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="mb-4">
-                            <div class="mode-switch-row">
-                                <div>
-                                    <label
-                                        for="keep-selection-popup-open"
-                                        class="block text-sm font-medium text-gray-700"
-                                        data-i18n="optionsKeepPopupOpenLabel"
-                                    >
-                                        Keep selection translation window open
-                                    </label>
-                                    <p
-                                        class="text-xs text-gray-500 mt-1"
-                                        data-i18n="optionsKeepPopupOpenHelp"
-                                    >
-                                        Adds an X close button and prevents the
-                                        selection translation window from
-                                        closing when clicking elsewhere on the
-                                        page.
-                                    </p>
-                                </div>
-                                <label
-                                    class="ios-switch"
-                                    for="keep-selection-popup-open"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        id="keep-selection-popup-open"
-                                        role="switch"
-                                        aria-label="Keep selection translation window open"
-                                        data-i18n-aria-label="optionsKeepPopupOpenLabel"
-                                    />
-                                    <span class="ios-switch-track"></span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div class="mode-switch-row">
-                                <div>
-                                    <label
-                                        for="redact-sensitive-data"
-                                        class="block text-sm font-medium text-gray-700"
-                                        data-i18n="optionsRedactSensitiveDataLabel"
-                                    >
-                                        Redact sensitive data
-                                    </label>
-                                    <p
-                                        class="text-xs text-gray-500 mt-1"
-                                        data-i18n="optionsRedactSensitiveDataHelp"
-                                    >
-                                        Automatically removes phone numbers,
-                                        SSNs, email addresses, and other
-                                        sensitive data before sending text to
-                                        translation APIs. Warning: not
-                                        guaranteed to catch all sensitive info.
-                                    </p>
-                                </div>
-                                <label
-                                    class="ios-switch"
-                                    for="redact-sensitive-data"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        id="redact-sensitive-data"
-                                        role="switch"
-                                        aria-label="Redact sensitive data"
-                                        data-i18n-aria-label="optionsRedactSensitiveDataLabel"
-                                    />
-                                    <span class="ios-switch-track"></span>
-                                </label>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- ─── Developer ─── -->
-                    <section class="settings-section accent-slate">
-                        <h2 class="settings-section-heading">
-                            <span
-                                class="settings-section-icon"
-                                aria-hidden="true"
-                                >🔧</span
-                            >
-                            <span data-i18n="optionsSectionDeveloper"
-                                >Developer</span
-                            >
-                        </h2>
-
-                        <div>
-                            <div class="mode-switch-row">
-                                <div>
-                                    <label
-                                        for="debug-mode"
-                                        class="block text-sm font-medium text-gray-700"
-                                        data-i18n="optionsDebugModeLabel"
-                                    >
-                                        Enable debug mode
-                                    </label>
-                                    <p
-                                        class="text-xs text-gray-500 mt-1"
-                                        data-i18n="optionsDebugModeHelp"
-                                    >
-                                        Adds detailed logs to browser/extension
-                                        consoles and shows detailed error info
-                                        in translation popups.
-                                    </p>
-                                </div>
-                                <label class="ios-switch" for="debug-mode">
-                                    <input
-                                        type="checkbox"
-                                        id="debug-mode"
-                                        role="switch"
-                                        aria-label="Enable debug mode"
-                                        data-i18n-aria-label="optionsDebugModeLabel"
-                                    />
-                                    <span class="ios-switch-track"></span>
-                                </label>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-
-                    <!-- Status message moved to toast -->
-                </div>
-            </form>
-        </div>
+            <p class="credit">
+                <span data-i18n="optionsFooterCreditPrefix"
+                    >Icon made by Pixel perfect from</span
+                >
+                <a
+                    href="https://www.flaticon.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    >www.flaticon.com</a
+                >
+            </p>
+        </main>
 
         <div
             id="status-message"
-            class="fixed top-6 right-6 z-50 px-4 py-3 rounded-md shadow-lg text-sm font-medium transition-opacity duration-300 opacity-0 pointer-events-none status-toast"
+            class="status-toast"
+            role="status"
+            aria-live="polite"
         ></div>
 
         <script src="options.js"></script>
-
-        <div
-            class="fixed bottom-0 left-0 right-0 bg-gray-200 text-center text-xs p-2 border-t border-gray-300 z-50"
-        >
-            <span data-i18n="optionsFooterCreditPrefix"
-                >Icon made by Pixel perfect from</span
-            >
-            <a
-                href="https://www.flaticon.com/"
-                class="text-blue-600 hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-                >www.flaticon.com</a
-            >
-        </div>
     </body>
 </html>

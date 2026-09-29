@@ -56,12 +56,6 @@
     "contentTranslatingChunksCount": {
         "message": "Перевод фрагментов $1..."
     },
-    "contentProgressBatchPrefix": {
-        "message": "Пакет $1/$2"
-    },
-    "contentProgressPartSuffix": {
-        "message": "часть $1/$2"
-    },
     "contentProgressTranslatedChunks": {
         "message": "Переведенные фрагменты $1/$2"
     },
@@ -79,6 +73,9 @@
     },
     "contentStopButton": {
         "message": "Стоп"
+    },
+    "contentClose": {
+        "message": "Закрыть"
     },
     "contentTranslationErrorMarker": {
         "message": "[ошибка перевода]"
@@ -107,11 +104,23 @@
     "optionsHeading": {
         "message": "Настройки AI Translator"
     },
-    "optionsNeedHelp": {
-        "message": "Нужна помощь?"
+    "optionsSectionConnection": {
+        "message": "Подключение"
+    },
+    "optionsSectionTranslation": {
+        "message": "Перевод"
+    },
+    "optionsSectionBehavior": {
+        "message": "Поведение"
+    },
+    "optionsSectionAppearance": {
+        "message": "Оформление"
+    },
+    "optionsSectionDeveloper": {
+        "message": "Для разработчиков"
     },
     "optionsUiLanguageLabel": {
-        "message": "Язык пользовательского интерфейса:"
+        "message": "Язык пользовательского интерфейса"
     },
     "optionsUiLanguageHelp": {
         "message": "По умолчанию используется язык вашего браузера."
@@ -120,10 +129,10 @@
         "message": "По умолчанию (язык браузера)"
     },
     "optionsDocumentation": {
-        "message": "Документация →"
+        "message": "Документация"
     },
     "optionsThemeLegend": {
-        "message": "Тема:"
+        "message": "Тема"
     },
     "optionsThemeLight": {
         "message": "Светлая"
@@ -144,25 +153,25 @@
         "message": "Включите, чтобы редактировать endpoint, модели и пользовательские промпты."
     },
     "optionsProviderLabel": {
-        "message": "Провайдер:"
+        "message": "Провайдер"
     },
     "optionsBasicProviderHelp": {
         "message": "В базовом режиме модели и конечные точки настраиваются автоматически."
     },
     "optionsApiKeyLabel": {
-        "message": "API-ключ:"
+        "message": "API-ключ"
     },
     "optionsApiKeyPlaceholder": {
         "message": "Введите API-ключ"
     },
     "optionsApiKeyHelp": {
-        "message": "Ваш ключ надежно хранится в локальном хранилище браузера."
+        "message": "Ваш ключ хранится в хранилище расширения. Если синхронизация браузера включена, он также синхронизируется с другими устройствами, где выполнен вход."
     },
     "optionsTargetLanguageLabel": {
-        "message": "Целевой язык:"
+        "message": "Целевой язык"
     },
     "optionsCustomTargetLanguageLabel": {
-        "message": "Пользовательский целевой язык:"
+        "message": "Пользовательский целевой язык"
     },
     "optionsCustomTargetLanguagePlaceholder": {
         "message": "напр., клингонский, латынь или pt-BR"
@@ -174,10 +183,10 @@
         "message": "Выберите формат, который ожидает ваша конечная точка."
     },
     "optionsHowToGetKey": {
-        "message": "Как получить ключ →"
+        "message": "Как получить ключ"
     },
     "optionsModelNameLabel": {
-        "message": "Название модели:"
+        "message": "Название модели"
     },
     "optionsModelNamePlaceholder": {
         "message": "например, gpt-4o"
@@ -192,10 +201,10 @@
         "message": "Введите, чтобы отфильтровать модели. Если вашей модели нет в списке, продолжайте вводить текст, чтобы использовать собственное имя модели."
     },
     "optionsOllamaNoteHtml": {
-        "message": "<strong>Примечание:</strong> Возможно, потребуется запустить Ollama с помощью <code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code>, чтобы разрешить запросы от расширений Chrome."
+        "message": "<strong>Примечание:</strong> Возможно, потребуется запустить Ollama с помощью <code>OLLAMA_ORIGINS=\"*\" ollama serve</code>, чтобы разрешить запросы от расширений Chrome."
     },
     "optionsApiEndpointLabel": {
-        "message": "URL API endpoint:"
+        "message": "URL API endpoint"
     },
     "optionsApiEndpointPlaceholder": {
         "message": "например, https://api.openai.com/v1/chat/completions"
@@ -204,7 +213,7 @@
         "message": "Язык, на который нужно перевести текст. Выберите <strong>Custom…</strong>, чтобы ввести свой собственный."
     },
     "optionsExtraInstructionsLabel": {
-        "message": "Дополнительные инструкции (необязательно):"
+        "message": "Дополнительные инструкции (необязательно)"
     },
     "optionsExtraInstructionsPlaceholder": {
         "message": "например, используйте формальный тон, сохраняйте технические термины"
@@ -243,13 +252,13 @@
         "message": "Пользовательский…"
     },
     "optionsStatusSettingsSaved": {
-        "message": "Настройки сохранены!"
+        "message": "Настройки сохранены"
     },
     "optionsStatusThemeUpdated": {
-        "message": "Тема обновлена!"
+        "message": "Тема обновлена"
     },
     "optionsStatusLanguageUpdated": {
-        "message": "Язык обновлен!"
+        "message": "Язык обновлен"
     },
     "optionsStatusProviderSwitched": {
         "message": "Провайдер сменился."

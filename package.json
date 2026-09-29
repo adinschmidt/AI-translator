@@ -10,10 +10,8 @@
         "build:zip": "bun run build.ts --zip"
     },
     "devDependencies": {
-        "@tailwindcss/cli": "4.3.3",
         "@types/chrome": "0.2.9",
         "bun-types": "1.4.2",
-        "tailwindcss": "4.3.3",
         "typescript": "7.0.2"
     },
     "dependencies": {

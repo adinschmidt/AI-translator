@@ -10,6 +10,6 @@ Il pulsante accanto alla selezione applica lingua di destinazione e istruzioni a
 
 In modalità avanzata, **Override reasoning** offre `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, inizialmente `low`. Disattivato usa impostazioni economiche per i modelli consigliati e quelle del fornitore per gli altri. I livelli non supportati possono essere ignorati o rifiutati. Qwen Flash disattiva il ragionamento con None e lo attiva con gli altri livelli.  la modalità base non applica l'override. I modelli possono ignorare o rifiutare livelli. Più ragionamento può aumentare costo e attesa. L'estensione non impone un limite ai token di uscita; restano i limiti del fornitore.
 
-I controlli avanzati includono il pulsante sulla selezione, attivo; mantenere più finestre aperte, disattivo; oscuramento dati sensibili, attivo; debug, disattivo. L'oscuramento riconosce alcune email, numeri telefonici, SSN statunitensi e SIN canadesi, senza garanzie. Il testo oscurato resta tale nella traduzione.
+Entrambe le modalità includono il pulsante sulla selezione, attivo; mantenere più finestre aperte, disattivo; oscuramento dati sensibili, attivo. La modalità avanzata aggiunge il debug, disattivo. L'oscuramento riconosce alcune email, numeri telefonici, SSN statunitensi e SIN canadesi, senza garanzie. Il testo oscurato resta tale nella traduzione.
 
 Chiavi e impostazioni in `chrome.storage.sync` possono sincronizzarsi tra dispositivi. I log possono contenere chiavi e testo anche senza debug. Vedi [Privacy](/it/privacy).

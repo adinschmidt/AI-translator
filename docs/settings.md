@@ -12,7 +12,7 @@ Basic mode offers OpenAI, Anthropic, and Google with built-in endpoints and mode
 
 Advanced mode offers all 11 [providers](/providers). API keys, endpoints, models, and reasoning overrides are saved per provider. Basic and Advanced modes keep separate target languages. Saving in Basic mode restores the selected provider's default model and endpoint.
 
-Use **Refresh Models** to request the provider's current model list. Lists can also load when you switch providers or change credentials or endpoints. If discovery fails, the extension shows built-in suggestions. You can filter the list or type a custom model name. **Fill Default** beside a field resets that field to its built-in value.
+Use **Refresh models** to request the provider's current model list. Lists can also load when you switch providers or change credentials or endpoints. If discovery fails, the extension shows built-in suggestions. You can filter the list or type a custom model name. **Use default** beside a field resets that field to its built-in value.
 
 ## Target language and extra instructions
 
@@ -36,7 +36,7 @@ Support depends on the provider and model. Unsupported levels may be ignored or 
 
 ## Behavior and diagnostics
 
-These controls appear in Advanced mode:
+These controls appear in both modes, except **Debug mode**, which appears only in Advanced mode:
 
 - **Show Translate button on selection** defaults to on. The button requires successful local language detection and a source language different from the target.
 - **Keep selection translation window open** defaults to off. Enable it to retain popups when clicking elsewhere and keep multiple results. Close each with its close button.

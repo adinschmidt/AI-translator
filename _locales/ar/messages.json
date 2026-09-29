@@ -56,12 +56,6 @@
     "contentTranslatingChunksCount": {
         "message": "ترجمة $1 القطع..."
     },
-    "contentProgressBatchPrefix": {
-        "message": "دفعة $1/$2"
-    },
-    "contentProgressPartSuffix": {
-        "message": "الجزء $1/$2"
-    },
     "contentProgressTranslatedChunks": {
         "message": "تمت ترجمة مقاطع $1/$2"
     },
@@ -79,6 +73,9 @@
     },
     "contentStopButton": {
         "message": "إيقاف"
+    },
+    "contentClose": {
+        "message": "إغلاق"
     },
     "contentTranslationErrorMarker": {
         "message": "[خطأ في الترجمة]"
@@ -107,11 +104,23 @@
     "optionsHeading": {
         "message": "إعدادات AI Translator"
     },
-    "optionsNeedHelp": {
-        "message": "هل تحتاج مساعدة؟"
+    "optionsSectionConnection": {
+        "message": "الاتصال"
+    },
+    "optionsSectionTranslation": {
+        "message": "الترجمة"
+    },
+    "optionsSectionBehavior": {
+        "message": "السلوك"
+    },
+    "optionsSectionAppearance": {
+        "message": "المظهر"
+    },
+    "optionsSectionDeveloper": {
+        "message": "المطوّر"
     },
     "optionsUiLanguageLabel": {
-        "message": "لغة واجهة المستخدم:"
+        "message": "لغة واجهة المستخدم"
     },
     "optionsUiLanguageHelp": {
         "message": "الافتراضي يتبع لغة المتصفح الخاص بك."
@@ -120,10 +129,10 @@
         "message": "الافتراضي (لغة المتصفح)"
     },
     "optionsDocumentation": {
-        "message": "التوثيق →"
+        "message": "التوثيق"
     },
     "optionsThemeLegend": {
-        "message": "السمة:"
+        "message": "السمة"
     },
     "optionsThemeLight": {
         "message": "فاتح"
@@ -144,25 +153,25 @@
         "message": "فعّله لتعديل نقاط النهاية والنماذج والتعليمات المخصصة."
     },
     "optionsProviderLabel": {
-        "message": "المزوّد:"
+        "message": "المزوّد"
     },
     "optionsBasicProviderHelp": {
         "message": "في الوضع الأساسي، يتم تكوين النماذج ونقاط النهاية تلقائيًا."
     },
     "optionsApiKeyLabel": {
-        "message": "مفتاح API:"
+        "message": "مفتاح API"
     },
     "optionsApiKeyPlaceholder": {
         "message": "أدخل مفتاح API"
     },
     "optionsApiKeyHelp": {
-        "message": "يتم تخزين مفتاحك بشكل آمن في مساحة تخزين المتصفح المحلي."
+        "message": "يُحفظ مفتاحك في مساحة تخزين الإضافة. إذا كانت مزامنة المتصفح مفعّلة، فستتم مزامنته أيضًا مع أجهزتك الأخرى المسجّل دخولك عليها."
     },
     "optionsTargetLanguageLabel": {
-        "message": "لغة الهدف:"
+        "message": "لغة الهدف"
     },
     "optionsCustomTargetLanguageLabel": {
-        "message": "لغة هدف مخصصة:"
+        "message": "لغة هدف مخصصة"
     },
     "optionsCustomTargetLanguagePlaceholder": {
         "message": "مثال: Klingon أو Latin أو pt-BR"
@@ -174,10 +183,10 @@
         "message": "حدد التنسيق الذي تتوقعه نقطة النهاية الخاصة بك."
     },
     "optionsHowToGetKey": {
-        "message": "كيفية الحصول على المفتاح →"
+        "message": "كيفية الحصول على المفتاح"
     },
     "optionsModelNameLabel": {
-        "message": "اسم الموديل:"
+        "message": "اسم الموديل"
     },
     "optionsModelNamePlaceholder": {
         "message": "على سبيل المثال، gpt-4o"
@@ -192,10 +201,10 @@
         "message": "اكتب لتصفية النماذج. إذا لم يكن النموذج الخاص بك مدرجًا، فاستمر في الكتابة لاستخدام اسم نموذج مخصص."
     },
     "optionsOllamaNoteHtml": {
-        "message": "<strong>ملاحظة:</strong> قد يلزم بدء تشغيل Ollama بـ <code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code> للسماح بالطلبات من ملحقات Chrome."
+        "message": "<strong>ملاحظة:</strong> قد يلزم بدء تشغيل Ollama بـ <code>OLLAMA_ORIGINS=\"*\" ollama serve</code> للسماح بالطلبات من ملحقات Chrome."
     },
     "optionsApiEndpointLabel": {
-        "message": "رابط نقطة نهاية API:"
+        "message": "رابط نقطة نهاية API"
     },
     "optionsApiEndpointPlaceholder": {
         "message": "على سبيل المثال، https://api.openai.com/v1/chat/completions"
@@ -204,7 +213,7 @@
         "message": "اللغة التي سيتم ترجمة النص إليها. اختر <strong>مخصص...</strong> لكتابة ما تريد."
     },
     "optionsExtraInstructionsLabel": {
-        "message": "تعليمات إضافية (اختياري):"
+        "message": "تعليمات إضافية (اختياري)"
     },
     "optionsExtraInstructionsPlaceholder": {
         "message": "على سبيل المثال، استخدم النبرة الرسمية، واحتفظ بالمصطلحات الفنية"
@@ -243,13 +252,13 @@
         "message": "مخصص…"
     },
     "optionsStatusSettingsSaved": {
-        "message": "تم حفظ الإعدادات!"
+        "message": "تم حفظ الإعدادات"
     },
     "optionsStatusThemeUpdated": {
-        "message": "تم تحديث السمة!"
+        "message": "تم تحديث السمة"
     },
     "optionsStatusLanguageUpdated": {
-        "message": "تم تحديث اللغة!"
+        "message": "تم تحديث اللغة"
     },
     "optionsStatusProviderSwitched": {
         "message": "تم تبديل المزوّد."

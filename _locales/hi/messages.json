@@ -56,12 +56,6 @@
     "contentTranslatingChunksCount": {
         "message": "$1 खंडों का अनुवाद किया जा रहा है..."
     },
-    "contentProgressBatchPrefix": {
-        "message": "बैच $1/$2"
-    },
-    "contentProgressPartSuffix": {
-        "message": "भाग $1/$2"
-    },
     "contentProgressTranslatedChunks": {
         "message": "अनुवादित $1/$2 खंड"
     },
@@ -79,6 +73,9 @@
     },
     "contentStopButton": {
         "message": "रोकें"
+    },
+    "contentClose": {
+        "message": "बंद करें"
     },
     "contentTranslationErrorMarker": {
         "message": "[अनुवाद त्रुटि]"
@@ -107,11 +104,23 @@
     "optionsHeading": {
         "message": "AI Translator सेटिंग्स"
     },
-    "optionsNeedHelp": {
-        "message": "मदद चाहिए?"
+    "optionsSectionConnection": {
+        "message": "कनेक्शन"
+    },
+    "optionsSectionTranslation": {
+        "message": "अनुवाद"
+    },
+    "optionsSectionBehavior": {
+        "message": "व्यवहार"
+    },
+    "optionsSectionAppearance": {
+        "message": "रूप-रंग"
+    },
+    "optionsSectionDeveloper": {
+        "message": "डेवलपर"
     },
     "optionsUiLanguageLabel": {
-        "message": "यूआई भाषा:"
+        "message": "यूआई भाषा"
     },
     "optionsUiLanguageHelp": {
         "message": "डिफ़ॉल्ट आपके ब्राउज़र की भाषा का अनुसरण करता है."
@@ -120,10 +129,10 @@
         "message": "डिफ़ॉल्ट (ब्राउज़र भाषा)"
     },
     "optionsDocumentation": {
-        "message": "दस्तावेज़ →"
+        "message": "दस्तावेज़"
     },
     "optionsThemeLegend": {
-        "message": "थीम:"
+        "message": "थीम"
     },
     "optionsThemeLight": {
         "message": "हल्का"
@@ -144,25 +153,25 @@
         "message": "एंडपॉइंट, मॉडल और कस्टम प्रॉम्प्ट संपादित करने के लिए इसे चालू करें।"
     },
     "optionsProviderLabel": {
-        "message": "प्रदाता:"
+        "message": "प्रदाता"
     },
     "optionsBasicProviderHelp": {
         "message": "बेसिक मोड में, मॉडल और एंडपॉइंट स्वचालित रूप से कॉन्फ़िगर किए जाते हैं।"
     },
     "optionsApiKeyLabel": {
-        "message": "API कुंजी:"
+        "message": "API कुंजी"
     },
     "optionsApiKeyPlaceholder": {
         "message": "अपनी API कुंजी दर्ज करें"
     },
     "optionsApiKeyHelp": {
-        "message": "आपकी कुंजी स्थानीय ब्राउज़र संग्रहण में सुरक्षित रूप से संग्रहीत है।"
+        "message": "आपकी कुंजी एक्सटेंशन स्टोरेज में सहेजी जाती है। ब्राउज़र सिंक चालू होने पर यह आपके अन्य साइन-इन किए गए डिवाइस पर भी सिंक होती है।"
     },
     "optionsTargetLanguageLabel": {
-        "message": "लक्ष्य भाषा:"
+        "message": "लक्ष्य भाषा"
     },
     "optionsCustomTargetLanguageLabel": {
-        "message": "कस्टम लक्ष्य भाषा:"
+        "message": "कस्टम लक्ष्य भाषा"
     },
     "optionsCustomTargetLanguagePlaceholder": {
         "message": "उदा., Klingon, Latin, या pt-BR"
@@ -174,10 +183,10 @@
         "message": "वह प्रारूप चुनें जिसकी आपका एंडपॉइंट अपेक्षा करता है।"
     },
     "optionsHowToGetKey": {
-        "message": "कुंजी कैसे प्राप्त करें →"
+        "message": "कुंजी कैसे प्राप्त करें"
     },
     "optionsModelNameLabel": {
-        "message": "मॉडल नाम:"
+        "message": "मॉडल नाम"
     },
     "optionsModelNamePlaceholder": {
         "message": "जैसे, gpt-4o"
@@ -192,10 +201,10 @@
         "message": "मॉडल फ़िल्टर करने के लिए टाइप करें. यदि आपका मॉडल सूचीबद्ध नहीं है, तो कस्टम मॉडल नाम का उपयोग करने के लिए टाइप करते रहें।"
     },
     "optionsOllamaNoteHtml": {
-        "message": "<strong>नोट:</strong> Chrome एक्सटेंशन से अनुरोधों को अनुमति देने के लिए Ollama को <code class=\"bg-gray-100 px-1 rounded\">OLLAMA_ORIGINS=\"*\" ollama serve</code> से प्रारंभ करने की आवश्यकता हो सकती है।"
+        "message": "<strong>नोट:</strong> Chrome एक्सटेंशन से अनुरोधों को अनुमति देने के लिए Ollama को <code>OLLAMA_ORIGINS=\"*\" ollama serve</code> से प्रारंभ करने की आवश्यकता हो सकती है।"
     },
     "optionsApiEndpointLabel": {
-        "message": "API एंडपॉइंट URL:"
+        "message": "API एंडपॉइंट URL"
     },
     "optionsApiEndpointPlaceholder": {
         "message": "उदाहरण के लिए, https://api.openai.com/v1/chat/completions"
@@ -204,7 +213,7 @@
         "message": "पाठ का अनुवाद करने की भाषा. अपना खुद का टाइप करने के लिए <strong>Custom…</strong> चुनें।"
     },
     "optionsExtraInstructionsLabel": {
-        "message": "अतिरिक्त निर्देश (वैकल्पिक):"
+        "message": "अतिरिक्त निर्देश (वैकल्पिक)"
     },
     "optionsExtraInstructionsPlaceholder": {
         "message": "उदाहरण के लिए, औपचारिक स्वर का प्रयोग करें, तकनीकी शब्दों को सुरक्षित रखें"
@@ -243,13 +252,13 @@
         "message": "कस्टम…"
     },
     "optionsStatusSettingsSaved": {
-        "message": "सेटिंग्स सेव हो गईं!"
+        "message": "सेटिंग्स सेव हो गईं"
     },
     "optionsStatusThemeUpdated": {
-        "message": "थीम अपडेट की गई!"
+        "message": "थीम अपडेट की गई"
     },
     "optionsStatusLanguageUpdated": {
-        "message": "भाषा अद्यतन!"
+        "message": "भाषा अद्यतन"
     },
     "optionsStatusProviderSwitched": {
         "message": "प्रदाता स्विच किया गया."
